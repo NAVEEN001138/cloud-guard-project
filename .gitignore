@@ -1,0 +1,32 @@
+# Virtual Environments & Dependencies
+.venv/
+venv/
+ENV/
+env/
+wheels/
+*.egg-info/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pkl
+.pytest_cache/
+
+# Large Datasets, Archives & Unnecessary Folders
+datasets/
+useless/
+products/
+*.zip
+*.csv
+*.pcap
+*.pcap_ISCX.csv
+MachineLearningCSV.zip
+archive.zip
+
+# Render & Deployment Build Exclusions
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
