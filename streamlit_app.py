@@ -40,11 +40,258 @@ st.set_page_config(page_title="Cloud Guardian & FL Hub", layout="wide", page_ico
 st.title("🛡️ Cloud Guardian — Quantum & Federated Cloud Security Engine")
 st.caption("Distributed IoT Edge Federated Learning | Neural Network Efficiency Benchmarks | Quantum QAOA/QUBO Incident Response")
 
-# Tab Navigation: Middle Page (FL Hub) & Quantum Incident Response Page
-tab_fl, tab_quantum = st.tabs([
+# Tab Navigation: Architecture Blueprint, FL Hub & Quantum Incident Response Page
+tab_arch, tab_fl, tab_quantum = st.tabs([
+    "🏗️ Architecture, Protocols & Tools Blueprint",
     "🌐 IoT Edge Federated Learning Hub",
     "⚡ Quantum Incident Response Pipeline"
 ])
+
+
+# ===========================================================================
+# TAB 0: System Architecture, Protocols & Tools Blueprint (For Evaluators & Instructors)
+# ===========================================================================
+
+with tab_arch:
+    st.header("🏗️ Cloud Guardian Architecture, Protocols & Scientific Tools Blueprint")
+    st.markdown("""
+    This comprehensive blueprint provides a complete architectural breakdown of the **Cloud Guardian 9-Layer Platform**.
+    Designed for instructors, technical evaluators, and security researchers to understand the end-to-end telemetry pipeline,
+    supported IoT network protocols, machine learning frameworks, and quantum optimization solvers.
+    """)
+
+    st.divider()
+
+    # Section 1: System Architecture Diagram
+    st.subheader("1. 🏛️ Interactive 9-Layer System Architecture Diagram")
+    
+    arch_dot = """
+    digraph G {
+        rankdir=TB;
+        bgcolor="transparent";
+        node [shape=box, style="filled,rounded", fontname="Sans-serif", fontsize=10, color="#1E88E5", fillcolor="#E3F2FD"];
+        edge [fontname="Sans-serif", fontsize=9, color="#555555"];
+
+        subgraph cluster_l1 {
+            label = "Layer 1: Multi-Protocol Telemetry Ingestion";
+            style=filled; color="#ECEFF1";
+            EdgeSensors [label="IoT Edge Sensors\n(MQTT, Modbus, TCP/UDP, ARP, ICMP)", fillcolor="#FFF3E0"];
+            CloudLogs [label="CloudTrail & Network Streams", fillcolor="#FFF3E0"];
+        }
+
+        subgraph cluster_l0 {
+            label = "Layer 0: Feature Engineering & Preprocessing";
+            style=filled; color="#ECEFF1";
+            Preproc [label="Median Imputer & IQR Outlier Filter\nLog1p & StandardScaler Normalization (36 Features)", fillcolor="#FFFDE7"];
+        }
+
+        subgraph cluster_l2 {
+            label = "Layer 2: Edge Threat Detection & FL Hub";
+            style=filled; color="#ECEFF1";
+            LocalNets [label="Local Edge Neural Models\n(PyTorch MLP & 1D-CNN)", fillcolor="#EDE7F6"];
+            FLServer [label="Global Federated Aggregator\n(FedAvg / FedProx / FedAdam / FedNova)", fillcolor="#D1C4E9"];
+        }
+
+        subgraph cluster_l3_4 {
+            label = "Layers 3 & 4: Context & Signal Confidence";
+            style=filled; color="#ECEFF1";
+            ContextEng [label="Spatial-Temporal Context Aggregator\n(Asset Risk & Blast Radius)", fillcolor="#E8F5E9"];
+            ConfEval [label="Signal Fusion Confidence Evaluator\n(Data Freshness & Model Uncertainty)", fillcolor="#C8E6C9"];
+        }
+
+        subgraph cluster_l5_6 {
+            label = "Layers 5 & 6: Adaptive Constraints & Quantum QAOA";
+            style=filled; color="#ECEFF1";
+            Constraints [label="Adaptive Policy Constraints\n(Feasible Actions & Stability Penalties)", fillcolor="#FFE0B2"];
+            QUBOEngine [label="Qiskit QAOA / QUBO Decision Engine\n(Combinatorial Action Selection)", fillcolor="#FFCC80"];
+        }
+
+        subgraph cluster_l7_8 {
+            label = "Layers 7 & 8: Utility Model & Orchestration";
+            style=filled; color="#ECEFF1";
+            UtilityModel [label="Multi-Attribute Utility Evaluator\n(Effectiveness vs Cost & Downtime)", fillcolor="#FFCDD2"];
+            Orchestrator [label="Automated Response Orchestrator\n(Isolation, Credential Rotation, IP Block)", fillcolor="#EF9A9A"];
+        }
+
+        subgraph cluster_l9 {
+            label = "Layer 9: Continuous Feedback & Learning";
+            style=filled; color="#ECEFF1";
+            FeedbackLoop [label="SOC Analyst RL Feedback Loop\n(Policy Gradient Utility Updating)", fillcolor="#F8BBD0"];
+        }
+
+        EdgeSensors -> Preproc;
+        CloudLogs -> Preproc;
+        Preproc -> LocalNets;
+        LocalNets -> FLServer [label="Local Weights Only (Zero Raw Data Transferred)"];
+        FLServer -> ContextEng;
+        ContextEng -> ConfEval;
+        ConfEval -> Constraints;
+        Constraints -> QUBOEngine;
+        QUBOEngine -> UtilityModel;
+        UtilityModel -> Orchestrator;
+        Orchestrator -> FeedbackLoop;
+        FeedbackLoop -> UtilityModel [label="Update Utility Weights", style=dashed];
+    }
+    """
+    
+    try:
+        st.graphviz_chart(arch_dot, use_container_width=True)
+    except Exception:
+        st.info("System Architecture Flow: Layer 1 (Telemetry) ➔ Layer 0 (Preprocessing) ➔ Layer 2 (Edge FL AI) ➔ Layer 3 & 4 (Context & Confidence) ➔ Layer 5 & 6 (Adaptive Constraints & Quantum QAOA) ➔ Layer 7 & 8 (Utility & Playbooks) ➔ Layer 9 (Analyst Feedback Loop)")
+
+    st.divider()
+
+    # Section 2: Supported IoT & Cloud Network Protocols
+    st.subheader("2. 📡 Supported IoT & Cloud Network Protocols Breakdown")
+    st.markdown("Cloud Guardian ingests and analyzes multi-layer network telemetry across industrial, enterprise, and cloud environments:")
+
+    col_p1, col_p2 = st.columns(2)
+
+    with col_p1:
+        st.markdown("""
+        #### 📟 Industrial & IoT Protocols
+        - **MQTT (Message Queuing Telemetry Transport)**:
+          - *Purpose*: Lightweight publish/subscribe messaging protocol for IoT sensors.
+          - *Features Analyzed*: `mqtt.topic`, `mqtt.len`, `mqtt.msgtype`, `mqtt.hdrflags`, `mqtt.conflags`.
+          - *Threats Detected*: MQTT Publish Flooding, Broker Hijacking, Unauthorized Payload Injections.
+        
+        - **Modbus TCP**:
+          - *Purpose*: De-facto SCADA / Industrial Control Systems (ICS) protocol for PLCs and smart factory equipment.
+          - *Features Analyzed*: `mbtcp.trans_id`, `mbtcp.unit_id`, `mbtcp.len`, `mbtcp.func_code`.
+          - *Threats Detected*: Unauthorized Register Overwrites, SCADA Command Spoofing, Modbus Read/Write Flooding.
+
+        - **ARP (Address Resolution Protocol)**:
+          - *Purpose*: Layer 2 hardware address resolution between IP and MAC addresses.
+          - *Features Analyzed*: `arp.opcode`, `arp.hw.size`, `arp.src.hw_mac`, `arp.dst.hw_mac`.
+          - *Threats Detected*: ARP Poisoning, Man-in-the-Middle (MITM) Interception, MAC Spoofing.
+        """)
+
+    with col_p2:
+        st.markdown("""
+        #### 🌐 Transport Layer & Cloud Telemetry
+        - **TCP / UDP Protocols**:
+          - *Purpose*: Core transport layer protocols for cloud services, web applications, and databases.
+          - *Features Analyzed*: `tcp.flags.syn`, `tcp.flags.ack`, `tcp.flags.rst`, `tcp.seq`, `tcp.len`, `udp.time_delta`, `udp.port`.
+          - *Threats Detected*: SYN Flooding, Port Scanning, UDP Refraction Amplification, RST Hijacking.
+
+        - **ICMP (Internet Control Message Protocol)**:
+          - *Purpose*: Network diagnostics and control messaging.
+          - *Features Analyzed*: `icmp.checksum`, `icmp.seq_le`, `icmp.type`.
+          - *Threats Detected*: Ping Floods, ICMP Tunneling, Smurf DDoS Attacks.
+
+        - **AWS CloudTrail & Audit Streams**:
+          - *Purpose*: Management events, IAM privileges, and API call logs across cloud infrastructure.
+          - *Features Analyzed*: `failed_logins`, `unusual_outbound_bytes`, `privilege_escalation_attempts`.
+          - *Threats Detected*: Credential Stuffing, Unauthorized IAM Escalation, Resource Hijacking.
+        """)
+
+    st.divider()
+
+    # Section 3: Scientific Tools & Frameworks Used
+    st.subheader("3. 🛠️ Machine Learning, Quantum & Software Tools Stack")
+
+    t_col1, t_col2, t_col3 = st.columns(3)
+
+    with t_col1:
+        st.markdown("""
+        #### 🤖 AI & Deep Learning Frameworks
+        - **PyTorch (torch.nn, torch.optim)**:
+          - Powers localized Multi-Layer Perceptrons (**PyTorchMLP**) and 1D-Convolutional Networks (**PyTorch1DCNN**) running on edge nodes.
+        - **Scikit-learn**:
+          - Implements Layer 0 `StandardScaler`, `MedianImputer`, `VarianceThreshold`, and RandomForest baseline classifiers.
+        """)
+
+    with t_col2:
+        st.markdown("""
+        #### ⚛️ Quantum Computing & Solvers
+        - **Qiskit (IBM Quantum Framework)**:
+          - `qiskit_optimization.QuadraticProgram`: Formulates incident response as a QUBO matrix.
+          - `qiskit_algorithms.QAOA`: Executes Quantum Approximate Optimization Algorithm.
+          - `qiskit_aer.primitives.Sampler`: Simulates noisy quantum processors locally and in cloud environments.
+        - **PuLP (Integer Linear Programming)**:
+          - Provides exact classical ILP baseline solvers for speed & quality comparisons vs. QAOA.
+        """)
+
+    with t_col3:
+        st.markdown("""
+        #### 📊 Web Engine & Visualization
+        - **Streamlit**:
+          - Provides reactive multi-tab Web UI, SOC alert dashboards, and real-time parameter controls.
+        - **Plotly & Graphviz**:
+          - Renders interactive radar charts, FL convergence loss curves, confusion matrices, and dynamic architecture diagrams.
+        - **Pandas & NumPy**:
+          - Handles high-throughput vector manipulation and packet feature matrix operations.
+        """)
+
+    st.divider()
+
+    # Section 4: Detailed 9-Layer Scientific Blueprint
+    st.subheader("4. 📖 Complete 9-Layer Academic & Defense Blueprint")
+
+    with st.expander("🔹 Layer 0: Feature Engineering & Preprocessing Engine"):
+        st.markdown("""
+        **Objective**: Standardizes raw IoT packet features across heterogeneous edge devices into a unified mathematical representation.
+        - **Median Imputation**: Replaces missing values without skewing feature distributions.
+        - **IQR Outlier Filter**: Clips values outside $1.5 \\times \\text{IQR}$ to prevent extreme network bursts from destabilizing gradients.
+        - **Log1p Transformation**: Compresses right-skewed packet length distributions ($y = \\ln(1 + x)$).
+        - **StandardScaler Normalization**: Centers data around zero mean with unit variance.
+        """)
+
+    with st.expander("🔹 Layer 1: Multi-Protocol Telemetry Ingestion"):
+        st.markdown("""
+        **Objective**: Ingests, parses, and formats packet features from PCAP/CSV network logs.
+        - Includes an automated **Synthetic Telemetry Generator** to guarantee continuous live demonstrations in cloud hosting environments where raw dataset files are absent.
+        """)
+
+    with st.expander("🔹 Layer 2: Edge AI Threat Detection & Federated Learning (FedAvg/FedProx)"):
+        st.markdown("""
+        **Objective**: Trains neural networks on distributed edge nodes without exposing private telemetry.
+        - **Privacy Guarantee**: Raw packet data remains strictly local on edge nodes. Only model parameter weight updates $\\Delta \\mathbf{w}$ are transmitted to the server.
+        - **Supported FL Algorithms**:
+          - **FedAvg**: Classic weighted parameter averaging across $K$ clients: $\\mathbf{w}_{t+1} = \\sum_{k=1}^K \\frac{n_k}{n} \\mathbf{w}_{t+1}^k$.
+          - **FedProx**: Adds a proximal term $\\frac{\\mu}{2} \\|\\mathbf{w} - \\mathbf{w}_t\\|^2$ to stabilize training under non-IID data skew.
+          - **FedAdam, FedNova, FedMedian**: Advanced aggregation methods for robust Byzantine resilience.
+        """)
+
+    with st.expander("🔹 Layer 3: Spatial-Temporal Context Aggregation"):
+        st.markdown("""
+        **Objective**: Enriches raw detection signals with asset criticality and cloud network topology context.
+        - Computes asset risk scores $r_i$ and blast radius estimations to prioritize mission-critical workloads (e.g., RDS Databases vs. transient Worker Nodes).
+        """)
+
+    with st.expander("🔹 Layer 4: Signal Fusion Confidence Evaluator"):
+        st.markdown("""
+        **Objective**: Fuses detection probabilities with signal freshness and model uncertainty.
+        - Produces a confidence scalar $c_i \\in [0, 1]$, calculating the effective threat score $s_i^{\\text{effective}} = s_i \\cdot c_i$.
+        """)
+
+    with st.expander("🔹 Layer 5: Adaptive Policy Constraints"):
+        st.markdown("""
+        **Objective**: Enforces organizational security rules and prevents action oscillation.
+        - **Feasible Action Sets**: Restricts actions per resource type (e.g., forbidding direct workload isolation on primary databases).
+        - **Action Switching Penalty**: Adds a cost penalty $\\lambda_{\\text{switch}}$ to prevent repeated toggling of actions between consecutive rounds.
+        """)
+
+    with st.expander("🔹 Layer 6: Quantum QAOA / QUBO Optimization Engine"):
+        st.markdown("""
+        **Objective**: Solves the NP-hard combinatorial incident response action selection problem.
+        - **QUBO Formulation**: Translates action choices $x_{i,k} \\in \\{0, 1\\}$ into a Quadratic Unconstrained Binary Optimization problem:
+          $$\\min_{x} \\sum_{i,k} C_{i,k} x_{i,k} + \\lambda \\sum_i \\left( \\sum_k x_{i,k} - 1 \\right)^2$$
+        - **Quantum Solver**: Solves the Hamiltonian using **Qiskit QAOA (Quantum Approximate Optimization Algorithm)** on simulator backends.
+        """)
+
+    with st.expander("🔹 Layer 7 & 8: Utility Model & Response Orchestration"):
+        st.markdown("""
+        **Objective**: Evaluates multi-attribute utility trade-offs and executes automated response playbooks.
+        - **Utility Function**: Balances containment effectiveness against business impact, recovery downtime, and compliance risks.
+        - **Response Actions**: Automated execution of Workload Isolation, IP Blocking, Credential Rotation, and Backup Snapshots.
+        """)
+
+    with st.expander("🔹 Layer 9: Continuous Analyst Feedback & Adaptive Learning"):
+        st.markdown("""
+        **Objective**: Integrates human SOC analyst feedback to continuously improve response utility.
+        - Logs analyst approvals/rejections in persistent storage (`feedback_data.json`) and updates decision utility weights via reinforcement learning.
+        """)
 
 
 # ===========================================================================
