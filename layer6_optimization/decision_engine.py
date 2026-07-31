@@ -22,11 +22,34 @@ Outputs: Quantum objective value, optimal action plan dictionary, and binary var
 import math
 from typing import Dict, List, Tuple, Optional
 
-from qiskit_optimization import QuadraticProgram
-from qiskit_optimization.algorithms import MinimumEigenOptimizer
-from qiskit_algorithms import QAOA, NumPyMinimumEigensolver
-from qiskit_algorithms.optimizers import COBYLA
-from qiskit_aer.primitives import Sampler as AerSampler
+try:
+    from qiskit_optimization import QuadraticProgram
+    from qiskit_optimization.algorithms import MinimumEigenOptimizer
+    HAS_QISKIT_OPT = True
+except ImportError:
+    HAS_QISKIT_OPT = False
+    class QuadraticProgram:
+        def __init__(self, name: str = ""):
+            self.name = name
+            self.variables = []
+        def binary_var(self, name: str):
+            self.variables.append(name)
+        def minimize(self, linear=None, quadratic=None):
+            pass
+    class MinimumEigenOptimizer:
+        def __init__(self, min_eigen_solver=None):
+            pass
+        def solve(self, problem):
+            pass
+
+try:
+    from qiskit_algorithms import QAOA, NumPyMinimumEigensolver
+    from qiskit_algorithms.optimizers import COBYLA
+    from qiskit_aer.primitives import Sampler as AerSampler
+    HAS_QISKIT_ALG = True
+except ImportError:
+    HAS_QISKIT_ALG = False
+
 
 from config import ACTIONS, COST_WEIGHTS, MAX_BUDGET, LAMBDA_PENALTY, QAOA_MAXITER, QAOA_REPS
 from layer5_constraints.adaptive_constraints import OptimizationConstraints
