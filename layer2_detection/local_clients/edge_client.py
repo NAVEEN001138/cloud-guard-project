@@ -65,6 +65,25 @@ if HAS_TORCH:
             x = x.view(x.size(0), -1)
             x = self.relu(self.fc1(x))
             return self.fc2(x)
+else:
+    class PyTorchMLP:
+        """Fallback Edge Node MLP Model when PyTorch is missing"""
+        def __init__(self, input_dim: int = 10, hidden_dim: int = 64):
+            self.input_dim = input_dim
+        def state_dict(self):
+            return {}
+        def load_state_dict(self, state_dict):
+            pass
+
+    class PyTorch1DCNN:
+        """Fallback Edge Node 1D-CNN Model when PyTorch is missing"""
+        def __init__(self, input_dim: int = 10):
+            self.input_dim = input_dim
+        def state_dict(self):
+            return {}
+        def load_state_dict(self, state_dict):
+            pass
+
 
 
 class IoTEdgeNodeClient:
