@@ -85,6 +85,8 @@ class ThreatDetector:
         return self.scaler.transform(values)
 
     def score_resource(self, resource: dict) -> float:
+        if "override_threat_score" in resource:
+            return float(resource["override_threat_score"])
         features = self._resource_features(resource)
         proba = self.model.predict_proba(features)[0]
         return float(proba[1])

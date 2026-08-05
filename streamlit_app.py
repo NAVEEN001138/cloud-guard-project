@@ -26,19 +26,154 @@ from layer2_detection.benchmark_domain_fl import run_domain_fl_benchmark
 from config import MAX_BUDGET, MAX_QUANTUM_RESOURCES
 from pipeline import run_pipeline, comparison_table, subset_scenario
 from layer8_orchestration.executor import execute_plan, execute_strategy
-from layer1_telemetry.data_loader import (
-    load_edge_iiot_dataset,
-    list_available_raw_attack_files,
-    list_available_normal_sensor_files
-)
+from layer1_telemetry.data_loader import load_edge_iiot_dataset
 from layer9_feedback.feedback_learner import FeedbackLearner
 from layer2_detection.federated_detector import compute_per_class_metrics
 
-st.set_page_config(page_title="Cloud Guardian & FL Hub", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="Cloud Guardian — Patent Demonstration", layout="wide", page_icon="🛡️")
+
+# Custom CSS Inject — Enterprise Glassmorphism & High-Aesthetics UI System
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;600&display=swap');
+
+/* Main App Container */
+html, body, [data-testid="stAppViewContainer"] {
+    background-color: #0b0f19 !important;
+    color: #e2e8f0 !important;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* Header Banner Container */
+.main-title-card {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 16px;
+    padding: 24px 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 0 25px rgba(56, 189, 248, 0.12);
+    backdrop-filter: blur(16px);
+}
+
+.main-title-text {
+    font-size: 30px;
+    font-weight: 800;
+    background: linear-gradient(90deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+}
+
+.main-subtitle-text {
+    color: #94a3b8;
+    font-size: 13.5px;
+    font-weight: 500;
+}
+
+/* Glassmorphic Overview Card */
+.overview-card {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.85) 100%);
+    border: 1.5px solid rgba(245, 158, 11, 0.4);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Custom Tab Styling */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 10px;
+    background-color: rgba(15, 23, 42, 0.7);
+    padding: 6px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 44px;
+    border-radius: 8px;
+    color: #94a3b8;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 0 20px;
+    border: none !important;
+    transition: all 0.2s ease;
+}
+
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #0284c7 0%, #4f46e5 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+}
+
+/* Streamlit Buttons Styling */
+div.stButton > button {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+}
+div.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%) !important;
+    border: none !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
+div.stButton > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%) !important;
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Dataframe Custom Glass styling */
+[data-testid="stDataFrame"] {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    background-color: #0f172a !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Title Banner
-st.title("🛡️ Cloud Guardian — Quantum & Federated Cloud Security Engine")
-st.caption("Distributed IoT Edge Federated Learning | Neural Network Efficiency Benchmarks | Quantum QAOA/QUBO Incident Response")
+st.markdown("""
+<div class="main-title-card">
+    <div class="main-title-text">🛡️ Cloud Guardian — Quantum & Federated Cloud Security Engine</div>
+    <div class="main-subtitle-text">
+        Distributed IoT Edge Federated Learning &nbsp;|&nbsp; 
+        Neural Efficiency Benchmarks &nbsp;|&nbsp; 
+        Quantum QAOA/QUBO Incident Response &nbsp;|&nbsp; 
+        <span style="color: #f59e0b; font-weight: 700;">★ Patent Filing: Adaptive Constraint Engine (Layer 5)</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Faculty & Patent Examiner Overview Banner
+st.markdown("""
+<div class="overview-card">
+    <h4 style="color: #f59e0b; margin: 0 0 10px 0; font-weight: 700; font-size: 17px;">📋 System Overview — For Faculty Supervisor & Patent Examiner</h4>
+    <p style="color: #e2e8f0; margin: 0; font-size: 14px; line-height: 1.8;">
+        <b>Cloud Guardian</b> is a 9-layer autonomous cybersecurity platform that detects and responds to cyberattacks on cloud-connected IoT infrastructure in real time.
+        It uses <b>Federated Learning (FL)</b> — where each IoT edge device trains its own AI model locally, so raw network traffic data <i>never leaves the device</i> — 
+        and a <b>Quantum QAOA/QUBO Decision Engine</b> to automatically select the optimal response playbook 
+        (e.g., workload isolation, IP block, credential rotation) under strict budget, downtime, and policy constraints.<br><br>
+        <span style="color: #f59e0b;"><b>★ Core Patent Contribution:</b></span> 
+        <b>Layer 5 — the Adaptive Constraint Synthesizer</b> dynamically converts live threat data, asset business criticality, 
+        regulatory compliance rules (GDPR / HIPAA / DPDP Act 2023), and physical resource constraints 
+        into a Quadratic Unconstrained Binary Optimization (QUBO) constraint matrix — making every incident response decision 
+        <i>policy-compliant, non-oscillating, and legally auditable</i>.
+    </p>
+    <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(245, 158, 11, 0.2); font-size: 12.5px; color: #94a3b8;">
+        📌 <b>Tab 1</b>: Full 9-Layer Architecture Blueprint & Scientific Tools Stack &nbsp;|&nbsp;
+        📌 <b>Tab 2</b>: Federated Learning Training Simulator & Benchmarks &nbsp;|&nbsp;
+        📌 <b>Tab 3</b>: Live Quantum Incident Response Pipeline (Patent Demo)
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # Tab Navigation: Architecture Blueprint, FL Hub & Quantum Incident Response Page
 tab_arch, tab_fl, tab_quantum = st.tabs([
@@ -179,10 +314,17 @@ with tab_arch:
           - *Features Analyzed*: `icmp.checksum`, `icmp.seq_le`, `icmp.type`.
           - *Threats Detected*: Ping Floods, ICMP Tunneling, Smurf DDoS Attacks.
 
-        - **AWS CloudTrail & Audit Streams**:
-          - *Purpose*: Management events, IAM privileges, and API call logs across cloud infrastructure.
-          - *Features Analyzed*: `failed_logins`, `unusual_outbound_bytes`, `privilege_escalation_attempts`.
-          - *Threats Detected*: Credential Stuffing, Unauthorized IAM Escalation, Resource Hijacking.
+        - **HTTP (HyperText Transfer Protocol)**:
+          - *Purpose*: Application layer web traffic monitoring for IoT device dashboards and REST APIs.
+          - *Features Analyzed*: `http.content_length`, `http.response`.
+          - *Threats Detected*: XSS Injection, HTTP Flooding, Malicious Payload Upload, Web Scraping Attacks.
+
+        - **DNS (Domain Name System)**:
+          - *Purpose*: Domain resolution traffic monitoring for detecting covert channel communications.
+          - *Features Analyzed*: `dns.qry.name.len`, `dns.qry.qu`, `dns.qry.type`.
+          - *Threats Detected*: DNS Tunneling, Exfiltration via DNS Queries, Domain Generation Algorithm (DGA) Activity.
+
+        > ⚠️ **Note**: All 36 features above are sourced exclusively from the **Edge-IIoTset dataset** (`ML-EdgeIIoT-dataset.csv`). The synthetic incident scenario simulator (used in Tab 3) additionally uses simulated cloud-side signals (`failed_logins`, `unusual_outbound_bytes`) for demonstrating the QUBO pipeline — these are **not** from the real dataset.
         """)
 
     st.divider()
@@ -198,7 +340,7 @@ with tab_arch:
         - **PyTorch (torch.nn, torch.optim)**:
           - Powers localized Multi-Layer Perceptrons (**PyTorchMLP**) and 1D-Convolutional Networks (**PyTorch1DCNN**) running on edge nodes.
         - **Scikit-learn**:
-          - Implements Layer 0 `StandardScaler`, `MedianImputer`, `VarianceThreshold`, and RandomForest baseline classifiers.
+          - Implements `StandardScaler` (normalization) and `RandomForestClassifier` (baseline classifier). Custom `DataPreprocessor` (Layer 0) performs column-wise **median imputation** and a **custom variance filter** to drop near-constant features — implemented from scratch, not via sklearn's imputer classes.
         """)
 
     with t_col2:
@@ -220,7 +362,7 @@ with tab_arch:
         - **Plotly & Graphviz**:
           - Renders interactive radar charts, FL convergence loss curves, confusion matrices, and dynamic architecture diagrams.
         - **Pandas & NumPy**:
-          - Handles high-throughput vector manipulation and packet feature matrix operations.
+          - Handles high-throughput feature matrix and vector operations for machine learning pipelines.
         """)
 
     st.divider()
@@ -230,23 +372,23 @@ with tab_arch:
 
     with st.expander("🔹 Layer 0: Feature Engineering & Preprocessing Engine"):
         st.markdown("""
-        **Objective**: Standardizes raw IoT packet features across heterogeneous edge devices into a unified mathematical representation.
+        **Objective**: Standardizes raw IoT network traffic feature records across heterogeneous edge devices into a unified mathematical representation.
         - **Median Imputation**: Replaces missing values without skewing feature distributions.
-        - **IQR Outlier Filter**: Clips values outside $1.5 \\times \\text{IQR}$ to prevent extreme network bursts from destabilizing gradients.
-        - **Log1p Transformation**: Compresses right-skewed packet length distributions ($y = \\ln(1 + x)$).
-        - **StandardScaler Normalization**: Centers data around zero mean with unit variance.
+        - **IQR Outlier Filter**: Clips values outside $1.5 \\times \\text{IQR}$ to prevent extreme network burst values from destabilizing gradients.
+        - **Log1p Transformation**: Compresses right-skewed network feature value distributions ($y = \\ln(1 + x)$).
+        - **StandardScaler Normalization**: Centers all 36 features around zero mean with unit variance.
         """)
 
     with st.expander("🔹 Layer 1: Multi-Protocol Telemetry Ingestion"):
         st.markdown("""
-        **Objective**: Ingests, parses, and formats packet features from PCAP/CSV network logs.
+        **Objective**: Ingests pre-extracted CSV feature records from network traffic captures (MQTT, Modbus TCP, TCP/UDP, ARP, ICMP).
         - Includes an automated **Synthetic Telemetry Generator** to guarantee continuous live demonstrations in cloud hosting environments where raw dataset files are absent.
         """)
 
     with st.expander("🔹 Layer 2: Edge AI Threat Detection & Federated Learning (FedAvg/FedProx)"):
         st.markdown("""
         **Objective**: Trains neural networks on distributed edge nodes without exposing private telemetry.
-        - **Privacy Guarantee**: Raw packet data remains strictly local on edge nodes. Only model parameter weight updates $\\Delta \\mathbf{w}$ are transmitted to the server.
+        - **Privacy Guarantee**: Raw network traffic data remains strictly local on edge nodes. Only model parameter weight updates $\\Delta \\mathbf{w}$ are transmitted to the server.
         - **Supported FL Algorithms**:
           - **FedAvg**: Classic weighted parameter averaging across $K$ clients: $\\mathbf{w}_{t+1} = \\sum_{k=1}^K \\frac{n_k}{n} \\mathbf{w}_{t+1}^k$.
           - **FedProx**: Adds a proximal term $\\frac{\\mu}{2} \\|\\mathbf{w} - \\mathbf{w}_t\\|^2$ to stabilize training under non-IID data skew.
@@ -313,16 +455,23 @@ with tab_fl:
 
     @st.cache_data
     def get_dataset_info():
-        X, y, df, meta = load_edge_iiot_dataset(sample_size=20_000)
+        X, y, df, meta = load_edge_iiot_dataset(sample_size=10_000)
         return X, y, df, meta
 
     X_edge, y_edge, edge_df, edge_meta = get_dataset_info()
 
-    col_d1, col_d2, col_d3, col_d4 = st.columns(4)
-    col_d1.metric("Total Sampled Packets", f"{edge_meta.get('rows', 0):,}")
+    col_d1, col_d2, col_d3 = st.columns(3)
+    col_d1.metric("Total Sampled Records", f"{edge_meta.get('rows', 0):,}")
     col_d2.metric("IoT Protocol Features", edge_meta.get("features_count", 0))
-    col_d3.metric("Attack Rate", f"{edge_meta.get('positive_rate', 0):.1%}")
-    col_d4.metric("Privacy Preservation", "95.0%", delta="FedAvg Enabled")
+    col_d3.metric("Attack Rate in Dataset", f"{edge_meta.get('positive_rate', 0):.1%}")
+
+    col_d4, col_d5, col_d6 = st.columns(3)
+    attack_class_count = edge_df["Attack_type"].nunique() if not edge_df.empty and "Attack_type" in edge_df.columns else edge_meta.get("num_classes", "N/A")
+    normal_count = int((y_edge == 0).sum()) if y_edge is not None else 0
+    attack_count = int((y_edge == 1).sum()) if y_edge is not None else 0
+    col_d4.metric("Distinct Attack Classes", attack_class_count)
+    col_d5.metric("Normal Traffic Records", f"{normal_count:,}")
+    col_d6.metric("Attack Traffic Records", f"{attack_count:,}")
 
     if not edge_df.empty and "Attack_type" in edge_df.columns:
         attack_counts = edge_df["Attack_type"].value_counts().reset_index()
@@ -334,7 +483,7 @@ with tab_fl:
                 x="Attack_type",
                 y="count",
                 title="Edge-IIoTset Attack Traffic Distribution by Category",
-                labels={"Attack_type": "Attack Category", "count": "Packet Count"},
+                labels={"Attack_type": "Attack Category", "count": "Sample Count"},
                 color="count",
                 color_continuous_scale="Viridis"
             )
@@ -343,73 +492,77 @@ with tab_fl:
         else:
             st.bar_chart(attack_counts.set_index("Attack_type"))
 
-    with st.expander("📁 View All 28 Raw Attack PCAP/CSV Files & 10 IoT Sensors in Dataset Folder"):
-        raw_attacks = list_available_raw_attack_files()
-        raw_sensors = list_available_normal_sensor_files()
-        col_r1, col_r2 = st.columns(2)
-        with col_r1:
-            st.markdown("#### ⚔️ Raw Attack Capture Files (`Attack traffic/`)")
-            if raw_attacks:
-                st.dataframe(pd.DataFrame(raw_attacks)[["name", "type", "size_mb"]], use_container_width=True)
-            else:
-                st.info("No raw attack files found.")
-        with col_r2:
-            st.markdown("#### 🟢 Raw Normal IoT Sensor Telemetry (`Normal traffic/`)")
-            if raw_sensors:
-                sensor_df = pd.DataFrame([{"Sensor Type": s["sensor_type"], "Files": ", ".join(s["files"])} for s in raw_sensors])
-                st.dataframe(sensor_df, use_container_width=True)
-            else:
-                st.info("No normal sensor files found.")
-
     st.divider()
 
-    # Section 2: Federated Learning Interactive Simulator
-    st.subheader("2. Interactive Federated Learning Simulator")
+    # Section 2: Federated Learning Demo
+    st.subheader("2. Federated Learning Demo — Edge IoT Threat Detection")
+    st.markdown("""
+    <div style="background: #1e293b; border-left: 4px solid #38bdf8; border-radius: 6px; padding: 12px 18px; margin-bottom: 14px;">
+        <b style="color:#38bdf8;">How it works:</b>
+        <span style="color:#e2e8f0; font-size:13.5px;">
+        5 IoT edge nodes each train a local PyTorch MLP on their own isolated traffic data.
+        Only model weight updates (no raw data) are sent to the FedAvg server, which aggregates them into a
+        single global threat detection model. This is then evaluated against 14 attack categories from the Edge-IIoTset dataset.
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
 
-    col_fl1, col_fl2 = st.columns([1, 2])
+    # Fixed demo defaults — shown as info, not as editable controls
+    FL_DEMO_CLIENTS   = 5
+    FL_DEMO_ROUNDS    = 8
+    FL_DEMO_EPOCHS    = 2
+    FL_DEMO_LR        = 0.01
+    FL_DEMO_NONIID    = True
+    FL_DEMO_SAMPLES   = 10_000
 
-    with col_fl1:
-        st.markdown("#### FL Hyperparameters")
-        fl_clients = st.slider("Simulated IoT Edge Nodes (K)", 3, 10, 5)
-        fl_rounds = st.slider("Communication Rounds (R)", 3, 15, 8)
-        fl_epochs = st.slider("Local Epochs per Round (E)", 1, 5, 2)
-        fl_lr = st.select_slider("Learning Rate", options=[0.001, 0.005, 0.01, 0.02, 0.05], value=0.01)
-        non_iid_toggle = st.checkbox("Non-IID Data Distribution (Heterogeneous Devices)", value=True)
-        sample_size_fl = st.select_slider("Dataset Sample Size", options=[5_000, 10_000, 20_000, 30_000], value=10_000)
+    # Topology display — 4 attack domain nodes + 1 global aggregator
+    st.markdown("#### 🌐 Distributed IoT Edge Topology")
+    st.caption("Each node trains a local PyTorch model on its own attack domain shard — only model weights are sent to the FedAvg server.")
+    node_names = [
+        ("Node 1", "DDoS ICMP Flood", "🌊 Attack Domain Shard"),
+        ("Node 2", "SQL Injection", "💉 Attack Domain Shard"),
+        ("Node 3", "Port Scanning", "🔍 Attack Domain Shard"),
+        ("Node 4", "Ransomware", "🔒 Attack Domain Shard"),
+        ("Node 5", "FedAvg Global Server", "⚙️ Aggregates All Nodes"),
+    ]
+    node_cols = st.columns(5)
+    for col, (node, attack, role) in zip(node_cols, node_names):
+        with col:
+            st.info(f"**{node}**\n\n{attack}\n\n{role}")
 
-        run_fl_button = st.button("🚀 Run Federated Learning Training", type="primary", use_container_width=True)
+    # Advanced config hidden by default
+    with st.expander("⚙️ Advanced: Experiment Configuration (optional)", expanded=False):
+        st.caption("These are the fixed defaults used for the demo. Adjust only if you want to experiment.")
+        adv1, adv2, adv3 = st.columns(3)
+        FL_DEMO_CLIENTS = adv1.slider("IoT Edge Nodes (K)", 3, 10, FL_DEMO_CLIENTS)
+        FL_DEMO_ROUNDS  = adv2.slider("Communication Rounds (R)", 3, 15, FL_DEMO_ROUNDS)
+        FL_DEMO_SAMPLES = adv3.select_slider("Dataset Sample Size", options=[5_000, 10_000, 20_000], value=FL_DEMO_SAMPLES)
+        FL_DEMO_NONIID  = st.checkbox("Non-IID Data Distribution (Heterogeneous Devices)", value=FL_DEMO_NONIID)
 
-    with col_fl2:
-        st.markdown("#### Distributed IoT Edge Topology")
-        st.caption("Nodes train local PyTorch models on isolated telemetry and send only model weights to FedAvg Server.")
-
-        node_names = ["Smart Factory Gateway", "Smart Grid Substation", "Medical IoT Server", "Autonomous Transport Node", "5G Edge Router"]
-        node_cols = st.columns(min(fl_clients, 5))
-        for i, col in enumerate(node_cols):
-            with col:
-                st.info(f"**Node {i+1}**\n\n{node_names[i % len(node_names)]}\n\n🔒 Local Data Only")
+    st.markdown("")
+    run_fl_button = st.button("▶ Run Federated Learning Demo", type="primary", use_container_width=False)
 
     # Session State for FL Benchmark Results
     if "fl_results" not in st.session_state:
         st.session_state["fl_results"] = None
 
     if run_fl_button:
-        with st.spinner("Initializing FedAvg Server & IoT Edge Nodes..."):
+        with st.spinner("Training across IoT edge nodes via FedAvg — please wait..."):
             fl_manager = FederatedEdgeManager(
-                sample_size=sample_size_fl,
-                num_clients=fl_clients,
-                non_iid=non_iid_toggle,
+                sample_size=FL_DEMO_SAMPLES,
+                num_clients=FL_DEMO_CLIENTS,
+                non_iid=FL_DEMO_NONIID,
                 seed=42
             )
             st.session_state["fl_manager"] = fl_manager
 
             progress_bar = st.progress(0, text="Starting Communication Round 1...")
-            
+
             # Run FL and full benchmark
-            bench_results = fl_manager.run_full_benchmark(fl_rounds=fl_rounds)
+            bench_results = fl_manager.run_full_benchmark(fl_rounds=FL_DEMO_ROUNDS)
             st.session_state["fl_results"] = bench_results
-            progress_bar.progress(100, text="Federated Learning Training Complete!")
-            st.success("Federated Learning & Neural Network Benchmarks Finished!")
+            progress_bar.progress(100, text="✅ Federated Learning Training Complete!")
+            st.success("✅ Training complete! Scroll down to see results.")
 
     # Display FL History and Curves if available
     if st.session_state["fl_results"]:
@@ -674,79 +827,85 @@ with tab_fl:
 
     col_ind1, col_ind2 = st.columns([1, 2])
     with col_ind1:
-        samples_per_attack = st.number_input("Test Samples per Attack File (mixed 50/50)", min_value=500, max_value=10000, value=2000, step=500)
-        run_indiv_btn = st.button("🧪 Test Model Against Individual Attack CSV Files", type="primary", use_container_width=True)
-
-    if run_indiv_btn or st.session_state["indiv_attack_results"]:
+        samples_per_attack = st.number_input(
+            "Test Samples per Attack File (mixed 50/50)",
+            min_value=500, max_value=10000, value=2000, step=500,
+            key="indiv_samples_input"
+        )
+        run_indiv_btn = st.button(
+            "🧪 Test Model Against Individual Attack CSV Files",
+            type="primary", use_container_width=True,
+            key="indiv_run_btn"
+        )
         if run_indiv_btn:
             with st.spinner("Loading raw attack CSV files & evaluating trained model..."):
                 test_mgr = FederatedEdgeManager(sample_size=10_000, num_clients=5, non_iid=True, seed=42)
                 test_mgr.train_federated_fl(rounds=5)
                 st.session_state["indiv_attack_results"] = test_mgr.evaluate_on_individual_attack_csvs(sample_per_file=samples_per_attack)
 
-        indiv_results = st.session_state["indiv_attack_results"]
-        if indiv_results:
-            indiv_df = pd.DataFrame(indiv_results)
+    indiv_results = st.session_state["indiv_attack_results"]
+    if indiv_results:
+        indiv_df = pd.DataFrame(indiv_results)
 
-            with col_ind2:
-                avg_acc = indiv_df["accuracy_pct"].mean()
-                st.metric("Overall Average Detection Accuracy Across All Attack Vectors", f"{avg_acc:.2f}%", delta="High Sensitivity")
+        with col_ind2:
+            avg_acc = indiv_df["accuracy_pct"].mean()
+            st.metric("Overall Average Detection Accuracy Across All Attack Vectors", f"{avg_acc:.2f}%", delta="High Sensitivity")
 
-            display_cols_indiv = [c for c in ["clean_name", "attack_file", "test_composition",
-                                               "samples_tested", "attack_samples", "normal_samples",
-                                               "accuracy_pct", "precision_pct", "recall_pct",
-                                               "f1_score_pct", "avg_threat_probability", "status"]
-                                  if c in indiv_df.columns]
-            st.dataframe(
-                indiv_df[display_cols_indiv].rename(columns={
-                    "clean_name": "Attack Category",
-                    "attack_file": "Raw CSV File",
-                    "test_composition": "Test Mix",
-                    "samples_tested": "Total Tested",
-                    "attack_samples": "Attack Samples",
-                    "normal_samples": "Normal Samples",
-                    "accuracy_pct": "Accuracy (%)",
-                    "precision_pct": "Precision (%)",
-                    "recall_pct": "Recall (%)",
-                    "f1_score_pct": "F1 Score (%)",
-                    "avg_threat_probability": "Avg Threat Prob",
-                    "status": "Status"
-                }),
-                use_container_width=True,
-                hide_index=True
+        display_cols_indiv = [c for c in ["clean_name", "attack_file", "test_composition",
+                                           "samples_tested", "attack_samples", "normal_samples",
+                                           "accuracy_pct", "precision_pct", "recall_pct",
+                                           "f1_score_pct", "avg_threat_probability", "status"]
+                              if c in indiv_df.columns]
+        st.dataframe(
+            indiv_df[display_cols_indiv].rename(columns={
+                "clean_name": "Attack Category",
+                "attack_file": "Raw CSV File",
+                "test_composition": "Test Mix",
+                "samples_tested": "Total Tested",
+                "attack_samples": "Attack Samples",
+                "normal_samples": "Normal Samples",
+                "accuracy_pct": "Accuracy (%)",
+                "precision_pct": "Precision (%)",
+                "recall_pct": "Recall (%)",
+                "f1_score_pct": "F1 Score (%)",
+                "avg_threat_probability": "Avg Threat Prob",
+                "status": "Status"
+            }),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        if HAS_PLOTLY:
+            fig_indiv_bar = px.bar(
+                indiv_df,
+                x="clean_name",
+                y="accuracy_pct",
+                color="accuracy_pct",
+                title="Detection Accuracy (%) — Mixed 50/50 Test Set per Attack Type",
+                labels={"clean_name": "Attack Type", "accuracy_pct": "Accuracy (%)"},
+                text_auto=".1f",
+                color_continuous_scale="Blues"
             )
+            fig_indiv_bar.update_layout(xaxis_tickangle=-35, height=400)
+            st.plotly_chart(fig_indiv_bar, use_container_width=True)
 
-            if HAS_PLOTLY:
-                fig_indiv_bar = px.bar(
-                    indiv_df,
+            # Per-attack ROC AUC bar
+            if "roc" in indiv_df.columns:
+                auc_vals = [r["auc"] if isinstance(r, dict) else 0 for r in indiv_df["roc"]]
+                indiv_df_display = indiv_df.copy()
+                indiv_df_display["roc_auc"] = auc_vals
+                fig_auc = px.bar(
+                    indiv_df_display,
                     x="clean_name",
-                    y="accuracy_pct",
-                    color="accuracy_pct",
-                    title="Detection Accuracy (%) — Mixed 50/50 Test Set per Attack Type",
-                    labels={"clean_name": "Attack Type", "accuracy_pct": "Accuracy (%)"},
-                    text_auto=".1f",
-                    color_continuous_scale="Blues"
+                    y="roc_auc",
+                    color="roc_auc",
+                    title="ROC-AUC Score per Attack Type (1.0 = Perfect)",
+                    labels={"clean_name": "Attack Type", "roc_auc": "AUC Score"},
+                    text_auto=".3f",
+                    color_continuous_scale="Greens"
                 )
-                fig_indiv_bar.update_layout(xaxis_tickangle=-35, height=400)
-                st.plotly_chart(fig_indiv_bar, use_container_width=True)
-
-                # Per-attack ROC AUC bar
-                if "roc" in indiv_df.columns:
-                    auc_vals = [r["auc"] if isinstance(r, dict) else 0 for r in indiv_df["roc"]]
-                    indiv_df_display = indiv_df.copy()
-                    indiv_df_display["roc_auc"] = auc_vals
-                    fig_auc = px.bar(
-                        indiv_df_display,
-                        x="clean_name",
-                        y="roc_auc",
-                        color="roc_auc",
-                        title="ROC-AUC Score per Attack Type (1.0 = Perfect)",
-                        labels={"clean_name": "Attack Type", "roc_auc": "AUC Score"},
-                        text_auto=".3f",
-                        color_continuous_scale="Greens"
-                    )
-                    fig_auc.update_layout(xaxis_tickangle=-35, height=380)
-                    st.plotly_chart(fig_auc, use_container_width=True)
+                fig_auc.update_layout(xaxis_tickangle=-35, height=380)
+                st.plotly_chart(fig_auc, use_container_width=True)
 
     st.divider()
 
@@ -762,10 +921,16 @@ with tab_fl:
 
     col_dom1, col_dom2 = st.columns([1, 2])
     with col_dom1:
-        samples_per_domain_val = st.number_input("Samples per Domain Shard", min_value=1000, max_value=8000, value=3000, step=1000)
-        run_dom_btn = st.button("🚀 Run Domain FL vs Isolated Nodes Benchmark", type="primary", use_container_width=True)
-
-    if run_dom_btn or st.session_state["domain_fl_results"]:
+        samples_per_domain_val = st.number_input(
+            "Samples per Domain Shard",
+            min_value=1000, max_value=8000, value=3000, step=1000,
+            key="dom_samples_input"
+        )
+        run_dom_btn = st.button(
+            "🚀 Run Domain FL vs Isolated Nodes Benchmark",
+            type="primary", use_container_width=True,
+            key="dom_run_btn"
+        )
         if run_dom_btn:
             with st.spinner("Training Isolated Domain Models & FedAvg Global Server..."):
                 dom_results, dom_meta = run_domain_fl_benchmark(samples_per_domain=samples_per_domain_val, fl_rounds=4, seed=42)
@@ -865,7 +1030,7 @@ with tab_quantum:
         <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; font-weight: bold; text-align: center;">
             <div style="background: #1e293b; color: #94a3b8; padding: 8px 10px; border-radius: 6px; flex: 1; min-width: 85px;">L0: Preprocess<br><span style="font-size: 9px; color: #64748b;">Scaler & Imputer</span></div>
             <div style="color: #64748b;">➔</div>
-            <div style="background: #1e293b; color: #38bdf8; padding: 8px 10px; border-radius: 6px; flex: 1; min-width: 85px;">L1: Telemetry<br><span style="font-size: 9px; color: #64748b;">PCAP / Modbus</span></div>
+            <div style="background: #1e293b; color: #38bdf8; padding: 8px 10px; border-radius: 6px; flex: 1; min-width: 85px;">L1: Telemetry<br><span style="font-size: 9px; color: #64748b;">CSV / Modbus</span></div>
             <div style="color: #64748b;">➔</div>
             <div style="background: #1e293b; color: #38bdf8; padding: 8px 10px; border-radius: 6px; flex: 1; min-width: 85px;">L2: Fed Detection<br><span style="font-size: 9px; color: #64748b;">FedAvg Neural Net</span></div>
             <div style="color: #64748b;">➔</div>
@@ -895,7 +1060,7 @@ with tab_quantum:
         [
             "★ Layer 5: Adaptive Constraint Synthesizer & Privacy Formulator (CORE PATENT CORE)",
             "Layer 0: Preprocessing & Scaling (DataPreprocessor)",
-            "Layer 1: Distributed Telemetry Ingestion (PCAP / Modbus / MQTT Shards)",
+            "Layer 1: Distributed Telemetry Ingestion (CSV / Modbus / MQTT Shards)",
             "Layer 2: Federated Edge ML Threat Detection (FedAvg Neural Network)",
             "Layer 3: Context Aggregation & SLA Tracking (C-I-A Ratings & HIPAA / GDPR)",
             "Layer 4: Confidence Evaluation & Action Gating (HIGH / MODERATE / LOW Tiers)",
@@ -919,7 +1084,7 @@ with tab_quantum:
                 st.write("Prevents unconstrained mathematical solvers or ML engines from executing illegal or physically impossible actions on critical assets.")
             with col_l3:
                 st.markdown("🏆 **Patent & Business Benefit**")
-                st.write("Guarantees **100.0% Decision Fidelity** and attaches statutory audit trails (**45 CFR § 164.312(a)(1)**), achieving a **95.0% Privacy Index**.")
+                st.write("Guarantees **100.0% Decision Fidelity ($DF\\% = 100\\%)** and attaches statutory audit trails (**45 CFR § 164.312(a)(1)**), eliminating illegal action executions.")
 
         elif "Layer 0" in selected_inspect_layer:
             st.info("Layer 0: Preprocessing & Scaling")
@@ -939,13 +1104,13 @@ with tab_quantum:
             col_l1, col_l2, col_l3 = st.columns(3)
             with col_l1:
                 st.markdown("⚙️ **What Happens Internally?**")
-                st.write("Ingests Modbus TCP, MQTT, TCP/UDP, ICMP, and HTTP packet telemetry across 11 IoT domain shards.")
+                st.write("Ingests pre-extracted feature records from Modbus TCP, MQTT, TCP/UDP, ICMP, and HTTP network traffic across 11 IoT domain shards.")
             with col_l2:
                 st.markdown("❓ **Why It Happens?**")
                 st.write("Provides multi-protocol real-time visibility across industrial PLCs, cloud instances, and medical devices.")
             with col_l3:
                 st.markdown("🏆 **Patent & Business Benefit**")
-                st.write("Preserves raw packet telemetry on local edge shards without uploading private PCAP data to the cloud.")
+                st.write("Preserves raw network traffic data strictly on local edge devices without uploading private capture files to the cloud.")
 
         elif "Layer 2" in selected_inspect_layer:
             st.info("Layer 2: Federated Edge ML Threat Detection")
@@ -1072,7 +1237,14 @@ with tab_quantum:
         detector = get_detector()
         st.info("Layer 2 Threat Detector active: Standard Random Forest Classifier")
 
-    scenario_name = st.selectbox("Select Cloud Incident Scenario", list(SCENARIOS.keys()))
+    scenario_keys = list(SCENARIOS.keys())
+    default_idx = scenario_keys.index("multi_tier_demo") if "multi_tier_demo" in scenario_keys else 0
+    scenario_name = st.selectbox(
+        "Select Cloud Incident Scenario for Verification Demo",
+        scenario_keys,
+        index=default_idx,
+        format_func=lambda k: SCENARIO_PROFILES.get(k, {}).get("title", k)
+    )
     full_scenario = SCENARIOS[scenario_name]
     profile = SCENARIO_PROFILES.get(scenario_name, {})
     if profile.get("description"):
@@ -1098,17 +1270,45 @@ with tab_quantum:
         feedback_learner=get_feedback_learner(),
     )
 
+    # Build human-readable resource name map
+    res_name_map = {r["id"]: r.get("name", r["id"]) for r in full_scenario.get("resources", [])}
+
     # Layer 2: Threat Scores
-    st.subheader("Layer 2: Threat Scores")
-    score_cols = st.columns(min(4, len(pipeline_result.threat_scores)))
-    for col, (rid, score) in zip(score_cols, pipeline_result.threat_scores.items()):
-        col.metric(rid, f"{score:.1%}")
+    st.subheader("🔍 Layer 2 — AI Threat Detection Scores (Federated Learning Output)")
+    st.caption("Evaluates each cloud resource using the trained FedAvg Edge AI Model and classifies threat levels into High, Medium, or Low risk tiers.")
+
+    score_items = list(pipeline_result.threat_scores.items())
+    score_cols = st.columns(min(len(score_items), 5))
+    for col, (rid, score) in zip(score_cols, score_items):
+        asset_name = res_name_map.get(rid, rid)
+        if score >= 0.75:
+            badge = "🔴 HIGH THREAT"
+            d_color = "normal"
+        elif score >= 0.40:
+            badge = "🟠 MEDIUM THREAT"
+            d_color = "off"
+        else:
+            badge = "🟢 LOW THREAT"
+            d_color = "inverse"
+        col.metric(f"{asset_name}", f"{score:.1%}", delta=badge, delta_color=d_color)
+
+    st.markdown("""
+    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 16px; margin-top: 8px; margin-bottom: 16px;">
+        <span style="color: #94a3b8; font-size: 12.5px;">
+            <b>💡 Threat Risk Classification Guide:</b> &nbsp;
+            <span style="color: #ef4444; font-weight: bold;">🔴 HIGH THREAT (≥ 75%)</span>: Immediate isolation / IP block required &nbsp;|&nbsp;
+            <span style="color: #f59e0b; font-weight: bold;">🟠 MEDIUM THREAT (40%–74%)</span>: Credential rotation & elevated monitoring &nbsp;|&nbsp;
+            <span style="color: #10b981; font-weight: bold;">🟢 LOW THREAT (&lt; 40%)</span>: Low risk, audit logging only
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Layer 3: Aggregated Context
-    st.subheader("Layer 3: Aggregated Context")
+    st.subheader("🏢 Layer 3 — Asset Context & Compliance Aggregation")
     with st.expander("View full context details"):
         for rid, ctx in pipeline_result.contexts.items():
-            st.write(f"**{rid}**:")
+            asset_name = res_name_map.get(rid, rid)
+            st.write(f"**{asset_name}** (`{rid}`):")
             col1, col2 = st.columns(2)
             with col1:
                 st.write(f"- Threat: severity {ctx.threat.severity:.2f}, velocity {ctx.threat.attack_velocity:.2f}")
@@ -1118,11 +1318,12 @@ with tab_quantum:
                 st.write(f"- Compliance: GDPR {ctx.compliance.gdpr_applicable}, HIPAA {ctx.compliance.hipaa_applicable}, PCI {ctx.compliance.pci_dss_applicable}")
 
     # Layer 4: Confidence Evaluation & Action Eligibility
-    st.subheader("Layer 4: Confidence Evaluation & Action Eligibility")
+    st.subheader("🎯 Layer 4 — Detection Confidence & Action Eligibility Gating")
     conf_rows = []
     for rid, conf in pipeline_result.confidences.items():
+        asset_name = res_name_map.get(rid, rid)
         conf_rows.append({
-            "Resource": rid,
+            "Target Asset": f"{asset_name} ({rid})",
             "Confidence Tier": conf.confidence_tier,
             "Overall Confidence": f"{conf.overall_confidence:.2%}",
             "Allowed Actions": ", ".join(conf.allowed_actions),
@@ -1132,10 +1333,19 @@ with tab_quantum:
     st.dataframe(pd.DataFrame(conf_rows), use_container_width=True, hide_index=True)
 
     # Layer 5: Adaptive Constraints & Context Synthesis
-    st.subheader("Layer 5: ★ Adaptive Constraint Synthesizer & Privacy Formulator (CORE PATENT LAYER)")
-    st.info("""
-    💡 **Core Patentable Contribution (Layer 5)**: Synthesizes live context, C-I-A profiles, physical capability rules, and statutory legal provenance (**45 CFR § 164.312(a)(1)**) into a multi-factor QUBO constraint matrix.
-    """)
+    st.subheader("★ Layer 5 — Adaptive Constraint Synthesizer & Privacy Formulator (PATENT CORE CLAIM)")
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1a0800 0%, #2d1200 100%); border: 2px solid #f59e0b; border-radius: 10px; padding: 16px 22px; margin-bottom: 14px;">
+        <h4 style="color: #f59e0b; margin: 0 0 8px 0;">★ CORE PATENT CONTRIBUTION — Claim 1 & Claim 3 (Indian Patents Act Form 2)</h4>
+        <p style="color: #fde68a; margin: 0; font-size: 13.5px; line-height: 1.8;">
+            <b>In plain English:</b> This layer takes all information gathered so far — threat scores, asset business importance,
+            legal compliance rules (HIPAA / GDPR / DPDP Act 2023), and what actions are physically possible on each resource —
+            and automatically builds a constraint matrix that tells the Quantum Solver in Layer 6 exactly
+            <i>which actions are allowed, which are forbidden, what the budget ceiling is, and how to avoid action-switching oscillation.</i><br>
+            <b>Statutory provenance citation:</b> 45 CFR § 164.312(a)(1) — HIPAA Technical Access Control Safeguards.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     if pipeline_result.constraints:
         c1, c2, c3 = st.columns(3)
         c1.metric("Adjusted Max Budget", f"${pipeline_result.constraints.max_budget:.2f}")
@@ -1148,7 +1358,7 @@ with tab_quantum:
                 feasible_acts = pipeline_result.constraints.feasible_actions.get(rid, [])
                 forb_map = pipeline_result.constraints.forbidden_actions.get(rid, {})
                 prof_data.append({
-                    "Resource": rid,
+                    "Target Asset": f"{res_name_map.get(rid, rid)} ({rid})",
                     "Type": prof.resource_type,
                     "C Rating": f"{prof.confidentiality}/5",
                     "I Rating": f"{prof.integrity}/5",
@@ -1158,157 +1368,217 @@ with tab_quantum:
                 })
             st.dataframe(pd.DataFrame(prof_data), use_container_width=True, hide_index=True)
 
-    # Layer 6-7: Solver Comparison & Response Utility
-    st.subheader("Layer 6-7: Solver Comparison & 100% Decision Fidelity Verification")
-    comparison_df = pd.DataFrame(comparison_table(pipeline_result))
-    st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+    # Layer 6-7: Decision Optimization & Quantum Solvers
+    st.subheader("⚛️ Layer 6-7 — QUBO / QAOA Quantum & Classical Optimization Engine")
+    st.caption("Solves the multi-objective response optimization problem under budget and operational constraints.")
 
-    # Layer 8: Explainable Decision Output
-    st.subheader("Layer 8: Explainable Incident Response Rationale")
+    raw_comp_df = pd.DataFrame(comparison_table(pipeline_result))
+    if not raw_comp_df.empty:
+        # Map internal solver names to clean patent-grade labels
+        solver_label_map = {
+            "ilp": "⚖️ Integer Linear Programming (ILP Baseline - Recommended)",
+            "greedy_budget": "⚡ Fast Budget-Constrained Greedy Solver",
+            "greedy": "Unconstrained Greedy Heuristic (Baseline)",
+            "quantum_qubo": "⚛️ Quantum QUBO Solver (Exact Eigenvector)",
+            "qaoa": "⚛️ Variational Quantum QAOA Circuit (Qiskit)",
+        }
+        raw_comp_df["Solver Architecture"] = raw_comp_df["solver"].map(lambda s: solver_label_map.get(s, s))
+        raw_comp_df["Budget Limit Feasible?"] = raw_comp_df["budget_ok"].map(lambda b: "✅ Yes" if b else "❌ Exceeded")
+        raw_comp_df["Optimality Gap vs ILP (%)"] = raw_comp_df["gap_vs_ilp_pct"].map(lambda g: f"{g:+.2f}%" if g is not None else "0.00%")
+
+        display_cols_comp = [c for c in ["Solver Architecture", "objective", "cost", "runtime_sec", "Budget Limit Feasible?", "Optimality Gap vs ILP (%)"] if c in raw_comp_df.columns]
+        st.dataframe(
+            raw_comp_df[display_cols_comp].rename(columns={
+                "objective": "Net Optimization Score",
+                "cost": "Downtime Cost ($)",
+                "runtime_sec": "Execution Time (s)"
+            }),
+            use_container_width=True,
+            hide_index=True
+        )
+
+    # Interactive Quantum Solver Widget (Layer 6 Quantum Execution)
+    with st.expander("⚡ Interactive Quantum Solver Execution (Qiskit QAOA / NumPy QUBO)", expanded=False):
+        subset = subset_scenario(full_scenario, max_resources_for_quantum)
+        st.caption(
+            f"Formulates a QUBO matrix using the first **{len(subset['resources'])}** resource(s) "
+            f"({len(subset['resources']) * 5} qubits). "
+            "Default solver is exact QUBO diagonalization."
+        )
+
+        quantum_method = st.radio(
+            "Quantum solver method",
+            options=["numpy", "qaoa"],
+            format_func=lambda m: (
+                "Exact QUBO (NumPy — fast, recommended)"
+                if m == "numpy"
+                else "Approximate QAOA (Qiskit Aer Simulator)"
+            ),
+            horizontal=True,
+            key="q_method_radio"
+        )
+
+        if st.button("⚡ Execute Quantum QAOA Solve", type="primary", key="exec_q_solve_btn"):
+            label = "exact QUBO diagonalization" if quantum_method == "numpy" else "QAOA"
+            with st.spinner(f"Running {label}..."):
+                q_pipeline = run_pipeline(
+                    full_scenario,
+                    max_budget=max_budget,
+                    run_quantum=True,
+                    quantum_resources=max_resources_for_quantum,
+                    quantum_method=quantum_method,
+                    detector=detector,
+                    feedback_learner=get_feedback_learner(),
+                )
+
+            q_name = "qaoa" if quantum_method == "qaoa" else "quantum_qubo"
+            q_result = q_pipeline.result_by_name(q_name)
+            if not q_result:
+                st.error("Quantum solve did not return a result.")
+            else:
+                from layer6_optimization.baseline_greedy import solve_with_greedy_budget, solve_with_ilp
+                from layer6_optimization.decision_engine import calculate_total_cost
+
+                subset_scores = {
+                    r["id"]: pipeline_result.threat_scores[r["id"]] for r in subset["resources"]
+                }
+
+                t0 = time.time()
+                gb_plan, gb_obj = solve_with_greedy_budget(subset, subset_scores, max_budget)
+                gb_time = time.time() - t0
+
+                t0 = time.time()
+                ilp_plan, ilp_obj = solve_with_ilp(subset, subset_scores, max_budget)
+                ilp_time = time.time() - t0
+
+                subset_rows = [
+                    {
+                        "Solver Architecture": "⚡ Fast Budget-Constrained Greedy",
+                        "Net Optimization Score": round(gb_obj, 3),
+                        "Downtime Cost ($)": round(calculate_total_cost(gb_plan, subset), 3),
+                        "Execution Time (s)": round(gb_time, 4),
+                    },
+                    {
+                        "Solver Architecture": "⚖️ Integer Linear Programming (ILP Baseline)",
+                        "Net Optimization Score": round(ilp_obj, 3),
+                        "Downtime Cost ($)": round(calculate_total_cost(ilp_plan, subset), 3),
+                        "Execution Time (s)": round(ilp_time, 4),
+                    },
+                    {
+                        "Solver Architecture": f"⚛️ Quantum Solver ({q_name.upper()})",
+                        "Net Optimization Score": round(q_result.objective, 3),
+                        "Downtime Cost ($)": round(q_result.cost, 3),
+                        "Execution Time (s)": round(q_result.runtime_sec, 4),
+                    },
+                ]
+                st.success(f"Quantum solve finished in {q_result.runtime_sec:.4f}s!")
+                st.dataframe(pd.DataFrame(subset_rows), use_container_width=True, hide_index=True)
+                st.table([{"Target Asset": res_name_map.get(rid, rid), "Action Selected": action} for rid, action in q_result.plan.items()])
+
+                if ilp_obj:
+                    gap = ((q_result.objective - ilp_obj) / abs(ilp_obj)) * 100
+                    st.info(f"Quantum objective gap vs classical ILP on same subset: {gap:+.2f}%")
+
+    # Layer 8: Response Orchestration & Explainability
+    st.divider()
+    st.subheader("🚀 Layer 8 — Response Playbook Orchestration & Audit Rationale")
+    st.caption("Executes cloud security API actions (AWS EC2 / IAM / VPC Firewall) and generates human-readable audit reports.")
+
+    # Dynamically extract all available solver plans (ILP, Greedy-Budget, Greedy, Quantum)
+    available_solver_names = [s.name for s in pipeline_result.solver_results]
+    solver_display_names = {
+        "ilp": "⚖️ Integer Linear Programming (ILP Baseline - Recommended)",
+        "greedy_budget": "⚡ Fast Budget-Constrained Greedy Solver",
+        "greedy": "Unconstrained Greedy Heuristic (Baseline)",
+        "quantum_qubo": "⚛️ Quantum QUBO Solver (Exact Eigenvector)",
+        "qaoa": "⚛️ Variational Quantum QAOA Circuit (Qiskit)"
+    }
+
+    col_orc1, col_orc2 = st.columns(2)
+    with col_orc1:
+        plan_choice = st.radio(
+            "Select Solver Plan to Execute",
+            options=available_solver_names,
+            format_func=lambda s: solver_display_names.get(s, s),
+            key="orc_plan_choice"
+        )
+    with col_orc2:
+        strategy_choice = st.radio(
+            "Select Execution Workflow & Automation Level",
+            [
+                "🤖 Fully Autonomous Response (Engine-Selected Actions)",
+                "⚡ High-Severity Automated Emergency Playbook (Strategy A)",
+                "🛡️ Cautious Human-in-the-Loop Playbook (Strategy B)"
+            ],
+            key="orc_strat_choice"
+        )
+
+    st.markdown("""
+    <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 16px; margin-top: 10px; margin-bottom: 14px;">
+        <span style="color: #94a3b8; font-size: 12.5px;">
+            <b>💡 How Execution Works:</b> The <b>Decision Engine (Layer 6/7)</b> calculates the optimal mitigation action for each asset based on threat severity, asset business criticality (C-I-A), and statutory compliance rules.<br>
+            • <b>Fully Autonomous Response</b>: Executes those exact engine-chosen actions directly (e.g. <i>isolate</i> for High threat, <i>rotate credentials</i> for Medium threat, <i>monitor</i> for Low threat).<br>
+            • <b>Emergency / Cautious Playbooks</b>: Runs automated multi-stage containment sequences for high-risk SOC workflows.
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button("🚀 Execute Incident Response Playbook", type="primary", key="orc_exec_btn"):
+        chosen = pipeline_result.result_by_name(plan_choice)
+        if chosen:
+            if "Autonomous" in strategy_choice:
+                logs = execute_plan(chosen.plan)
+                st.success("✅ **Fully Autonomous Response Executed**: Executed the exact risk-differentiated actions chosen by the Layer 6/7 Optimization Engine!")
+            else:
+                strat_name = "Strategy A" if "Strategy A" in strategy_choice else "Strategy B"
+                logs = execute_strategy(strat_name, chosen.plan)
+                st.success(f"✅ **{strat_name} Multi-Step Playbook Executed**: Running automated multi-stage containment sequence across all assets!")
+
+            # Format execution logs table for human readability
+            log_df = pd.DataFrame(logs)
+            if not log_df.empty:
+                if "resource_id" in log_df.columns:
+                    log_df["Target Asset"] = log_df["resource_id"].map(lambda rid: f"{res_name_map.get(rid, rid)} ({rid})")
+                if "status" in log_df.columns:
+                    log_df["status"] = log_df["status"].map(lambda s: "✅ Executed Successfully" if "success" in str(s) else s)
+
+                display_cols_log = [c for c in ["Target Asset", "action", "step", "timestamp", "status"] if c in log_df.columns]
+                st.dataframe(
+                    log_df[display_cols_log].rename(columns={
+                        "action": "Action Executed",
+                        "step": "Step #",
+                        "timestamp": "Execution Time",
+                        "status": "API Execution Status"
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+        else:
+            st.warning("Selected plan not available.")
+
+    # Explainable Audit Rationale Expander (Layer 8 Explainability)
     if pipeline_result.explanation_report and "formatted_summary" in pipeline_result.explanation_report:
-        with st.expander("📖 View Full Human-Readable Rationale & Rejected Alternatives", expanded=True):
+        with st.expander("📖 View Full Explainable Rationale & Regulatory Audit Logs (45 CFR § 164.312)", expanded=False):
             st.code(pipeline_result.explanation_report["formatted_summary"], language="text")
 
-    # Layer 9: Rich EMA Feedback Learning System
-    st.subheader("Layer 9: Rich Feedback & EMA Weight Adaptation")
-    fb_learner = get_feedback_learner()
-    ema_metrics = fb_learner.get_rolling_metrics()
+    # Layer 9: Feedback Learning & EMA Weight Adaptation
+    st.divider()
+    st.subheader("🔄 Layer 9 — Post-Incident Feedback & EMA Weight Adaptation")
+    st.caption("Applies Exponential Moving Averages (EMA, α = 0.30) to adapt future action effectiveness based on SOC analyst feedback.")
+
+    feedback_learner = get_feedback_learner()
+    ema_metrics = feedback_learner.get_rolling_metrics()
     if ema_metrics["ema_success"]:
         fb_cols = st.columns(min(4, len(ema_metrics["ema_success"])))
         for col, (act, score) in zip(fb_cols, ema_metrics["ema_success"].items()):
             col.metric(f"EMA Success [{act}]", f"{score:.1%}")
     else:
-        st.info("No persistent feedback records logged yet. Run incident responses to populate Layer 9 EMA metrics.")
+        st.info("No persistent feedback records logged yet. Use the expander below to submit feedback and update Layer 9 weights.")
 
-    # Layer 6 (Quantum Part): Quantum Decision Engine
-    st.divider()
-    st.subheader("Layer 6: Quantum Decision Engine")
-
-    subset = subset_scenario(full_scenario, max_resources_for_quantum)
-    st.caption(
-        f"Uses the first **{len(subset['resources'])}** resource(s) "
-        f"({len(subset['resources']) * 5} qubits). "
-        "Default solver is exact QUBO diagonalization (fast). "
-        "Optional QAOA is approximate and slower on a laptop."
-    )
-
-    quantum_method = st.radio(
-        "Quantum solver",
-        options=["numpy", "qaoa"],
-        format_func=lambda m: (
-            "Exact QUBO (NumPy — recommended, seconds)"
-            if m == "numpy"
-            else "Approximate QAOA (slower — keep resources at 1)"
-        ),
-        horizontal=True,
-    )
-
-    if st.button("Run quantum solve", type="primary"):
-        label = "exact QUBO diagonalization" if quantum_method == "numpy" else "QAOA"
-        with st.spinner(f"Running {label}..."):
-            q_pipeline = run_pipeline(
-                full_scenario,
-                max_budget=max_budget,
-                run_quantum=True,
-                quantum_resources=max_resources_for_quantum,
-                quantum_method=quantum_method,
-                detector=detector,
-                feedback_learner=get_feedback_learner(),
-            )
-
-        q_name = "qaoa" if quantum_method == "qaoa" else "quantum_qubo"
-        q_result = q_pipeline.result_by_name(q_name)
-        if not q_result:
-            st.error("Quantum solve did not return a result.")
-        else:
-            from layer6_optimization.baseline_greedy import solve_with_greedy_budget, solve_with_ilp
-            from layer6_optimization.decision_engine import calculate_total_cost
-
-            subset_scores = {
-                r["id"]: pipeline_result.threat_scores[r["id"]] for r in subset["resources"]
-            }
-
-            t0 = time.time()
-            gb_plan, gb_obj = solve_with_greedy_budget(subset, subset_scores, max_budget)
-            gb_time = time.time() - t0
-
-            t0 = time.time()
-            ilp_plan, ilp_obj = solve_with_ilp(subset, subset_scores, max_budget)
-            ilp_time = time.time() - t0
-
-            subset_rows = [
-                {
-                    "solver": "greedy_budget",
-                    "objective": round(gb_obj, 3),
-                    "cost": round(calculate_total_cost(gb_plan, subset), 3),
-                    "runtime_sec": round(gb_time, 4),
-                },
-                {
-                    "solver": "ilp",
-                    "objective": round(ilp_obj, 3),
-                    "cost": round(calculate_total_cost(ilp_plan, subset), 3),
-                    "runtime_sec": round(ilp_time, 4),
-                },
-                {
-                    "solver": q_name,
-                    "objective": round(q_result.objective, 3),
-                    "cost": round(q_result.cost, 3),
-                    "runtime_sec": round(q_result.runtime_sec, 4),
-                },
-            ]
-            st.success(f"Finished in {q_result.runtime_sec:.2f}s")
-            st.dataframe(pd.DataFrame(subset_rows), use_container_width=True, hide_index=True)
-            st.table([{"resource": rid, "action": action} for rid, action in q_result.plan.items()])
-
-            if ilp_obj:
-                gap = ((q_result.objective - ilp_obj) / abs(ilp_obj)) * 100
-                st.info(f"Quantum objective gap vs ILP on same subset: {gap:+.2f}%")
-
-    # Layer 8: Response Orchestration
-    st.divider()
-    st.subheader("Layer 8: Response Orchestration")
-    plan_choice = st.radio("Plan to execute", ["ilp", "greedy_budget", "greedy"])
-    strategy_choice = st.radio(
-        "Orchestration strategy (optional)",
-        ["None (single actions only)", "Strategy A (snapshot → block → rotate → notify)", "Strategy B (monitor → increase logging → human approval)"],
-        horizontal=True
-    )
-
-    if st.button("Execute plan", type="primary"):
-        chosen = pipeline_result.result_by_name(plan_choice)
-        if chosen:
-            if strategy_choice == "None (single actions only)":
-                logs = execute_plan(chosen.plan)
-                st.write("Single-action execution logs:")
-            else:
-                strat_name = "Strategy A" if "Strategy A" in strategy_choice else "Strategy B"
-                logs = execute_strategy(strat_name, chosen.plan)
-                st.write(f"Multi-step {strat_name} execution logs:")
-            st.table(logs)
-        else:
-            st.warning("Selected plan not available.")
-
-    # Layer 9: Feedback Learning
-    st.divider()
-    st.subheader("Layer 9: Feedback Learning")
-    feedback_learner = get_feedback_learner()
-    st.write(f"Total past incidents recorded: {len(feedback_learner.feedback_history)}")
-
-    if len(feedback_learner.feedback_history) > 0:
-        st.write("Recent feedback:")
-        recent = feedback_learner.feedback_history[-1]
-        st.json({
-            "incident_id": recent.incident_id,
-            "scenario": recent.scenario,
-            "timestamp": recent.timestamp,
-            "successful": recent.successful,
-            "notes": recent.notes,
-        })
-
-    with st.expander("Add feedback for this incident"):
-        feedback_notes = st.text_input("Notes (what went well/what didn't?)")
-        was_successful = st.checkbox("Incident was successfully contained", value=True)
-        if st.button("Submit feedback"):
+    with st.expander("📝 Log SOC Analyst Feedback for This Incident", expanded=False):
+        feedback_notes = st.text_input("Notes (what went well/what didn't?)", key="fb_notes_input")
+        was_successful = st.checkbox("Incident was successfully contained", value=True, key="fb_succ_check")
+        if st.button("Submit feedback", key="submit_fb_btn"):
             import uuid
             incident_id = f"{scenario_name}-{uuid.uuid4().hex[:8]}"
             chosen_plan = pipeline_result.result_by_name(plan_choice)
@@ -1320,6 +1590,6 @@ with tab_quantum:
                     successful=was_successful,
                     notes=feedback_notes,
                 )
-                st.success("Feedback recorded!")
+                st.success("✅ Feedback recorded! Layer 9 EMA weights updated.")
             else:
                 st.warning("No plan chosen, can't record feedback.")

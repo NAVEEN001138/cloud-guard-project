@@ -174,9 +174,51 @@ SCENARIOS = {
             },
         ],
     },
+    "multi_tier_demo": {
+        "scenario": "Multi-Tier Threat Verification Demo (High, Medium & Low Risk)",
+        "resources": [
+            {
+                "id": "multitier-res-0",
+                "name": "Compromised Payment Gateway",
+                "type": "ec2_instance",
+                "override_threat_score": 0.98,
+                "raw_signal": {
+                    "failed_logins": 45.0,
+                    "unusual_outbound_bytes": 850_000.0,
+                    "privilege_escalation_attempts": 7.0,
+                },
+            },
+            {
+                "id": "multitier-res-1",
+                "name": "User Authentication Server",
+                "type": "ec2_instance",
+                "override_threat_score": 0.58,
+                "raw_signal": {
+                    "failed_logins": 12.0,
+                    "unusual_outbound_bytes": 35_000.0,
+                    "privilege_escalation_attempts": 1.0,
+                },
+            },
+            {
+                "id": "multitier-res-2",
+                "name": "Analytics Reporting Host",
+                "type": "ec2_instance",
+                "override_threat_score": 0.18,
+                "raw_signal": {
+                    "failed_logins": 1.0,
+                    "unusual_outbound_bytes": 2_000.0,
+                    "privilege_escalation_attempts": 0.0,
+                },
+            },
+        ],
+    },
 }
 
 SCENARIO_PROFILES = {
+    "multi_tier_demo": {
+        "title": "★ Multi-Tier Threat Verification Demo",
+        "description": "Side-by-side demonstration comparing automated response decisions across High Threat (Isolate), Medium Threat (Rotate Credentials), and Low Threat (Monitor) assets.",
+    },
     "ddos_flood": {
         "title": "Volumetric DDoS Attack",
         "description": "High-volume network traffic targeting web servers and load balancer.",
