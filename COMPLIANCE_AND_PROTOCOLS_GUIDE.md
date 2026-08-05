@@ -13,37 +13,12 @@ This specification documents the software architecture, coding standards, regula
 
 ### 1.1 CUSTOM INTELLECTUAL PROPERTY VS. THIRD-PARTY LIBRARIES
 
-A fundamental architectural distinction for technical evaluators, faculty supervisors, and patent examiners:
+For a dedicated, standalone breakdown of **Custom-Coded Intellectual Property** versus **Third-Party Open-Source Computational Libraries** (`Qiskit`, `PyTorch`, `scikit-learn`, `PuLP`), please refer to the dedicated specification guide:
+📄 **[CUSTOM_CODE_VS_LIBRARIES_GUIDE.md](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/CUSTOM_CODE_VS_LIBRARIES_GUIDE.md)**.
 
-```
-┌───────────────────────────────────────────────────────────────────────────────────────────┐
-│                           CLOUD GUARDIAN PLATFORM ARCHITECTURE                           │
-├─────────────────────────────────────────────┬─────────────────────────────────────────────┤
-│  🧠 100% CUSTOM INTELLECTUAL PROPERTY       │  ⚙️ THIRD-PARTY COMPUTATIONAL BACKBONES    │
-│     (Built From Scratch in Project Code)    │     (Open-Source Scientific Libraries Used) │
-├─────────────────────────────────────────────┼─────────────────────────────────────────────┤
-│ • Layer 5: Adaptive Policy Constraint       │ • Qiskit Aer (IBM): Variational Quantum     │
-│   Synthesizer (★ Core Patent Novelty)        │   Circuit Simulator (`qiskit`, `qiskit-aer`)│
-│ • Statutory Compliance-to-QUBO Math Engine   │ • PyTorch: Local Edge Neural Network        │
-│   (Custom HIPAA, GDPR, DPDP, PCI-DSS rules) │   Classifiers (`torch`)                     │
-│ • Layer 0: Custom DataPreprocessor          │ • Scikit-Learn: `StandardScaler` & Variance │
-│   (Median Impute + 1.5x IQR + Log1p)        │   Filtering Utility                         │
-│ • Layer 2: Federated Edge Manager & FedAvg  │ • PuLP / CBC: Classical ILP Optimization    │
-│ • Layer 4: ROC Youden's J Confidence Gating  │   Baseline Solver                           │
-│ • Layer 7: Decision Fidelity Inspector      │ • Pandas & NumPy: Data Matrix Operations    │
-│ • Layer 8: Role-Based Explainability Engine │ • Streamlit & Plotly: SOC User Interface    │
-└─────────────────────────────────────────────┴─────────────────────────────────────────────┘
-```
-
-#### Key Technical Clarifications:
-
-1. **Why Regulatory Compliance is 100% Custom Code**:
-   There are NO external Python libraries (e.g. no `import hipaa` or `import gdpr`) that convert enterprise cloud assets into QUBO optimization constraints! All legal compliance rules (**HIPAA Title 45 CFR § 164.312**, **GDPR Articles 25/32**, **DPDP Act 2023**, **PCI-DSS v4.0**) are **100% custom-coded mathematical algorithms** built from scratch in `layer3_context/context_aggregator.py` and `layer5_constraints/adaptive_constraints.py`.
-   - **Patent Novelty Proof**: Because Layer 5 is a custom-coded algorithmic engine that converts legal statutes into QUBO constraint matrices $H(x)$, it constitutes **novel, patentable Intellectual Property** under Patent Claims 1 & 3.
-
-2. **Telemetry Features Origin & Custom Processing**:
-   - The 36 numeric protocol features (`mbtcp.len`, `mqtt.topic`, `tcp.flags`, `arp.opcode`, `icmp.type`, `dns.qry.name.len`) originate from the benchmark **Edge-IIoTset Dataset** (captured from physical SCADA PLCs, smart sensors, and Wireshark network dumps).
-   - Feature cleaning and scaling are performed by our custom `DataPreprocessor` (`layer0_preprocessing/preprocessor.py`) using scientific primitives (`numpy`, `pandas`, `scikit-learn`).
+Key Summary:
+- **Compliance Rules (HIPAA, GDPR, DPDP Act 2023, PCI-DSS)**: 100% custom-coded domain logic in `layer3_context` and `layer5_constraints` (no external `import hipaa` library exists).
+- **Quantum & ML Engines**: IBM `Qiskit` and `PyTorch` used as mathematical computational backbones for our custom QUBO Hamiltonian equations ($H(x)$).
 
 ---
 
