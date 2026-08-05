@@ -7,7 +7,43 @@
 
 The **Cloud Guardian Autonomous Security Platform** is a 9-layer computer-implemented cybersecurity system designed for real-time threat detection, privacy-preserving edge machine learning, and multi-objective incident response optimization in heterogeneous cloud-IoT infrastructures.
 
-This specification documents the software architecture, coding standards, regulatory legal mappings (**HIPAA**, **GDPR**, **DPDP Act 2023**, **PCI-DSS v4.0**, **NIST SP 800-53**), multi-protocol telemetry feature schemas (**Modbus TCP**, **MQTT**, **TCP/UDP**, **ARP**, **ICMP**, **HTTP**, **DNS**), and exact code implementation locations with line numbers.
+This specification documents the software architecture, coding standards, regulatory legal mappings (**HIPAA**, **GDPR**, **DPDP Act 2023**, **PCI-DSS v4.0**, **NIST SP 800-53**), multi-protocol telemetry feature schemas (**Modbus TCP**, **MQTT**, **TCP/UDP**, **ARP**, **ICMP**, **HTTP**, **DNS**), exact code implementation locations with line numbers, and the explicit distinction between **Custom Intellectual Property** vs **Third-Party Computational Libraries**.
+
+---
+
+### 1.1 CUSTOM INTELLECTUAL PROPERTY VS. THIRD-PARTY LIBRARIES
+
+A fundamental architectural distinction for technical evaluators, faculty supervisors, and patent examiners:
+
+```
+┌───────────────────────────────────────────────────────────────────────────────────────────┐
+│                           CLOUD GUARDIAN PLATFORM ARCHITECTURE                           │
+├─────────────────────────────────────────────┬─────────────────────────────────────────────┤
+│  🧠 100% CUSTOM INTELLECTUAL PROPERTY       │  ⚙️ THIRD-PARTY COMPUTATIONAL BACKBONES    │
+│     (Built From Scratch in Project Code)    │     (Open-Source Scientific Libraries Used) │
+├─────────────────────────────────────────────┼─────────────────────────────────────────────┤
+│ • Layer 5: Adaptive Policy Constraint       │ • Qiskit Aer (IBM): Variational Quantum     │
+│   Synthesizer (★ Core Patent Novelty)        │   Circuit Simulator (`qiskit`, `qiskit-aer`)│
+│ • Statutory Compliance-to-QUBO Math Engine   │ • PyTorch: Local Edge Neural Network        │
+│   (Custom HIPAA, GDPR, DPDP, PCI-DSS rules) │   Classifiers (`torch`)                     │
+│ • Layer 0: Custom DataPreprocessor          │ • Scikit-Learn: `StandardScaler` & Variance │
+│   (Median Impute + 1.5x IQR + Log1p)        │   Filtering Utility                         │
+│ • Layer 2: Federated Edge Manager & FedAvg  │ • PuLP / CBC: Classical ILP Optimization    │
+│ • Layer 4: ROC Youden's J Confidence Gating  │   Baseline Solver                           │
+│ • Layer 7: Decision Fidelity Inspector      │ • Pandas & NumPy: Data Matrix Operations    │
+│ • Layer 8: Role-Based Explainability Engine │ • Streamlit & Plotly: SOC User Interface    │
+└─────────────────────────────────────────────┴─────────────────────────────────────────────┘
+```
+
+#### Key Technical Clarifications:
+
+1. **Why Regulatory Compliance is 100% Custom Code**:
+   There are NO external Python libraries (e.g. no `import hipaa` or `import gdpr`) that convert enterprise cloud assets into QUBO optimization constraints! All legal compliance rules (**HIPAA Title 45 CFR § 164.312**, **GDPR Articles 25/32**, **DPDP Act 2023**, **PCI-DSS v4.0**) are **100% custom-coded mathematical algorithms** built from scratch in `layer3_context/context_aggregator.py` and `layer5_constraints/adaptive_constraints.py`.
+   - **Patent Novelty Proof**: Because Layer 5 is a custom-coded algorithmic engine that converts legal statutes into QUBO constraint matrices $H(x)$, it constitutes **novel, patentable Intellectual Property** under Patent Claims 1 & 3.
+
+2. **Telemetry Features Origin & Custom Processing**:
+   - The 36 numeric protocol features (`mbtcp.len`, `mqtt.topic`, `tcp.flags`, `arp.opcode`, `icmp.type`, `dns.qry.name.len`) originate from the benchmark **Edge-IIoTset Dataset** (captured from physical SCADA PLCs, smart sensors, and Wireshark network dumps).
+   - Feature cleaning and scaling are performed by our custom `DataPreprocessor` (`layer0_preprocessing/preprocessor.py`) using scientific primitives (`numpy`, `pandas`, `scikit-learn`).
 
 ---
 
@@ -31,6 +67,7 @@ The platform implements automated compliance auditing and statutory constraint s
 ### A. HIPAA — Health Insurance Portability and Accountability Act (Title 45 CFR)
 
 - **Target Statute**: **45 CFR § 164.312 Technical Safeguards**
+- **Implementation Status**: **100% Custom Coded Domain Logic** (No external library used)
 - **Specific Clauses Implemented**:
   1. **§ 164.312(a)(1) Access Control**: Requires procedures to allow access only to authorized personnel and software programs.
   2. **§ 164.312(b) Audit Controls**: Requires hardware, software, and procedural mechanisms that record and examine activity in systems containing ePHI.
@@ -68,6 +105,7 @@ The platform implements automated compliance auditing and statutory constraint s
 ### B. GDPR — General Data Protection Regulation (EU 2016/679)
 
 - **Target Statute**: **GDPR Articles 5, 25, 32, and 44**
+- **Implementation Status**: **100% Custom Coded Federated Architecture**
 - **Specific Clauses Implemented**:
   1. **Article 5(1)(c) Data Minimization**: Personal data must be adequate, relevant, and limited to what is necessary.
   2. **Article 25 Data Protection by Design and Default**: Implements privacy safeguards directly into algorithmic architecture.
@@ -98,6 +136,7 @@ The platform implements automated compliance auditing and statutory constraint s
 ### C. DPDP Act, 2023 — Digital Personal Data Protection Act (India)
 
 - **Target Statute**: **DPDP Act 2023 (Sections 6, 8, 9, 16)**
+- **Implementation Status**: **100% Custom Localized Data Pipeline**
 - **Specific Clauses Implemented**:
   1. **Section 6 Purpose Limitation & Consent**: Processing must be restricted strictly to legitimate security incident prevention.
   2. **Section 8 Duties of Data Fiduciary**: Mandates technical measures to prevent personal data breaches.
@@ -123,6 +162,7 @@ The platform implements automated compliance auditing and statutory constraint s
 ### D. PCI-DSS v4.0 — Payment Card Industry Data Security Standard
 
 - **Target Statute**: **PCI-DSS v4.0 Requirements 3, 10, and 12**
+- **Implementation Status**: **100% Custom Automated Credential Rotation Logic**
 - **Specific Clauses Implemented**:
   1. **Requirement 3**: Protect Stored Account Data.
   2. **Requirement 10**: Log and Monitor All Access to System Components and Cardholder Data.
@@ -142,12 +182,12 @@ The platform implements automated compliance auditing and statutory constraint s
 
 - **Controls Implemented & Code Locations**:
   - **SI-4 Information System Monitoring**: 
-    - 📄 [layer1_telemetry/data_loader.py](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer1_telemetry/data_loader.py#L15-L55) (**Lines 15–55**): Continuous multi-protocol telemetry ingestion.
-    - 📄 [layer2_detection/detector.py](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer2_detection/detector.py#L30-L80) (**Lines 30–80**): Model scoring pipeline.
+    - 📄 [layer1_telemetry/data_loader.py: L15-L55](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer1_telemetry/data_loader.py#L15-L55) (**Lines 15–55**): Continuous multi-protocol telemetry ingestion.
+    - 📄 [layer2_detection/detector.py: L30-L80](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer2_detection/detector.py#L30-L80) (**Lines 30–80**): Model scoring pipeline.
   - **SC-7 Boundary Protection**:
-    - 📄 [layer8_orchestration/executor.py](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer8_orchestration/executor.py#L25) (**Line 25 & Lines 35–48**): Automated VPC firewall IP blocking (`block_ip`).
+    - 📄 [layer8_orchestration/executor.py: L25 & L35-L48](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer8_orchestration/executor.py#L25) (**Line 25 & Lines 35–48**): Automated VPC firewall IP blocking (`block_ip`).
   - **CP-9 Information System Backup**:
-    - 📄 [layer8_orchestration/executor.py](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer8_orchestration/executor.py#L27) (**Line 27 & Lines 35–48**): Mandatory pre-incident snapshot backups (`snapshot_backup`) executed prior to workload isolation.
+    - 📄 [layer8_orchestration/executor.py: L27 & L35-L48](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer8_orchestration/executor.py#L27) (**Line 27 & Lines 35–48**): Mandatory pre-incident snapshot backups (`snapshot_backup`) executed prior to workload isolation.
 
 ---
 
@@ -376,7 +416,7 @@ Expected Output:
 
 ---
 
-**Specification Document Version**: 2.1.0  
+**Specification Document Version**: 2.2.0  
 **IEEE Standard Compliance**: IEEE 1016-2009 Software Design Description  
 **Author / Inventor**: Naveen Ravi  
 **Repository**: [github.com/NAVEEN001138/cloud-guard-project](https://github.com/NAVEEN001138/cloud-guard-project)  
