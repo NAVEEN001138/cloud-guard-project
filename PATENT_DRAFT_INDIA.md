@@ -181,7 +181,7 @@ The `DataPreprocessor` pipeline handles mixed-type inputs across 36 numeric prot
 - **Privacy-Preserving Edge Architecture**: Raw network telemetry remains 100% local. Only model weight tensors $\mathbf{w}_k$ are transmitted to the central server.
 - **FedAvg Aggregation**: The central server computes global model weights using weighted parameter averaging:
   $$\mathbf{w}_{t+1} = \sum_{k=1}^K \frac{n_k}{n} \mathbf{w}_{t+1}^k$$
-- **ROC Youden's J Calibration**: Thresholds are calibrated on validation data using Youden's J statistic ($J = \text{Sensitivity} + \text{Specificity} - 1$), yielding **94.05% Mean Accuracy** across validation folds, **98.82% Precision**, and **0.9577 ROC-AUC**.
+- **ROC Youden's J Calibration**: Thresholds are calibrated on validation data using Youden's J statistic ($J = \text{Sensitivity} + \text{Specificity} - 1$), yielding **94.05% Mean Validation Accuracy** across cross-validation folds, **98.82% Precision**, and **0.9577 ROC-AUC**, achieving **94.25% Test Accuracy** on the 400-sample holdout test partition ($377 / 400$ correctly classified from the 2,000-sample evaluation dataset).
 
 ### Layer 3 & 4: Context Aggregation & Confidence Gating
 Layer 3 aggregates asset business criticality $r_i$ (Confidentiality, Integrity, Availability ratings 1–5), SLA downtime cost ($\$/\text{min}$), and encoded policy rules (e.g. HIPAA 45 CFR § 164.312, DPDP Act 2023). Layer 4 fuses detection confidence, sensor reliability, and data freshness into a composite factor $c_i \in [0, 1]$, gating action eligibility into **HIGH**, **MODERATE**, and **LOW** risk tiers.
@@ -201,6 +201,12 @@ where:
 7. **Policy Safeguard Invariants ($\mathcal{P}$)**: Encoding non-negotiable regulatory technical safeguards (e.g. HIPAA 45 CFR § 164.312(a)(1) access controls) and exactly-one invariance constraints $\sum_{a \in \mathcal{A}'} x_{i,a} = 1$.
 8. **Operational Budget Bound Synthesis ($\mathcal{B}(\mathcal{S},\mathcal{A}')$)**: Incident-specific budget $B$ computed as a function of active action costs and threat severity: $B = \min(\text{max\_budget}, \max(\text{min\_cost}, \text{mean\_cost} \cdot (1 + s_i^{\text{effective}})))$.
 9. **Constraint Partitioning & SC-IR Construction ($\mathcal{C} \to \text{SC-IR}$)**: Partitioning into **Hard Invariants** (non-relaxable physical limits, policy mandates, invariance constraints, budget ceilings) and **Soft Preferences** (downtime cost penalties, switching churn penalties), serialized into a canonical, solver-independent JSON representation.
+
+The Layer 5 compiler architecture is realized via four specialized computer-implemented engines:
+- **`constraint_ir.py`**: Synthesizes the canonical Security Constraint Intermediate Representation (SC-IR) with explicit Hard vs. Soft partitioning.
+- **`dependency_graph.py`**: Executes staged causal chain propagation across the Constraint Dependency Graph (DAG) for variable excision, conflict hyperedge restructuring, and budget bound synthesis.
+- **`safety_certifier.py`**: Evaluates the 7-point deterministic pre-solve invariant suite and generates the cryptographic SHA-256 state integrity digest.
+- **`formulation_compiler.py`**: Compiles the verified SC-IR directly into target Qiskit QUBO Hamiltonians and PuLP ILP decision models.
 
 #### Worked Implementation Example: SCADA PLC Causal Chain Transformation
 To demonstrate the deterministic causal chain, consider an industrial SCADA Programmable Logic Controller (PLC) under high threat ($s_i = 0.85$, $c_i = 0.92$):

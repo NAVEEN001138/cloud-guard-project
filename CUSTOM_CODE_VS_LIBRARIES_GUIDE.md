@@ -20,16 +20,19 @@ It serves as a standalone reference for developers, faculty evaluators, and pate
 │  🧠 100% CUSTOM INTELLECTUAL PROPERTY       │  ⚙️ THIRD-PARTY COMPUTATIONAL BACKBONES    │
 │     (Built From Scratch in Project Code)    │     (Open-Source Scientific Libraries Used) │
 ├─────────────────────────────────────────────┼─────────────────────────────────────────────┤
-│ • Layer 5: Adaptive Policy Constraint       │ • Qiskit Aer (IBM): Variational Quantum     │
-│   Synthesizer (★ Core Patent Novelty)        │   Circuit Simulator (`qiskit`, `qiskit-aer`)│
-│ • Statutory Compliance-to-QUBO Math Engine   │ • PyTorch: Local Edge Neural Network        │
-│   (Custom HIPAA, GDPR, DPDP, PCI-DSS rules) │   Classifiers (`torch`)                     │
-│ • Layer 0: Custom DataPreprocessor          │ • Scikit-Learn: `StandardScaler` & Variance │
-│   (Median Impute + 1.5x IQR + Log1p)        │   Filtering Utility                         │
-│ • Layer 2: Federated Edge Manager & FedAvg  │ • PuLP / CBC: Classical ILP Optimization    │
-│ • Layer 4: ROC Youden's J Confidence Gating  │   Baseline Solver                           │
-│ • Layer 7: Decision Fidelity Inspector      │ • Pandas & NumPy: Data Matrix Operations    │
-│ • Layer 8: Role-Based Explainability Engine │ • Streamlit & Plotly: SOC User Interface    │
+│ • Layer 5: Security Constraint Compiler     │ • Qiskit Aer (IBM): Variational Quantum     │
+│   Architecture (`constraint_ir.py`,         │   Circuit Simulator (`qiskit`, `qiskit-aer`)│
+│   `dependency_graph.py`, `safety_certifier`,│ • PyTorch: Local Edge Neural Network        │
+│   `formulation_compiler.py`) (★ Core Patent)│   Classifiers (`torch`)                     │
+│ • Statutory Compliance-to-QUBO Math Engine  │ • Scikit-Learn: `StandardScaler` & Variance │
+│   (Custom HIPAA, GDPR, DPDP, PCI-DSS rules) │   Filtering Utility                         │
+│ • Layer 0: Custom DataPreprocessor          │ • PuLP / CBC: Classical ILP Optimization    │
+│   (Median Impute + 1.5x IQR + Log1p)        │   Baseline Solver                           │
+│ • Layer 2: Federated Edge Manager & FedAvg  │ • Pandas & NumPy: Data Matrix Operations    │
+│ • Layer 4: ROC Youden's J Confidence Gating │ • Streamlit & Plotly: SOC User Interface    │
+│ • Layer 7: Decision Fidelity Inspector      │                                             │
+│ • Layer 8: Role-Based Explainability Engine │                                             │
+│ • Layer 9: System B Experience Memory Gate  │                                             │
 └─────────────────────────────────────────────┴─────────────────────────────────────────────┘
 ```
 
@@ -86,10 +89,11 @@ It serves as a standalone reference for developers, faculty evaluators, and pate
 
 For patent examination under the **Indian Patents Act, 1970 (Section 3(k) Technical Effect Exception)**:
 - **Generic Open-Source Libraries (`PyTorch`, `Qiskit`, `scikit-learn`)** provide basic computational primitives (matrix multiplication, quantum circuit simulation, array math).
-- **Our Custom Project Code (`Layer 5 Adaptive Constraint Synthesizer`)** represents the **novel inventive step**:
-  1. It dynamically converts live threat telemetry + regulatory statutes into a Quadratic Unconstrained Binary Optimization (QUBO) Hamiltonian matrix $H(x)$.
-  2. It injects an **Action Switching Penalty** $P_{\text{switch}} = \lambda_{\text{switch}} \sum_i \mathbb{I}(x_{i,a} \neq x_{i,a_{\text{prev}}})$ to eliminate decision oscillation in SCADA networks.
-  3. It produces a concrete **technical effect** on physical cloud infrastructure (reducing network bandwidth by >90% while maintaining 100.0% Decision Fidelity).
+- **Our Custom Project Code (`Layer 5 Security Constraint Compiler Architecture`)** represents the **novel inventive step**:
+  1. It dynamically converts live threat telemetry + regulatory statutes into a solver-independent Security Constraint Intermediate Representation (SC-IR), deterministically verified against 7 safety invariants with SHA-256 state provenance, and compiled directly into target QUBO or ILP topologies.
+  2. It executes staged causal chain propagation via a Constraint Dependency Graph (DAG) for variable excision, conflict hyperedge restructuring, and budget bound synthesis.
+  3. It injects an **Action Switching Penalty** $P_{\text{switch}} = \lambda_{\text{switch}} \sum_i \mathbb{I}(x_{i,a} \neq x_{i,a_{\text{prev}}})$ to eliminate decision oscillation in critical infrastructure.
+  4. It produces a concrete **technical effect** on physical cloud infrastructure (0.0% forbidden action violation rate while maintaining 100.0% Decision Fidelity).
 
 ---
 

@@ -163,17 +163,64 @@ which penalizes unnecessary action switching and reduces operational decision os
 
 ## IV. EXPERIMENTAL EVALUATION & RESULTS
 
-We executed comprehensive empirical benchmarks evaluating the 9-layer system across the Edge-IIoTset multi-protocol dataset and 5 heterogeneous operational environments (Industrial SCADA PLC, Healthcare ePHI Database, Cloud API Gateway, Cloud IAM Role, and Edge Surveillance Camera IoT).
+We executed comprehensive empirical benchmarks evaluating the 9-layer system across the Edge-IIoTset multi-protocol dataset and 5 heterogeneous operational environments (Industrial SCADA PLC, Healthcare ePHI Database, Cloud API Gateway, Cloud IAM Role, and Edge Surveillance Camera IoT) using our automated patent benchmark suite (`run_constraint_compiler_benchmark.py`).
 
-### A. The Crown Jewel Benchmark: Same Threat, Heterogeneous Assets
-Under an identical threat signal ($s_i = 0.850$, $c_i = 0.920$, Credential Compromise), Cloud Guardian synthesized structurally distinct mathematical formulations:
-- **Industrial PLC**: $|\mathcal{V}| = 3$, Optimal Plan: `rotate_credentials` (isolation barred).
-- **Healthcare DB**: $|\mathcal{V}| = 1$, Optimal Plan: `rotate_credentials` (HIPAA access control mandated).
-- **API Gateway**: $|\mathcal{V}| = 4$, Optimal Plan: `isolate` (perimeter quarantine).
-- **IAM Role**: $|\mathcal{V}| = 4$, Optimal Plan: `rotate_credentials` (privilege revocation).
-- **Camera IoT**: $|\mathcal{V}| = 3$, Optimal Plan: `block_ip`.
+### A. Experiment 1 — The Crown Jewel Benchmark: Same Threat Signal, Heterogeneous Assets
+Under an identical standardized threat signal ($s_i = 0.850$, $c_i = 0.920$, Credential Compromise), Cloud Guardian synthesized structurally distinct mathematical problem topologies:
 
-### B. The Killer Ablation Study: Component Failure Mode Analysis
+| Environment | Active Vars ($|\mathcal{V}|$) | Hard Invariants | Soft Preferences | Model Family | Allowed Admissible Actions | Optimal Selected Plan |
+| :--- | :---: | :---: | :---: | :--- | :--- | :--- |
+| **Industrial SCADA / PLC** | 3 | 5 | 3 | `SCADA_CYBER_PHYSICAL` | `block_ip`, `increase_logging`, `monitor`, `rotate_credentials` | `rotate_credentials` |
+| **Healthcare Database (HIPAA)** | 1 | 7 | 1 | `HEALTHCARE_EPHI` | `rotate_credentials` | `rotate_credentials` |
+| **Cloud API Gateway** | 4 | 6 | 4 | `ENTERPRISE_NETWORK` | `block_ip`, `increase_logging`, `isolate`, `monitor`, `rate_limit` | `isolate` |
+| **Cloud IAM Role** | 4 | 5 | 4 | `CLOUD_COMPUTE` | `disable_user`, `increase_logging`, `monitor`, `rotate_credentials` | `rotate_credentials` |
+| **Edge Surveillance Camera IoT** | 3 | 5 | 3 | `CLOUD_COMPUTE` | `block_ip`, `increase_logging`, `monitor`, `rate_limit` | `block_ip` |
+
+This proves that under identical threat inputs, problem topology varies structurally by design, not merely through scalar objective coefficients.
+
+### B. Experiment 2 — Deterministic Pre-Solve Invariant Verification & Integrity Provenance
+Before solver invocation, the deterministic pre-solve safety certifier evaluates 7 mathematical invariants over the synthesized SC-IR:
+1. **Forbidden Action Elimination**: Zero illegal actions exist in the active variable domain (PASS).
+2. **Feasible Domain Non-Empty**: Each resource retains $|\mathcal{A}'_i| \ge 1$ executable actions (PASS).
+3. **Exactly-One Invariance**: Exactly-one execution invariant present for all resources (PASS).
+4. **Conflict Hyperedge Consistency**: All conflict edges reference strictly active variables (PASS).
+5. **Budget Feasibility Verification**: Search space contains a valid plan within budget bounds (PASS).
+6. **Encoded Policy-Rule Satisfaction**: Encoded regulatory access control rules satisfied (PASS).
+7. **Provenance Completeness**: 100% of pruned actions have recorded causal reasons (PASS).
+
+Upon 100% verification (`[CERTIFIED]`), the system computes an immutable cryptographic **SHA-256 state integrity digest**:
+$$\text{Integrity Digest} = \text{SHA-256}(\text{Certificate ID} \,\|\, \text{IR SHA-256} \,\|\, \text{Status} \,\|\, \text{Checks JSON})$$
+This provides tamper-evident audit provenance confirming that the compiled model executed by the solver matches the verified intermediate representation.
+
+### C. Experiment 3 — Causal Chain Dependency Graph Propagation
+We evaluated the staged causal chain resolution across the Constraint Dependency Graph (DAG) comparing an unconstrained baseline server against an industrial SCADA PLC:
+- **Stage 1 (Hardware Capability Node)**: Server retains all 7 candidate capabilities; PLC restricts destructive isolation (3 capabilities allowed).
+- **Stage 2 (Cascaded Pruning)**: Server pruned 0 actions; PLC drops 4 non-admissible actions.
+- **Stage 3 (Conflict Hyperedge Restructuring)**: Server maintains 3 active conflict hyperedges; PLC conflict edges referencing `isolate` drop to 0, eliminating dangling references.
+- **Stage 4 (Compiled Variable Space)**: Server compiles 7 decision variables; PLC compiles 3 decision variables.
+This verifies that pruning cascading rules through a DAG prevents model infeasibility while maintaining physical equipment safety.
+
+### D. Experiment 4 — Closed-Loop Experience Memory & Validation Gate
+We evaluated post-incident feedback adaptation across sequential incident cycles:
+- **Candidate Rule 1 (Disruptive Isolation Override)**: Operator feedback requesting avoidance of network isolation on web servers due to downtime disruption was evaluated against invariants and successfully admitted.
+- **Candidate Rule 2 (Hostile Failsafe Restriction)**: An adversarial feedback submission attempting to restrict baseline telemetry observation (`monitor`) was evaluated by the **Validation Gate** and immediately rejected with an invariant violation exception.
+- **Sequential Structural Shift**: In subsequent incident evaluations on the server asset, the active decision space was pruned from 7 variables down to 6 variables ($-1$ variable structurally excluded), proving that experience memory safely shifts decision topology without human code modifications.
+
+### E. Experiment 5 — Two-Dimensional Context-Driven Topology Evolution
+Holding the asset constant (Cloud API Gateway `api-gw-01`), we evaluated the compiler across 4 progressive operational threat contexts:
+
+| Operational Context | Threat ($s_i$) | Conf ($c_i$) | Vars ($|\mathcal{V}|$) | Graph Density | Optimal Selected Plan |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **Context 1: Reconnaissance Probing** | 0.20 | 0.70 | 3 | 0.0000 | `monitor` |
+| **Context 2: Anomalous Rate Surge** | 0.55 | 0.85 | 4 | 0.3333 | `increase_logging` |
+| **Context 3: Credential Stuffing Attack** | 0.85 | 0.92 | 4 | 0.3333 | `isolate` |
+| **Context 4: Exfiltration / Zero-Day Flood** | 0.99 | 0.98 | 4 | 0.3333 | `isolate` |
+
+This demonstrates two-dimensional structural adaptability: problem topology adapts not only across different assets, but dynamically across progressive security contexts for the same asset.
+
+This demonstrates two-dimensional structural adaptability: problem topology adapts not only across different assets, but dynamically across progressive security contexts for the same asset.
+
+### F. Experiment 6 — The Killer Ablation Study: Component Failure Mode Analysis
 We evaluated four architectural configurations under high-stress incident conditions ($s_i = 0.90$):
 
 | Architecture Variant | Forbidden Action Violation Rate (%) | Policy Consistency (%) | Infeasible Models (%) | Dangling Conflicts | Average $|\mathcal{V}|$ | Failure Mode Observed |
@@ -183,7 +230,7 @@ We evaluated four architectural configurations under high-stress incident condit
 | **C. No Dependency Propagation** *(No DAG)* | **0.0%** | **80.0%** | **20.0%** | **5** | **3.0** | Dangling conflicts cause solver infeasibility |
 | **D. No Pre-Solve Invariant Verification** | **20.0%** | **60.0%** | **20.0%** | **4** | **3.0** | Zero safety assurance; broken budgets pass to solver |
 
-### C. Controlled Head-to-Head Comparison: Structural Compilation vs. Parameter-Only Baseline
+### G. Controlled Head-to-Head Comparison: Structural Compilation vs. Parameter-Only Baseline
 A critical reviewer question arises: *Is the zero-violation rate simply the trivial result of removing illegal actions prior to optimization?*
 
 **Yes—precisely, and this constitutes the fundamental architectural distinction.** In conventional SOAR, reinforcement learning, and heuristic optimization systems, the decision space is fixed; all candidate actions remain decision variables, and forbidden actions are discouraged via soft objective penalties ($\pm 1000$). Under severe threat utility ($s_i \ge 0.85$), the objective reward for containment dominates the soft penalty, causing the optimizer to select catastrophic actions on critical infrastructure (such as disconnecting a kinetic SCADA PLC or a hospital intensive-care database, yielding a **40.0% violation rate**).
@@ -195,8 +242,9 @@ By contrast, Cloud Guardian dynamically executes structural constraint compilati
 
 Consequently, the solver is physically incapable of formulating or selecting forbidden actions, achieving **100.0% Decision Fidelity** by construction rather than relying on numerical balancing.
 
-### D. Detection & Optimization Summary
+### H. Telemetry, Detection & Optimization Summary
 - **Federated Detection Accuracy**: **94.05%** calibrated mean accuracy (`0.9577 ROC-AUC`, `98.82% Precision`).
+- **Holdout Test Set Accuracy**: **94.25%** accuracy on the 400-sample holdout test partition ($377/400$ correctly classified from 2,000 samples).
 - **Decision Fidelity ($DF\%$)**: **100.00%** action alignment across classical ILP and quantum QAOA solvers.
 - **Operational Metadata Privacy**: **61.66% – 67.88%** Shannon entropy and volume reduction post-FL.
 

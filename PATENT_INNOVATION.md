@@ -205,12 +205,15 @@ The following evidentiary matrix links every functional limitation of Independen
 4. **Integrity Digest vs. Safety Validator**:
    - The SHA-256 hash is a **tamper-evident cryptographic integrity fingerprint** providing reproducible, auditable state provenance of the certified IR, whereas the deterministic pre-solve validator executes the mathematical invariant checks.
 
-### Summary of Empirical Benchmark Suite (`run_constraint_compiler_benchmark.py`)
-1. **The Crown Jewel (Same Threat, 5 Asset Contexts)**: Threat score $0.85$, confidence $0.92$ constant. SCADA PLC: $|\mathcal{V}|=3$, `rotate_credentials`. Healthcare DB: $|\mathcal{V}|=1$, `rotate_credentials`. API Gateway: $|\mathcal{V}|=4$, `isolate`. IAM Role: $|\mathcal{V}|=4$, `rotate_credentials`. Camera IoT: $|\mathcal{V}|=3$, `block_ip`.
-2. **Dimension 2 (Same Asset, Changing Runtime Context)**: API Gateway held constant across 4 threat contexts ($0.20 \to 0.99$). Variables, graph density ($0.000 \to 0.333$), and optimal plan dynamically shift (`monitor` $\to$ `increase_logging` $\to$ `isolate`).
-3. **The Killer Ablation & Controlled Comparison**:
-   - **Variant A (Full System)**: 0.0% Forbidden, 100.0% Policy, 0.0% Infeasible, 0 Dangling Conflicts.
-   - **Variant B (Parameter-Only / Soft Penalties)**: 40.0% Forbidden Violations (optimizer trades off safety), 8 Dangling Conflicts.
-   - **Variant C (No Dependency Propagation)**: 20.0% Infeasible Formulations, 5 Dangling Conflicts.
-   - **Variant D (No Pre-Solve Verification)**: 20.0% Infeasible Models, 0% Pre-Solve Safety Assurance.
-   - **Takeaway**: Zero violations occur because the decision problem is reconstructed prior to solving, not by fragile numerical balancing.
+### Summary of Dedicated 6-Experiment Benchmark Suite (`run_constraint_compiler_benchmark.py`)
+1. **Experiment 1: The Crown Jewel (Same Threat, 5 Asset Contexts)**: Evaluates a standardized threat ($s_i = 0.85$, $c_i = 0.92$) across 5 heterogeneous assets. Generates structurally distinct problem topologies: SCADA PLC ($|\mathcal{V}|=3$, plan `rotate_credentials`, isolation barred); Healthcare DB ($|\mathcal{V}|=1$, plan `rotate_credentials`, HIPAA mandated); Cloud Gateway ($|\mathcal{V}|=4$, plan `isolate`); IAM Role ($|\mathcal{V}|=4$, plan `rotate_credentials`); Camera IoT ($|\mathcal{V}|=3$, plan `block_ip`).
+2. **Experiment 2: Pre-Solve Invariant Verification (7-Point Deterministic Suite)**: Evaluates 7 mandatory mathematical invariants over synthesized SC-IR before solver compilation. Sealing state with auditable cryptographic SHA-256 state integrity digest (`4ca3e34adaff8f2b...`), confirming zero forbidden variables slip into solver domains.
+3. **Experiment 3: Causal Chain DAG Propagation**: Evaluates cascading resolution across dependency stages: Capability Node $\to$ Cascaded Action Pruning $\to$ Downstream Conflict Elimination $\to$ Compiled Variable Space ($|\mathcal{V}|=4$ on server vs. $|\mathcal{V}|=3$ on SCADA PLC).
+4. **Experiment 4: System B Experience Memory & Validation Gate**: Evaluates feedback learning across sequential incident cycles. Candidate Rule 1 (operator isolation override) admitted; Candidate Rule 2 (adversarial failsafe restriction on `monitor`) rejected by the safety Validation Gate; prunes variable space ($-1$ variable) in subsequent evaluation round.
+5. **Experiment 5: Dimension 2 (Same Asset, Changing Runtime Context)**: Holds Cloud API Gateway constant while sweeping runtime context across 4 threat levels ($0.20 \to 0.99$). Graph density ($0.000 \to 0.333$), variable topologies, and optimal response dynamically shift (`monitor` $\to$ `rate_limit` $\to$ `block_ip` $\to$ `isolate`).
+6. **Experiment 6: The Killer Ablation Study & Controlled Head-to-Head Comparison**:
+   - **Variant A (Full Compiler Architecture)**: 0.0% Forbidden Violations, 100.0% Policy Consistency, 0.0% Infeasible Formulations, 0 Dangling Conflicts.
+   - **Variant B (No Structural Adaptation / Parameter-Only Weights)**: 40.0% Forbidden Violations (soft penalties fail under high threat utility), 8 Dangling Conflicts.
+   - **Variant C (No Dependency Propagation / Disconnected Pruning)**: 20.0% Infeasible Models, 5 Dangling Conflicts.
+   - **Variant D (No Pre-Solve Verification / Unchecked Solve)**: 20.0% Infeasible Models, 0% Pre-Solve Safety Assurance.
+   - **Empirical Takeaway**: Zero violations occur because the decision space is dynamically reconstructed prior to formulation, not by fragile numerical balancing.
