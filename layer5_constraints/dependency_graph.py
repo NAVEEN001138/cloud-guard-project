@@ -183,10 +183,13 @@ class ConstraintDependencyGraph:
             # HIPAA 45 CFR § 164.312(a)(1) Access Control Mandate
             if ctx and ctx.compliance.hipaa_applicable and s_i > 0.60:
                 # Mandatory strong containment: isolate if available, else rotate credentials
+                pruned_by_mandate = set()
                 if "isolate" in allowed:
+                    pruned_by_mandate = allowed - {"isolate"}
                     allowed = {"isolate"}
                     mandated_act = "isolate"
                 elif "rotate_credentials" in allowed:
+                    pruned_by_mandate = allowed - {"rotate_credentials"}
                     allowed = {"rotate_credentials"}
                     mandated_act = "rotate_credentials"
                 else:
@@ -200,6 +203,15 @@ class ConstraintDependencyGraph:
                     rule_id="45_CFR_164_312_A1",
                     rationale="Statutory Technical Safeguards mandate access restriction on ePHI when threat > 0.60",
                 ))
+                for p_act in pruned_by_mandate:
+                    ir.provenance_records.append(IRProvenanceRecord(
+                        target_resource=rid,
+                        target_action=p_act,
+                        constraint_type="PRUNED",
+                        origin="MANDATED_POLICY_EXCLUSION",
+                        rule_id="HIPAA_MANDATE_EXCLUSION",
+                        rationale=f"Action '{p_act}' excluded because '{mandated_act}' is mandated by HIPAA 45 CFR § 164.312",
+                    ))
 
             # SLA Critical Prohibition (protect 99.99% availability)
             if ctx and ctx.business.sla_priority == "CRITICAL" and s_i < 0.40:

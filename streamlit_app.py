@@ -243,13 +243,13 @@ with tab_engine:
     st.markdown("""
     <div class="faculty-guide-box">
         <b>💡 Faculty Guide — Step 1: Scenario & Budget Configuration</b><br>
-        • <b>Attack Scenario:</b> Choose which cyberattack to simulate against the cloud network (e.g., Port Scanning, DDoS flood, or Ransomware).<br>
-        • <b>Max Budget ($):</b> Sets the maximum financial cost allowed for defense actions (like cloud compute costs or downtime expense).<br>
-        • <b>Detection AI Model:</b> Choose whether threat scoring is calculated by our privacy-preserving Federated Learning Neural Network or a standard baseline.
+        • <b>Attack Scenario:</b> Choose which cyberattack to simulate against the cloud network (e.g., SQL Injection, DDoS flood, Port Scan, or Ransomware).<br>
+        • <b>Max Budget ($):</b> Sets the maximum financial cost allowed for defense actions (like cloud compute costs or downtime expense). The system mathematically optimizes defenses to stay under this ceiling.<br>
+        • <b>Detection Engine:</b> Permanently locked to our privacy-preserving Edge Federated Neural Network (PyTorch) trained on Edge-IIoTset telemetry.
     </div>
     """, unsafe_allow_html=True)
 
-    col_cfg1, col_cfg2, col_cfg3 = st.columns([2, 1, 1])
+    col_cfg1, col_cfg2 = st.columns([2, 1])
     with col_cfg1:
         scenario_keys = list(SCENARIOS.keys())
         default_idx = scenario_keys.index("multi_tier_demo") if "multi_tier_demo" in scenario_keys else 0
@@ -266,14 +266,8 @@ with tab_engine:
             5.0, 50.0, float(MAX_BUDGET), 1.0,
             help="The maximum allowable remediation cost ceiling."
         )
-    with col_cfg3:
-        use_fl_model = st.checkbox(
-            "Use Edge FL Neural Model",
-            value=True,
-            help="Runs the pre-trained PyTorch edge model trained across distributed IoT nodes."
-        )
 
-    detector = get_fl_detector() if use_fl_model else get_standard_detector()
+    detector = get_fl_detector()
     learner = get_feedback_learner()
     full_scenario = SCENARIOS[scenario_name]
     res_name_map = {r["id"]: r.get("name", r["id"]) for r in full_scenario.get("resources", [])}
@@ -374,8 +368,19 @@ with tab_engine:
         t3.metric("Mathematical Model Family", topo.model_family, help="Intermediate Representation format (QUBO / ILP)")
         t4.metric("Constraint Graph Density", f"{topo.graph_density:.4f}", help="Sparsity of the conflict graph")
 
-    with st.expander("🔍 Click to View Feasible vs. Pruned Forbidden Actions Table", expanded=True):
-        st.caption("This table proves that forbidden actions (like isolating high-availability servers) were mathematically eliminated BEFORE solving:")
+    with st.expander("🔍 Click to View Feasible vs. Pruned Forbidden Actions Table (With Plain-English Guide)", expanded=True):
+        st.markdown("""
+        <div class="faculty-guide-box" style="margin-top: 0;">
+            <b>📖 Plain-English Guide to What These Cloud Terms Mean:</b><br>
+            • <b>RDS (Relational Database Service):</b> The company's <b>primary customer database</b> storing sensitive account credentials, patient healthcare records, or financial transactions. If this goes down, the whole company stops.<br>
+            • <b>Web API / API Gateway:</b> The <b>online web store / storefront</b> where public users browse and make requests.<br>
+            • <b>C-I-A Security Ratings (Rated 1 to 5):</b><br>
+            &nbsp;&nbsp;— <b>C (Confidentiality):</b> 5/5 = Top Secret sensitive data (patient records, credit cards).<br>
+            &nbsp;&nbsp;— <b>I (Integrity):</b> 5/5 = Accuracy must be 100% (data must never be altered).<br>
+            &nbsp;&nbsp;— <b>A (Availability):</b> 4/5 or 5/5 = High Uptime required (<b>NEVER DISCONNECT OR SHUT DOWN</b>).<br>
+            • <b>Why 'isolate' is Missing from RDS Database:</b> Notice that <code>isolate</code> is pruned for the RDS Database because its Availability is 4/5! Shutting it down would crash the business. Layer 5 forces the solver to use safe actions like <code>rotate_credentials</code> or <code>block_ip</code> instead.
+        </div>
+        """, unsafe_allow_html=True)
         matrix_data = []
         if pipeline_result.constraints:
             for rid, prof in pipeline_result.constraints.resource_profiles.items():
