@@ -172,11 +172,11 @@ def run_single_trial(sample_size: int, trial_idx: int, total_trials: int) -> Dic
 
 def main():
     print("=" * 100)
-    print("  CLOUD GUARDIAN: MULTI-SCALE EMPIRICAL DATA TRIALS (N = 2k to 100k)")
+    print("  CLOUD GUARDIAN: MULTI-SCALE EMPIRICAL DATA TRIALS (N = 2k to 1,000,000)")
     print("  Resource Throttling: Active (3 threads / 16 cores, CPU Priority: Below Normal)")
     print("=" * 100)
     
-    scales = [2_000, 4_000, 10_000, 50_000, 100_000]
+    scales = [2_000, 4_000, 10_000, 50_000, 100_000, 1_000_000]
     results = []
     
     start_all = time.time()

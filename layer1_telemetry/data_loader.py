@@ -45,6 +45,9 @@ EDGE_IIOT_DIR  = os.path.join(DATA_DIR, "edge iot dataset")
 EDGE_IIOT_PATH = os.path.join(
     EDGE_IIOT_DIR, "Selected dataset for ML and DL", "ML-EdgeIIoT-dataset.csv"
 )
+EDGE_IIOT_DNN_PATH = os.path.join(
+    EDGE_IIOT_DIR, "Selected dataset for ML and DL", "DNN-EdgeIIoT-dataset.csv"
+)
 
 ATTACK_TRAFFIC_DIR = os.path.join(EDGE_IIOT_DIR, "Attack traffic")
 NORMAL_TRAFFIC_DIR = os.path.join(EDGE_IIOT_DIR, "Normal traffic")
@@ -170,16 +173,20 @@ def load_edge_iiot_dataset(
     sample_size: Optional[int] = 30_000,
     seed: int = 42
 ) -> Tuple[np.ndarray, np.ndarray, pd.DataFrame, Dict]:
-    if not os.path.exists(EDGE_IIOT_PATH):
+    if sample_size and sample_size > 150_000 and os.path.exists(EDGE_IIOT_DNN_PATH):
+        # Ultra high-scale regime: sample evenly across the 2.2M-row dataset so both Normal & Attacks are present
+        cols = set(EDGE_IIOT_FEATURE_COLS + ["Attack_label", "Attack_type"])
+        step = max(1, 2_200_000 // sample_size)
+        df = pd.read_csv(EDGE_IIOT_DNN_PATH, skiprows=lambda i: i > 0 and i % step != 0, nrows=sample_size, usecols=lambda c: c.strip() in cols, low_memory=False)
+        df.columns = df.columns.str.strip()
+    elif not os.path.exists(EDGE_IIOT_PATH):
         print(f"Warning: Edge-IIoTset file not found at {EDGE_IIOT_PATH}. Generating synthetic telemetry for cloud deployment.")
         df = _generate_synthetic_edge_iiot(sample_size=sample_size or 5000, seed=seed)
     else:
         df = pd.read_csv(EDGE_IIOT_PATH, low_memory=False)
         df.columns = df.columns.str.strip()
-
-
-    if sample_size and len(df) > sample_size:
-        df = df.sample(n=sample_size, random_state=seed).reset_index(drop=True)
+        if sample_size and len(df) > sample_size:
+            df = df.sample(n=sample_size, random_state=seed).reset_index(drop=True)
 
     # Labels
     y = (

@@ -119,7 +119,8 @@ class IoTEdgeNodeClient:
             torch.tensor(self.X_local, dtype=torch.float32),
             torch.tensor(self.y_local, dtype=torch.long)
         )
-        loader = DataLoader(dataset, batch_size=32, shuffle=True)
+        bs = max(32, min(1024, len(self.y_local) // 50))
+        loader = DataLoader(dataset, batch_size=bs, shuffle=True)
 
         total_loss = 0.0
         batches = 0
@@ -186,7 +187,8 @@ class IoTEdgeNodeClient:
             torch.tensor(self.X_local, dtype=torch.float32),
             torch.tensor(self.y_local, dtype=torch.long),
         )
-        loader = DataLoader(dataset, batch_size=32, shuffle=True)
+        bs = max(32, min(1024, len(self.y_local) // 50))
+        loader = DataLoader(dataset, batch_size=bs, shuffle=True)
 
         total_loss = 0.0
         batches = 0
