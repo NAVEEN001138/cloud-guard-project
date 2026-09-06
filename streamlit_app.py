@@ -7,6 +7,7 @@ Includes:
 Run with:  streamlit run streamlit_app.py
 """
 
+import os
 import time
 import streamlit as st
 import pandas as pd
@@ -440,6 +441,16 @@ with tab_arch:
         st.graphviz_chart(arch_dot, use_container_width=True)
     except Exception:
         st.info("System Architecture Flow: Layer 1 (Telemetry) ➔ Layer 0 (Preprocessing) ➔ Layer 2 (Edge FL AI) ➔ Layer 3 & 4 (Context & Confidence) ➔ Layer 5 & 6 (Adaptive Constraints & Quantum QAOA) ➔ Layer 7 & 8 (Utility & Playbooks) ➔ Layer 9 (Analyst Feedback Loop)")
+
+    # High-Resolution 300 DPI Patent Drawings (FIG. 1 & FIG. 2)
+    with st.expander("🖼️ View High-Resolution 300 DPI Patent Drawings (FIG. 1 & FIG. 2)", expanded=True):
+        col_diag1, col_diag2 = st.columns(2)
+        with col_diag1:
+            if os.path.exists("architecture_diagram.png"):
+                st.image("architecture_diagram.png", caption="FIG. 1: 9-Layer Security Constraint Compiler Architecture (300 DPI)", use_container_width=True)
+        with col_diag2:
+            if os.path.exists("process_flow_diagram.png"):
+                st.image("process_flow_diagram.png", caption="FIG. 2: Runtime Security Constraint Compilation & Decision Pipeline (300 DPI)", use_container_width=True)
 
     st.divider()
 
