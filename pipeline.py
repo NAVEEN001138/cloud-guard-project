@@ -39,6 +39,8 @@ from layer4_confidence.confidence_evaluator import evaluate_confidence, Confiden
 
 # Layer 5
 from layer5_constraints.adaptive_constraints import generate_adaptive_constraints, OptimizationConstraints
+from layer5_constraints.constraint_ir import SecurityConstraintIR
+from layer5_constraints.safety_certifier import ConstraintSafetyCertificate
 from layer5_constraints.privacy_formulator import (
     transform_to_privacy_preserving_payload,
     calculate_information_leakage_reduction,
@@ -89,6 +91,8 @@ class PipelineResult:
     explanation_report: Dict[str, Any] = field(default_factory=dict)
     privacy_payload: Dict[str, DiscretizedContextPayload] = field(default_factory=dict)
     leakage_reduction_pct: float = 0.0
+    constraint_ir: Optional[SecurityConstraintIR] = None
+    safety_certificate: Optional[ConstraintSafetyCertificate] = None
 
     def result_by_name(self, name: str) -> Optional[SolverResult]:
         for result in self.solver_results:
@@ -146,7 +150,7 @@ def run_pipeline(
         priv_size = len(json.dumps({k: v.token_id for k, v in privacy_payload.items()}))
         leakage_reduction = calculate_information_leakage_reduction(raw_size, priv_size)
 
-    # Layer 5: Adaptive constraint generator & context synthesizer with Policy Provenance Matrix
+    # Layer 5: Adaptive constraint generator & context synthesizer with Policy Provenance Matrix & Constraint IR
     constraints = generate_adaptive_constraints(
         contexts,
         confidences,
@@ -154,6 +158,9 @@ def run_pipeline(
         base_weights=learner.get_current_weights(),
         previous_plan=previous_plan,
         time_of_day=time_of_day,
+        scenario=scenario,
+        threat_scores=scores,
+        learned_rules=learner.get_learned_rules(),
     )
 
     # Layer 7: Response utility
@@ -243,6 +250,8 @@ def run_pipeline(
         explanation_report=exp_report,
         privacy_payload=privacy_payload,
         leakage_reduction_pct=leakage_reduction,
+        constraint_ir=getattr(constraints, "constraint_ir", None),
+        safety_certificate=getattr(constraints, "safety_certificate", None),
     )
 
 

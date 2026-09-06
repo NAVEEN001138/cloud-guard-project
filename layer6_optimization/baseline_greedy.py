@@ -148,6 +148,31 @@ def solve_with_ilp(
     switching_pen = constraints.switching_penalty if constraints else 0.0
 
     if HAS_PULP:
+        # Check if compiled SecurityConstraintIR is available
+        if constraints and getattr(constraints, "constraint_ir", None):
+            from layer5_constraints.formulation_compiler import FormulationCompiler
+            ir = constraints.constraint_ir
+            scenario_rids = {r["id"] for r in resources}
+            if scenario_rids != set(ir.variable_domains.keys()):
+                ir = ir.filter_to_resources(scenario_rids)
+
+            prob, x_vars = FormulationCompiler.compile_to_ilp(ir)
+            prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+            plan = {}
+            for r in resources:
+                rid = r["id"]
+                domain = ir.variable_domains.get(rid)
+                allowed = domain.admissible_actions if domain else _get_allowed_actions(rid, constraints)
+                best_k = allowed[0]
+                for k in allowed:
+                    if (rid, k) in x_vars and pulp.value(x_vars[(rid, k)]) is not None and pulp.value(x_vars[(rid, k)]) > 0.5:
+                        best_k = k
+                        break
+                plan[rid] = best_k
+
+            return plan, calculate_objective(plan, scenario, threat_scores)
+
         prob = pulp.LpProblem("ILP_Incident_Response", pulp.LpMinimize)
         x_vars = {}
         all_pairs = []

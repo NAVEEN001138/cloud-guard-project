@@ -29,6 +29,17 @@ from typing import Dict, List, Optional, Set, Tuple
 from config import UTILITY_WEIGHTS, MAX_BUDGET
 from layer3_context.context_aggregator import AggregatedContext
 from layer4_confidence.confidence_evaluator import ConfidenceScores
+from layer5_constraints.constraint_ir import (
+    SecurityConstraintIR,
+    VariableDomain,
+    ConflictHyperedge,
+    InvarianceConstraint,
+    HardBudgetConstraint,
+    TopologyMetadata,
+)
+from layer5_constraints.dependency_graph import ConstraintDependencyGraph
+from layer5_constraints.safety_certifier import PreSolveSafetyCertifier, ConstraintSafetyCertificate
+from layer5_constraints.formulation_compiler import FormulationCompiler
 
 
 # -----------------------------------------------------------------------------
@@ -93,6 +104,8 @@ class OptimizationConstraints:
     provenance_matrix: Dict[str, List[ConstraintProvenance]] = field(default_factory=dict)
     switching_penalty: float = 0.15
     previous_plan: Dict[str, str] = field(default_factory=dict)
+    constraint_ir: Optional[SecurityConstraintIR] = None
+    safety_certificate: Optional[ConstraintSafetyCertificate] = None
 
 
 def generate_adaptive_constraints(
@@ -102,6 +115,9 @@ def generate_adaptive_constraints(
     base_weights: Optional[Dict[str, float]] = None,
     previous_plan: Optional[Dict[str, str]] = None,
     time_of_day: str = "business_hours",
+    scenario: Optional[dict] = None,
+    threat_scores: Optional[Dict[str, float]] = None,
+    learned_rules: Optional[List[dict]] = None,
 ) -> OptimizationConstraints:
     """
     Synthesizes context, confidence, C-I-A profiles, and policy rules into Layer 5 constraints
@@ -231,6 +247,35 @@ def generate_adaptive_constraints(
                 justification=f"Detection Confidence ({conf.overall_confidence:.2f}) is in LOW tier (<0.50); Account disabling restricted",
             ))
 
+    # Build scenario structure if not provided
+    eff_scenario = scenario or {
+        "scenario": "adaptive_incident",
+        "resources": [
+            {
+                "id": rid,
+                "type": getattr(ctx.asset, "resource_type", getattr(ctx.asset, "workload_type", "server")),
+            }
+            for rid, ctx in contexts.items()
+        ]
+    }
+    eff_scores = threat_scores or {rid: ctx.threat.threat_score for rid, ctx in contexts.items()}
+
+    # Resolve DAG into SecurityConstraintIR
+    dag = ConstraintDependencyGraph(incident_id=eff_scenario.get("scenario", "incident"))
+    sc_ir = dag.resolve(
+        scenario=eff_scenario,
+        threat_scores=eff_scores,
+        contexts=contexts,
+        confidences=confidences,
+        base_budget=adjusted_budget,
+        switching_penalty=0.15,
+        previous_plan=previous_plan,
+        learned_rules=learned_rules,
+    )
+
+    # Execute Pre-Solve Formal Safety Certification
+    cert = PreSolveSafetyCertifier.certify(sc_ir)
+
     return OptimizationConstraints(
         max_budget=round(adjusted_budget, 2),
         utility_weights=weights,
@@ -241,4 +286,7 @@ def generate_adaptive_constraints(
         provenance_matrix=provenance,
         switching_penalty=0.15,
         previous_plan=previous_plan or {},
+        constraint_ir=sc_ir,
+        safety_certificate=cert,
     )
+

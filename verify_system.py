@@ -115,9 +115,14 @@ try:
     from layer5_constraints.adaptive_constraints import generate_adaptive_constraints
     constraints = generate_adaptive_constraints(contexts, confidences, base_max_budget=5.0)
     assert hasattr(constraints, "max_budget") and constraints.max_budget > 0
+    assert constraints.constraint_ir is not None, "Constraint IR must be generated"
+    assert constraints.safety_certificate is not None, "Safety certificate must be generated"
+    assert constraints.safety_certificate.is_valid(), "Pre-solve safety certificate must be valid"
     print(f"  Adaptive budget    : {constraints.max_budget:.3f}  (from base=5.0)")
     print(f"  Required actions   : {constraints.required_actions}")
     print(f"  Forbidden actions  : {constraints.forbidden_actions}")
+    print(f"  Constraint IR SHA  : {constraints.constraint_ir.sha256_hash[:16]}... ({len(constraints.constraint_ir.get_all_variables())} vars, {len(constraints.constraint_ir.conflict_hyperedges)} conflicts)")
+    print(f"  Pre-Solve Safety   : [{constraints.safety_certificate.status}] 0 violations certified")
     print(f"  {PASS} Layer 5 OK")
     results["Layer 5: Constraints"] = PASS
 except Exception as e:

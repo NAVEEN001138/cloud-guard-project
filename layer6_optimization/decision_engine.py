@@ -105,6 +105,15 @@ def build_qubo(
     constraints: Optional[OptimizationConstraints] = None,
     confidences: Optional[Dict[str, ConfidenceScores]] = None,
 ) -> Tuple[QuadraticProgram, dict]:
+    # Check if compiled SecurityConstraintIR is available
+    if constraints and getattr(constraints, "constraint_ir", None) and HAS_QISKIT_OPT:
+        from layer5_constraints.formulation_compiler import FormulationCompiler
+        ir = constraints.constraint_ir
+        scenario_rids = {r["id"] for r in scenario["resources"]}
+        if scenario_rids != set(ir.variable_domains.keys()):
+            ir = ir.filter_to_resources(scenario_rids)
+        return FormulationCompiler.compile_to_qubo(ir)
+
     qp = QuadraticProgram("incident_response")
     var_lookup = {}
     default_actions = action_subset or list(ACTIONS.keys())

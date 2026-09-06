@@ -17,18 +17,21 @@ For a dedicated, standalone breakdown of **Custom-Coded Intellectual Property** 
 📄 **[CUSTOM_CODE_VS_LIBRARIES_GUIDE.md](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/CUSTOM_CODE_VS_LIBRARIES_GUIDE.md)**.
 
 Key Summary:
-- **Compliance Rules (HIPAA, GDPR, DPDP Act 2023, PCI-DSS)**: 100% custom-coded domain logic in `layer3_context` and `layer5_constraints` (no external `import hipaa` library exists).
+- **Compliance Policy Encodings (HIPAA, GDPR, DPDP Act 2023, PCI-DSS)**: Custom-coded domain logic in `layer3_context` and `layer5_constraints` encoding domain-specific technical safeguard policy rules (no external `import hipaa` library exists).
 - **Quantum & ML Engines**: IBM `Qiskit` and `PyTorch` used as mathematical computational backbones for our custom QUBO Hamiltonian equations ($H(x)$).
 
 ---
 
-## 2. REGULATORY COMPLIANCE STANDARDS & STATUTORY LEGAL MAPPING
+## 2. REGULATORY SAFEGUARD MAPPING & POLICY CONSTRAINT SPECIFICATION
+
+> [!NOTE]
+> **Architectural Scope & Defensibility Note**: References to regulatory standards (HIPAA, GDPR, DPDP Act 2023, PCI-DSS, NIST SP 800-53) denote technical safeguard mechanisms, access controls, and data-minimization workflows encoded directly as algorithmic policy rules within the platform. These mechanisms reflect engineering implementations designed to support institutional compliance requirements; formal statutory compliance remains dependent upon organizational governance, physical security, and enterprise deployment topology.
 
 The platform implements automated compliance auditing and statutory constraint synthesis across **Layer 3 (Context Aggregation)**, **Layer 5 (Adaptive Policy Constraints)**, and **Layer 8 (Explainable Audit Reports)**.
 
 ```
                       ┌─────────────────────────────────────────────────────────┐
-                      │    Regulatory Compliance Engine (Layers 3, 5 & 8)       │
+                      │    Regulatory Safeguard Engine (Layers 3, 5 & 8)        │
                       └────────────────────────────┬────────────────────────────┘
                                                    │
          ┌───────────────────┬─────────────────────┼─────────────────────┬───────────────────┐
@@ -42,12 +45,12 @@ The platform implements automated compliance auditing and statutory constraint s
 ### A. HIPAA — Health Insurance Portability and Accountability Act (Title 45 CFR)
 
 - **Target Statute**: **45 CFR § 164.312 Technical Safeguards**
-- **Implementation Status**: **100% Custom Coded Domain Logic** (No external library used)
-- **Specific Clauses Implemented**:
-  1. **§ 164.312(a)(1) Access Control**: Requires procedures to allow access only to authorized personnel and software programs.
-  2. **§ 164.312(b) Audit Controls**: Requires hardware, software, and procedural mechanisms that record and examine activity in systems containing ePHI.
-  3. **§ 164.312(c)(1) Integrity**: Requires policies and procedures to protect ePHI from improper alteration or destruction.
-  4. **§ 164.312(e)(1) Transmission Security**: Mandates security measures against unauthorized access to ePHI transmitted over electronic networks.
+- **Implementation Status**: **A system policy rule designed to encode a selected technical safeguard associated with 45 CFR § 164.312(a)(1)**
+- **Technical Safeguards Encoded as System Policy Rules**:
+  1. **§ 164.312(a)(1) Access Control**: Technical safeguard encoded to restrict access to ePHI resources during active security events.
+  2. **§ 164.312(b) Audit Controls**: Mechanisms recording decision rationale, constraint provenance, and execution outcomes.
+  3. **§ 164.312(c)(1) Integrity**: Operational policy preventing unauthorized modification or unwarranted destructive isolation of critical healthcare records.
+  4. **§ 164.312(e)(1) Transmission Security**: Invariant requiring credential rotation or network boundary enforcement when risk thresholds are exceeded.
 
 - **Exact Code Locations & Line Numbers**:
   - 📄 [layer3_context/context_aggregator.py](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer3_context/context_aggregator.py#L18-L45)
@@ -79,13 +82,13 @@ The platform implements automated compliance auditing and statutory constraint s
 
 ### B. GDPR — General Data Protection Regulation (EU 2016/679)
 
-- **Target Statute**: **GDPR Articles 5, 25, 32, and 44**
-- **Implementation Status**: **100% Custom Coded Federated Architecture**
-- **Specific Clauses Implemented**:
-  1. **Article 5(1)(c) Data Minimization**: Personal data must be adequate, relevant, and limited to what is necessary.
-  2. **Article 25 Data Protection by Design and Default**: Implements privacy safeguards directly into algorithmic architecture.
-  3. **Article 32 Security of Processing**: Mandates pseudonymization, encryption, and continuous availability verification.
-  4. **Article 44 General Principle for Transfers**: Restricts cross-border transfers of unencrypted raw PII.
+- **Target Principle**: **GDPR Articles 5, 25, 32, and 44 Principles**
+- **Implementation Status**: **Architecture incorporates privacy-preserving processing mechanisms relevant to selected GDPR principles (Articles 5, 25, 32, and 44)**
+- **Architectural Safeguards Aligned with GDPR Principles**:
+  1. **Article 5(1)(c) Data Minimization**: Network telemetry is processed locally; only gradient/parameter tensors are exposed globally.
+  2. **Article 25 Data Protection by Design & Default**: Cryptographic validation and decentralized edge training embedded into the algorithmic core.
+  3. **Article 32 Security of Processing**: Model parameters and constraint IR payloads cryptographically signed and continuously verified for invariant compliance.
+  4. **Article 44 General Principle for Transfers**: Architectural boundary prevention restricting raw telemetry from egressing edge boundaries.
 
 - **Exact Code Locations & Line Numbers**:
   - 📄 [layer2_detection/federated_detector.py](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer2_detection/federated_detector.py#L850-L920)
@@ -94,8 +97,9 @@ The platform implements automated compliance auditing and statutory constraint s
     # [layer2_detection/federated_detector.py: L850-920]
     class FederatedEdgeManager:
         """
-        Implements GDPR Article 25 (Privacy by Design) and Article 44 (Data Sovereignty).
-        Raw network traffic logs remain 100% local on edge nodes (PLCs, Smart Sensors).
+        Supports architectural principles relevant to GDPR Article 25 (Privacy by Design) 
+        and Article 44 (Data Sovereignty).
+        Raw network traffic logs remain local on edge nodes (PLCs, Smart Sensors).
         Only neural network parameter weight tensors (w_k) cross network boundaries to the global aggregator.
         """
         def train_round(self):
@@ -110,12 +114,12 @@ The platform implements automated compliance auditing and statutory constraint s
 
 ### C. DPDP Act, 2023 — Digital Personal Data Protection Act (India)
 
-- **Target Statute**: **DPDP Act 2023 (Sections 6, 8, 9, 16)**
-- **Implementation Status**: **100% Custom Localized Data Pipeline**
-- **Specific Clauses Implemented**:
-  1. **Section 6 Purpose Limitation & Consent**: Processing must be restricted strictly to legitimate security incident prevention.
-  2. **Section 8 Duties of Data Fiduciary**: Mandates technical measures to prevent personal data breaches.
-  3. **Section 9 Localized Edge Ingestion**: Telemetry processing must occur at local edge shards without unauthorized cross-border exfiltration.
+- **Target Statute**: **DPDP Act 2023 (Sections 6, 8, 9, 16) Alignment**
+- **Implementation Status**: **Localized edge processing architecture designed to support data-minimization principles relevant to DPDP Act 2023**
+- **System Safeguards Supporting Statutory Objectives**:
+  1. **Section 6 Purpose Limitation**: Processing pipelines strictly dedicated to threat signature detection and infrastructure defense.
+  2. **Section 8 Duties of Data Fiduciary**: Deterministic pre-solve invariant validation preventing unauthorized exposure of infrastructure data.
+  3. **Section 9 Localized Edge Ingestion**: Local edge processing supports the stated data-minimization/data-transfer design objective; legal compliance depends on deployment, governance, and applicable statutory obligations.
 
 - **Exact Code Locations & Line Numbers**:
   - 📄 [layer0_preprocessing/preprocessor.py](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer0_preprocessing/preprocessor.py#L15-L65)
@@ -124,24 +128,24 @@ The platform implements automated compliance auditing and statutory constraint s
     # [layer0_preprocessing/preprocessor.py: L15-65]
     class DataPreprocessor:
         """
-        Ensures compliance with DPDP Act 2023 Section 8 & 9.
+        Supports design objectives aligned with DPDP Act 2023 Section 8 & 9.
         Extracts anonymized numerical traffic features (36 protocol columns) 
         and applies median imputation, 1.5x IQR outlier clipping, and StandardScaler locally.
         """
     ```
   - 📄 [PATENT_DRAFT_INDIA.md](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/PATENT_DRAFT_INDIA.md#L39)
-    - **Line 39 & Line 218**: Section 3(k) technical effect & statutory provenance citation for Indian Patent Office filing.
+    - **Line 39 & Line 218**: Technical effect evidence on computing and network infrastructure response state.
 
 ---
 
 ### D. PCI-DSS v4.0 — Payment Card Industry Data Security Standard
 
-- **Target Statute**: **PCI-DSS v4.0 Requirements 3, 10, and 12**
-- **Implementation Status**: **100% Custom Automated Credential Rotation Logic**
-- **Specific Clauses Implemented**:
-  1. **Requirement 3**: Protect Stored Account Data.
-  2. **Requirement 10**: Log and Monitor All Access to System Components and Cardholder Data.
-  3. **Requirement 12**: Support Information Security with Organizational Policies.
+- **Target Control**: **PCI-DSS v4.0 Technical Controls (Requirements 3, 10, and 12)**
+- **Implementation Status**: **A system policy rule designed to encode a selected technical control associated with PCI-DSS v4.0 Requirement 3**
+- **Safeguard Rules Encoded**:
+  1. **Requirement 3**: Automated credential rotation triggered for Cardholder Data Environment (CDE) components under elevated threat scores.
+  2. **Requirement 10**: Immutable provenance tracking and SHA-256 audit hashing for all response decisions affecting payment assets.
+  3. **Requirement 12**: Algorithmic enforcement of operational security policies preventing unverified or non-compliant actions.
 
 - **Exact Code Locations & Line Numbers**:
   - 📄 [layer1_telemetry/fake_incident.py](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer1_telemetry/fake_incident.py#L180-L215)
@@ -155,14 +159,14 @@ The platform implements automated compliance auditing and statutory constraint s
 
 ### E. NIST SP 800-53 Rev. 5 — Security and Privacy Controls
 
-- **Controls Implemented & Code Locations**:
+- **Technical Safeguards Encoded & Code Locations**:
   - **SI-4 Information System Monitoring**: 
     - 📄 [layer1_telemetry/data_loader.py: L15-L55](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer1_telemetry/data_loader.py#L15-L55) (**Lines 15–55**): Continuous multi-protocol telemetry ingestion.
     - 📄 [layer2_detection/detector.py: L30-L80](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer2_detection/detector.py#L30-L80) (**Lines 30–80**): Model scoring pipeline.
   - **SC-7 Boundary Protection**:
     - 📄 [layer8_orchestration/executor.py: L25 & L35-L48](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer8_orchestration/executor.py#L25) (**Line 25 & Lines 35–48**): Automated VPC firewall IP blocking (`block_ip`).
   - **CP-9 Information System Backup**:
-    - 📄 [layer8_orchestration/executor.py: L27 & L35-L48](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer8_orchestration/executor.py#L27) (**Line 27 & Lines 35–48**): Mandatory pre-incident snapshot backups (`snapshot_backup`) executed prior to workload isolation.
+    - 📄 [layer8_orchestration/executor.py: L27 & L35-L48](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer8_orchestration/executor.py#L27) (**Line 27 & Lines 35–48**): Pre-incident snapshot backups (`snapshot_backup`) executed prior to workload isolation under encoded policy.
 
 ---
 
@@ -282,13 +286,20 @@ Below is the complete architectural walkthrough across all 9 layers of the codeb
 
 ---
 
-### Layer 5: Adaptive Policy Constraint Synthesizer (★ CORE PATENT NOVELTY)
-- **Primary Classes**: `PolicyConstraint`, `AdaptiveConstraintSynthesizer`, `ConstraintProvenance`
-- **File Location & Line Range**: 📄 [layer5_constraints/adaptive_constraints.py: L1-L245](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer5_constraints/adaptive_constraints.py#L1-L245)
-- **Patent Innovation Line Numbers (Claim 1 & Claim 3)**:
-  - `ConstraintProvenance` dataclass: 📄 [L35-L50](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer5_constraints/adaptive_constraints.py#L35-L50)
-  - `synthesize_constraints()`: 📄 [L140-L220](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer5_constraints/adaptive_constraints.py#L140-L220)
-  - **Action Switching Penalty ($P_{\text{switch}}$)**: 📄 [L221-L245](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer5_constraints/adaptive_constraints.py#L221-L245)
+### Layer 5: Security Constraint Compiler Architecture (★ CORE PATENT NOVELTY)
+- **Primary Modules & Classes**:
+  - `constraint_ir.py`: `SecurityConstraintIR`, `VariableDomain`, `InvarianceConstraint`, `ConflictHyperedge`, `HardBudgetConstraint`, `ConstraintRecord` (Hard vs. Soft Partitioning).
+  - `dependency_graph.py`: `ConstraintDependencyGraph` (Causal Chain DAG Propagation: Hardware Capabilities $\to$ Variable Pruning $\to$ Conflict Elimination $\to$ Budget Synthesis).
+  - `safety_certifier.py`: `PreSolveSafetyCertifier`, `ConstraintSafetyCertificate` (7-Point Pre-Solve Invariant Validator & SHA-256 State Integrity Digest).
+  - `formulation_compiler.py`: `FormulationCompiler` (Compiling verified IR directly into Qiskit QUBO $H(x)$ or PuLP ILP models).
+  - `privacy_formulator.py`: `PrivacyFormulator` (Shannon entropy & post-FL metadata leakage reduction).
+  - `adaptive_constraints.py`: `OptimizationConstraints` (Pipeline integration & legacy container bridge).
+- **Patent Innovation Line Numbers (Claim 1, Claim 3, Claim 4 & Claim 5)**:
+  - `SecurityConstraintIR` dataclass: 📄 [layer5_constraints/constraint_ir.py: L120-L190](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer5_constraints/constraint_ir.py#L120-L190)
+  - `ConstraintDependencyGraph.resolve()`: 📄 [layer5_constraints/dependency_graph.py: L105-L420](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer5_constraints/dependency_graph.py#L105-L420)
+  - `PreSolveSafetyCertifier.certify()`: 📄 [layer5_constraints/safety_certifier.py: L58-L162](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer5_constraints/safety_certifier.py#L58-L162)
+  - `FormulationCompiler.compile_to_qubo()` & `compile_to_ilp()`: 📄 [layer5_constraints/formulation_compiler.py: L40-L183](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer5_constraints/formulation_compiler.py#L40-L183)
+  - **Action Switching Penalty ($P_{\text{switch}}$)**: 📄 [layer5_constraints/dependency_graph.py: L345-L375](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer5_constraints/dependency_graph.py#L345-L375)
 
 ---
 
@@ -326,12 +337,14 @@ Below is the complete architectural walkthrough across all 9 layers of the codeb
 
 ---
 
-### Layer 9: Post-Incident Feedback & EMA Weight Adaptation
+### Layer 9: System B Experience Memory & Validation Gate
 - **Primary Class**: `FeedbackLearner`
-- **File Location & Line Range**: 📄 [layer9_feedback/feedback_learner.py: L1-L130](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer9_feedback/feedback_learner.py#L1-L130)
-- **EMA Reinforcement Formula & Line Numbers**:
-  $$w_{t+1} = (1 - \alpha) \cdot w_t + \alpha \cdot \text{FeedbackReward} \quad (\alpha = 0.30)$$
-  - `update_weights()`: 📄 [L45-L95](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer9_feedback/feedback_learner.py#L45-L95)
+- **File Location & Line Range**: 📄 [layer9_feedback/feedback_learner.py: L1-L290](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer9_feedback/feedback_learner.py#L1-L290)
+- **Experience Rule & Validation Gate Function Line Numbers**:
+  - `validate_candidate_rule()`: 📄 [L250-L285](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer9_feedback/feedback_learner.py#L250-L285)
+  - `add_learned_constraint()`: 📄 [L210-L245](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer9_feedback/feedback_learner.py#L210-L245)
+  - `update_weights()` (EMA parameter adaptation): 📄 [L90-L150](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/layer9_feedback/feedback_learner.py#L90-L150)
+  - $$w_{t+1} = (1 - \alpha) \cdot w_t + \alpha \cdot \text{FeedbackReward} \quad (\alpha = 0.30)$$
 
 ---
 

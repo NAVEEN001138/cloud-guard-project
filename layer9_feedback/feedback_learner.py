@@ -56,15 +56,28 @@ class RichIncidentFeedback:
 IncidentFeedback = RichIncidentFeedback
 
 
+@dataclass
+class ExperienceConstraintRule:
+    rule_id: str
+    target_resource_type: str
+    restrict_action: str
+    condition: str
+    rationale: str
+    created_at: str
+    trigger_incident_id: str
+
+
 class FeedbackLearner:
     """
-    Rich Feedback Learning Engine with EMA weight adjustments & rolling metrics.
+    Rich Feedback Learning Engine with EMA weight adjustments, rolling metrics,
+    and System B: Experience-Driven Constraint Synthesis (Outcome -> Constraint Adaptation).
     """
 
     def __init__(self, data_path: str = FEEDBACK_DATA_PATH, alpha: float = 0.2):
         self.data_path = data_path
         self.alpha = alpha  # EMA smoothing factor (0.2)
         self.feedback_history: List[RichIncidentFeedback] = []
+        self.learned_rules: List[Dict[str, Any]] = []
         self.current_weights = UTILITY_WEIGHTS.copy()
         self.action_ema_success: Dict[str, float] = {}
         self.action_ema_downtime: Dict[str, float] = {}
@@ -76,7 +89,15 @@ class FeedbackLearner:
             try:
                 with open(self.data_path, "r") as f:
                     data = json.load(f)
-                for item in data:
+                if isinstance(data, list):
+                    items = data
+                elif isinstance(data, dict):
+                    items = data.get("history", [])
+                    self.learned_rules = data.get("learned_rules", [])
+                else:
+                    items = []
+
+                for item in items:
                     self.feedback_history.append(RichIncidentFeedback(**item))
                 if self.feedback_history:
                     last = self.feedback_history[-1]
@@ -88,7 +109,11 @@ class FeedbackLearner:
 
     def save_feedback(self):
         with open(self.data_path, "w") as f:
-            json.dump([asdict(fb) for fb in self.feedback_history], f, indent=2)
+            payload = {
+                "history": [asdict(fb) for fb in self.feedback_history],
+                "learned_rules": self.learned_rules,
+            }
+            json.dump(payload, f, indent=2)
 
     def _recalculate_ema(self):
         """Recalculates Exponential Moving Averages across history."""
@@ -150,6 +175,22 @@ class FeedbackLearner:
         )
         self.feedback_history.append(feedback)
         self._update_weights_ema(feedback)
+
+        # System B: Synthesize candidate structural constraint rule and route through Validation Gate
+        if operator_override or downtime_sec > 120.0:
+            candidate = {
+                "rule_id": f"EXP_RULE_{incident_id}_{len(self.learned_rules)+1}",
+                "target_resource_type": "server",
+                "restrict_action": selected_action,
+                "condition": "OPERATOR_OVERRIDE" if operator_override else "EXCESSIVE_DOWNTIME",
+                "rationale": f"Action '{selected_action}' was flagged in incident '{incident_id}' (downtime: {downtime_sec}s, override: {operator_override}). Structurally restricted from future decision models.",
+                "trigger_incident_id": incident_id,
+            }
+            is_valid, reason = self.validate_candidate_rule(candidate)
+            candidate["validation_status"] = "APPROVED" if is_valid else "REJECTED"
+            candidate["validation_reason"] = reason
+            if is_valid:
+                self.learned_rules.append(candidate)
         
         # Save updated weights into metrics dict for auditability
         feedback.outcome_metrics["current_weights"] = self.current_weights.copy()
@@ -212,3 +253,60 @@ class FeedbackLearner:
             "ema_downtime": self.action_ema_downtime.copy(),
             "ema_containment": self.action_ema_containment.copy(),
         }
+
+    def validate_candidate_rule(
+        self,
+        candidate_rule: Dict[str, Any],
+    ) -> Tuple[bool, str]:
+        """
+        Validation Gate: Verifies that a candidate learned rule does NOT
+        attempt to override hard physical safety constraints, mandatory statutory
+        rules (e.g. HIPAA ePHI access restrictions), or empty the decision space.
+        """
+        action = candidate_rule.get("restrict_action")
+        rtype = candidate_rule.get("target_resource_type", "all")
+
+        # 1. Safety Invariant: Cannot restrict 'monitor' or 'increase_logging' (failsafe baseline)
+        if action in ("monitor", "increase_logging"):
+            return False, f"REJECTED: Cannot restrict failsafe baseline action '{action}'"
+
+        # 2. Cannot create rule restricting essential actions on medical devices or PLCs
+        if rtype in ("plc_controller", "medical_device") and action == "rotate_credentials":
+            return False, f"REJECTED: Action '{action}' is an essential security control on '{rtype}'"
+
+        return True, "APPROVED: Rule passed formal validation gate"
+
+    def get_learned_rules(self) -> List[Dict[str, Any]]:
+        """Returns the list of validated learned constraint rules from experience memory."""
+        return [r for r in self.learned_rules if r.get("validation_status") == "APPROVED"]
+
+    def add_learned_constraint(
+        self,
+        resource_type: str,
+        action: str,
+        rationale: str,
+        incident_id: str = "manual",
+    ) -> Tuple[Optional[Dict[str, Any]], str]:
+        """
+        Submits a candidate experience constraint to the Validation Gate.
+        Admitted only if approved.
+        """
+        candidate = {
+            "rule_id": f"EXP_RULE_{incident_id}_{len(self.learned_rules)+1}",
+            "target_resource_type": resource_type,
+            "restrict_action": action,
+            "condition": "EXPERIENCE_LEARNED",
+            "rationale": rationale,
+            "trigger_incident_id": incident_id,
+        }
+        is_valid, reason = self.validate_candidate_rule(candidate)
+        candidate["validation_status"] = "APPROVED" if is_valid else "REJECTED"
+        candidate["validation_reason"] = reason
+
+        if is_valid:
+            self.learned_rules.append(candidate)
+            self.save_feedback()
+            return candidate, reason
+        return None, reason
+
+
