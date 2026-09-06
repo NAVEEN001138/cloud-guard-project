@@ -129,13 +129,19 @@ python run_constraint_compiler_benchmark.py
 5. **Dimension 2 Context Sweep**: Single asset (Cloud API Gateway) across 4 progressive operational contexts.
 6. **The Killer Ablation Study**: Full architecture vs. Parameter-only weights, Disconnected pruning, and Unverified solve.
 
-### 4. Run Unvarnished Evidentiary Verification Report
+### 4. Run Multi-Scale Empirical Scaling Trials (2,000 to 100,000 Samples)
+```bash
+python run_data_scaling_trials.py
+```
+*Executes throttled empirical scaling trials across $N \in [2k, 4k, 10k, 50k, 100k]$ samples, verifying 0.0% forbidden action violations, 8/8 invariant checks passed, and 100.00% Decision Fidelity across all data scales under CPU throttling. See [`EMPIRICAL_SCALING_TRIALS.md`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/EMPIRICAL_SCALING_TRIALS.md).*
+
+### 5. Run Unvarnished Evidentiary Verification Report
 ```bash
 python run_detailed_verification_evidence.py
 ```
 *Outputs per-attack FL accuracy breakdown, Shannon Entropy privacy metrics, and side-by-side Decision Fidelity tables.*
 
-### 5. Launch Interactive Streamlit Dashboard
+### 6. Launch Interactive Streamlit Dashboard
 ```bash
 streamlit run streamlit_app.py
 ```
@@ -184,10 +190,12 @@ cloud-guard-project/
 ├── pipeline.py                        # End-to-end 9-layer integrated execution pipeline
 ├── verify_system.py                   # 10-step full system verification suite
 ├── run_constraint_compiler_benchmark.py # 6-experiment empirical patent benchmark suite
+├── run_data_scaling_trials.py         # Multi-scale empirical trials harness (2k to 100k samples)
 ├── run_detailed_verification_evidence.py# Evidentiary report with unvarnished logs & metrics
 ├── streamlit_app.py                   # Interactive SOC dashboard & patent inspection UI
 ├── architecture_diagram.png           # High-resolution 9-layer system architecture diagram
 ├── process_flow_diagram.png           # High-resolution end-to-end execution sequence diagram
+├── EMPIRICAL_SCALING_TRIALS.md        # Comprehensive multi-scale empirical benchmark report
 ├── PATENT_INNOVATION.md               # Patent innovation disclosure & 12-dimension prior art matrix
 ├── PATENT_DRAFT_INDIA.md              # Form 2 Complete Specification patent draft (India)
 ├── IEEE_RESEARCH_PAPER.md             # Formal research paper manuscript
