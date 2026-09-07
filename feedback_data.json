@@ -1,0 +1,48 @@
+{
+  "history": [
+    {
+      "incident_id": "sql_injection_exfil-4d4594",
+      "timestamp": "2026-09-06T21:59:18",
+      "scenario": "sql_injection_exfil",
+      "attack_type": "general_threat",
+      "plan": {
+        "sqli-res-0": "rotate_credentials",
+        "sqli-res-1": "isolate"
+      },
+      "threat_score": 0.8,
+      "confidence": 0.9,
+      "selected_action": "isolate",
+      "alternative_actions": [],
+      "successful": true,
+      "containment_time_sec": 12.0,
+      "downtime_sec": 45.0,
+      "false_positive_status": false,
+      "operator_override": false,
+      "notes": "Attack contained successfully; zero SLA downtime recorded.",
+      "initial_utility_weights": {
+        "containment_effectiveness": 0.3,
+        "business_impact": -0.25,
+        "downtime": -0.2,
+        "recovery_time": -0.1,
+        "compliance_risk": -0.1,
+        "analyst_effort": -0.03,
+        "operational_cost": -0.02,
+        "response_confidence": 0.0
+      },
+      "outcome_metrics": {
+        "current_weights": {
+          "containment_effectiveness": 0.8181818181818181,
+          "business_impact": -0.6493506493506493,
+          "downtime": -0.5194805194805195,
+          "recovery_time": -0.25974025974025977,
+          "compliance_risk": -0.25974025974025977,
+          "analyst_effort": -0.07792207792207792,
+          "operational_cost": -0.051948051948051945,
+          "response_confidence": 0.0
+        },
+        "ema_success_rate": 1.0
+      }
+    }
+  ],
+  "learned_rules": []
+}
