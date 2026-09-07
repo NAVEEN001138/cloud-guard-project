@@ -64,9 +64,13 @@ The prior art across automated cybersecurity incident response, mathematical com
 | **10. Decision Stability** | Single-shot solve | Static policy enforcement | Static policy update | Algorithmic convergence | Algorithmic convergence | Static execution | Static verification | **State-aware action switching penalty $P_{\text{switch}}$** |
 
 #### Crucial Distinctions Over Cited Prior Art
-1. **Distinction Over MARISMA & MARISMA-CPS**: MARISMA-CPS discloses dynamic risk management and automated incident mitigation control selection via quantum annealing across cyber-physical assets. However, the cited references do not disclose or suggest the claimed runtime transformation in which security-state-dependent feasibility information removes actions from the optimization variable domain and causes dependent constraint topology and resource bounds to be regenerated before formulation. MARISMA evaluates security controls within a pre-existing decision formulation; it does not teach an upstream causal pipeline ($\mathcal{A} \to \mathcal{A}' \to \mathcal{E} \to \mathcal{B} \to \text{SC-IR}$) that restructures the mathematical problem space prior to formulation. Under severe threat utility ($s_i \ge 0.85$), parameter-only systems fail (40.0% forbidden action violation rate), whereas Cloud Guardian physically excises forbidden variables ($x_{i,a} \notin \mathcal{A}'$), achieving 100.0% Decision Fidelity by mathematical construction.
+1. **Distinction Over MARISMA & MARISMA-CPS (Springer '23 / ScienceDirect '22)**: MARISMA-CPS discloses dynamic risk management and automated incident mitigation control selection via quantum annealing across cyber-physical assets. However, the cited references do not disclose or suggest the claimed runtime transformation in which security-state-dependent feasibility information removes actions from the optimization variable domain and causes dependent constraint topology and resource bounds to be regenerated before formulation. MARISMA evaluates security controls within a pre-existing decision formulation; it does not teach an upstream causal pipeline ($\mathcal{A} \to \mathcal{A}' \to \mathcal{E} \to \mathcal{B} \to \text{SC-IR}$) that restructures the mathematical problem space prior to formulation. Under severe threat utility ($s_i \ge 0.85$), parameter-only systems fail (40.0% forbidden action violation rate), whereas Cloud Guardian physically excises forbidden variables ($x_{i,a} \notin \mathcal{A}'$), achieving 100.0% Decision Fidelity by mathematical construction.
 2. **Distinction Over Formulation Compilation Art (US10691771B2)**: Translating or compiling an already-formulated mathematical optimization model (such as an existing ILP) into physical Ising hardware or QUBO polynomials is an established compiler primitive. Cloud Guardian explicitly does *not* claim formulation compilation alone as novel. Rather, the inventive step resides in the *runtime security-state-driven synthesis of the mathematical problem itself*, dynamically constructing the variable space, conflict hyperedges, and budget ceiling before compilation into QUBO or ILP.
 3. **Distinction Over Dynamic Protocol DAG Synthesis & Verification Art**: Distributed systems art discloses dynamically assembling protocol components into a DAG, optimizing parameters, and verifying safety invariants. Cloud Guardian's claims are expressly limited to the *security decision-domain transformation*: receiving real-time threat detection signals, physically and statutorily pruning forbidden response actions from the active variable domain, resolving security consequence dependency chains into conflict hyperedges, and verifying security invariants prior to multi-solver formulation.
+4. **Distinction Over Schneider Electric (CA3249550A1, 2025)**: Schneider Electric discloses an adaptive IIoT security platform that adds or removes security controls based on a risk assessment using a digital twin. However, Schneider employs a heuristic black-box model that switches pre-configured controls on or off; it does not formulate an optimization problem, does not excise decision variables from a mathematical constraint matrix, and does not synthesize or verify a solver-independent intermediate representation against deterministic safety invariants prior to execution.
+5. **Distinction Over Aramco (US12724886, 2024)**: Aramco teaches an LSTM-driven remediation system that detects environmental anomalies and triggers single-step configuration adjustments. Unlike Cloud Guardian, Aramco does not construct a multi-objective combinatorial optimization problem, lacks a constraint dependency graph with mutual exclusion hyperedges, and provides no pre-solve invariant certification gate to mathematically guarantee non-disruption of critical availability assets.
+6. **Distinction Over Salehie et al. (US9330262B2, 2016)**: Salehie teaches adapting security controls via a fuzzy causal network that evaluates utility across fixed control nodes. In Salehie, all controls remain active in the underlying decision model; it does not physically remove decision variables from an algebraic optimization search space, nor does it dynamically regenerate downstream conflict hyperedges and budget bounds. Furthermore, under extreme threat utility, utility-weighting approaches in Salehie risk executing disruptive controls on high-availability assets, whereas Cloud Guardian's physical variable excision guarantees 0.0% forbidden action violations by mathematical construction.
+7. **Distinction Over Fortinet (US20160191466A1, 2016) & Dynamic CSP Art (Lee & Oliehoek, 2025)**: Fortinet optimizes firewall rule tables by reordering or deleting rules to reduce CPU overhead, which is a local rule-table optimization rather than a multi-objective infrastructure response compiler. Similarly, academic dynamic CSP literature (Lee & Oliehoek) addresses abstract constraint activation in reinforcement learning without infrastructure context, statutory compliance, or real-time cyber-physical actuation.
 
 ---
 
@@ -258,38 +262,58 @@ Layer 9 provides **System B Experience Memory with a Validation Gate**: Post-inc
 
 **WE CLAIM:**
 
-1. A computer-implemented method for real-time multi-objective security incident response optimization in heterogeneous computing and operational networks, comprising:
-   - receiving calibrated threat detection probabilities generated by localized neural network edge anomaly detectors;
-   - aggregating multi-factor context parameters including confidentiality-integrity-availability (C-I-A) asset criticality, service level agreement (SLA) priority, and encoded regulatory policy rules;
-   - constructing a solver-independent Security Constraint Intermediate Representation (SC-IR) via a directed acyclic constraint dependency graph defining resource-specific variable domains, conflict hyperedges, invariance constraints, and an action switching penalty;
-   - partitioning constraints in said intermediate representation into hard mathematical invariants and soft preference penalties, wherein said hard invariants are enforced as strict constraint boundaries in linear programming formulations and as penalty structures with coefficients strictly dominating objective trade-offs in unconstrained quadratic formulations;
-   - verifying constraint safety invariants of said intermediate representation via a pre-solve invariant validator establishing that zero forbidden physical actions exist in the active variable domain and generating a tamper-evident cryptographic SHA-256 state integrity digest;
-   - compiling said verified intermediate representation via an incident-specific formulation compiler into a mathematical decision model balancing containment effectiveness, operational downtime cost, and business impact;
-   - solving the compiled optimization model via an interchangeable optimization engine to output an actionable binary mitigation vector $x^*$; and
-   - executing an automated security response corresponding to binary vector $x^*$ modifying an access-control, network-isolation, credential, or operational control state of at least one monitored asset.
+1. A computer-implemented method for generating and executing an optimized security incident response plan for a computing infrastructure, comprising:
+   - receiving, at an adaptive decision compiler, a runtime state context of the infrastructure, said state context comprising monitored asset operational values, threat detection indicators, and operational constraints;
+   - defining an initial decision graph comprising decision variables representing potential response actions and constraint edges representing action dependencies;
+   - algorithmically determining whether each potential response action is infeasible under said runtime state context based on asset operational criticality, physical safety rules, and resource limitations;
+   - pruning from said decision graph all decision variables corresponding to infeasible actions, and dynamically restructuring dependent conflict hyperedges affected by the pruning;
+   - recalculating operational resource budgets and cost bounds in said graph to reflect the remaining admissible actions;
+   - deterministically verifying that the updated decision graph satisfies predefined safety and policy invariants prior to solver formulation;
+   - compiling a solver-specific mathematical optimization model from the verified decision graph;
+   - solving the compiled optimization model via a computational solver to select an optimal feasible subset of response actions; and
+   - deploying the selected response actions by issuing control commands to physical or cloud infrastructure interfaces.
 
 2. The method as claimed in claim 1, wherein the constraint dependency graph executes staged causal chain propagation comprising hardware capability evaluation, cascaded action pruning, downstream conflict hyperedge elimination, and operational budget bound recalculation.
 
-3. The method as claimed in claim 1, wherein the pre-solve invariant validator deterministically evaluates seven mandatory safety invariants prior to solver compilation, comprising: forbidden action elimination, feasible domain non-emptiness, exactly-one invariance presence, conflict hyperedge consistency, budget feasibility, encoded policy-rule consistency, and provenance audit completeness.
+3. The method as claimed in claim 1, wherein determining whether an action is infeasible comprises comparing an asset type to a predetermined forbidden-action set, wherein automated network isolation is barred for primary programmable logic controllers (PLCs) and medical devices having an availability criticality rating meeting or exceeding a defined threshold.
 
-4. The method as claimed in claim 1, wherein the formulation compiler compiles the verified intermediate representation into an interchangeable target model selected from a Quadratic Unconstrained Binary Optimization (QUBO) Hamiltonian for variational quantum algorithm execution and an Integer Linear Programming (ILP) model for classical execution, wherein forbidden actions are excised from the active decision variables of both models prior to compilation.
+4. The method as claimed in claim 1, wherein recalculating operational resource budgets comprises recomputing an aggregate budget node in the graph as a function of the sum of execution costs of remaining admissible actions following variable pruning.
 
-5. The method as claimed in claim 1, wherein the mathematical decision model exhibits two-dimensional structural topology adaptation, wherein active decision variable cardinality, conflict hyperedges, and graph density vary both across heterogeneous asset environments and across progressive operational runtime threat contexts for a given asset.
+5. The method as claimed in claim 1, wherein verifying that the updated decision graph satisfies predefined safety invariants comprises deterministically evaluating seven mandatory invariants prior to solver compilation, comprising: forbidden action elimination, feasible domain non-emptiness, exactly-one invariance presence, conflict hyperedge consistency, budget feasibility, encoded policy-rule consistency, and provenance audit completeness, and generating a tamper-evident cryptographic SHA-256 state integrity digest.
 
-6. The method as claimed in claim 1, wherein the action switching penalty $P_{\text{switch}} = \lambda_{\text{switch}} \sum_i \mathbb{I}(x_{i,a} \neq x_{i,a_{\text{prev}}})$ penalizes action switching across sequential incident evaluation cycles to reduce operational decision oscillation.
+6. The method as claimed in claim 1, wherein verifying safety invariants comprises evaluating the restructured decision graph against a digital twin simulation of the computing and operational infrastructure.
 
-7. The method as claimed in claim 1, wherein post-incident evaluation outcomes generate candidate constraint rules in an experience memory, wherein candidate rules pass through a formal validation gate preventing modification of hard safety invariants before admission into future constraint dependency graphs.
+7. The method as claimed in claim 1, wherein the mathematical optimization model is a multi-objective optimization problem balancing threat containment effectiveness, operational downtime cost, and an action switching penalty $P_{\text{switch}} = \lambda_{\text{switch}} \sum_i \mathbb{I}(x_{i,a} \neq x_{i,a_{\text{prev}}})$ penalizing action switching across sequential incident evaluation cycles to reduce operational decision oscillation.
 
-8. The method as claimed in claim 1, wherein encoded regulatory policy rules comprise system policy rules designed to encode selected technical safeguards associated with 45 CFR § 164.312(a)(1) access controls and localized edge data-minimization rules.
+8. The method as claimed in claim 1, wherein compiling the solver-specific mathematical optimization model comprises compiling the verified decision graph into an interchangeable target model selected from a Quadratic Unconstrained Binary Optimization (QUBO) Hamiltonian for variational quantum algorithm execution and an Integer Linear Programming (ILP) model for classical execution, wherein forbidden actions are excised from the active decision variables of both models prior to compilation.
 
-9. An autonomous security incident response system, comprising:
-   - one or more telemetry ingestion interfaces configured to receive threat detection signals and operational context across monitored computing and operational assets;
-   - a constraint dependency graph engine configured to synthesize a solver-independent Security Constraint Intermediate Representation with explicit hard and soft constraint partitioning;
-   - a pre-solve invariant validator configured to verify constraint safety invariants and generate a cryptographic SHA-256 state integrity digest;
-   - an incident-specific formulation compiler configured to compile the verified representation into interchangeable QUBO and ILP mathematical decision models; and
-   - an execution engine configured to execute an optimal mitigation response plan modifying an access-control, network-isolation, or infrastructure control state of at least one monitored asset.
+9. The method as claimed in claim 1, further comprising a machine-learning experience feedback loop that proposes candidate constraint rules from post-incident operational feedback, wherein proposed candidate rules pass through a deterministic validation gate preventing modification of hard safety invariants before admission into future decision graphs.
 
-10. A non-transitory computer-readable medium storing instructions that, when executed by one or more processors, cause the processors to perform the method as claimed in claim 1.
+10. An autonomous security incident response computing system, comprising:
+    - a state monitor interface configured to collect live security telemetry and operational context from monitored computing or industrial infrastructure;
+    - a decision compiler comprising one or more processors and memory storing instructions configured to:
+      - construct an initial decision graph linking potential response actions and dependency constraints;
+      - prune infeasible action variables from the decision graph in response to the monitored state context;
+      - rebuild dependent conflict hyperedges and recalculate resource budgets;
+      - deterministically certify the modified graph against predefined safety invariants prior to formulation;
+      - compile the certified graph into a mathematical optimization problem solvable by a computational solver; and
+    - an infrastructure actuation controller configured to output control instructions based on the solver solution to physical or cloud interfaces of the infrastructure.
+
+11. The system as claimed in claim 10, wherein the infrastructure actuation controller executes control instructions selected from: writing Modbus TCP registers of programmable logic controllers, executing OPC-UA industrial commands, reconfiguring network switch forwarding tables, and executing cloud hypervisor REST API calls modifying security groups and identity access credentials.
+
+12. The system as claimed in claim 10, wherein pruning of variables, rebuilding of conflict hyperedges, and compilation of the optimization problem are dynamically re-executed whenever the monitored infrastructure state context changes.
+
+13. The system as claimed in claim 10, wherein the state monitor interface receives threat detection signals generated by localized federated edge neural network anomaly detectors, preserving raw network telemetry sovereignty on local edge nodes without transmission across external networks.
+
+14. The system as claimed in claim 10, wherein the decision compiler further comprises an explainability engine configured to generate role-tailored audit reports for security operations center (SOC) analysts, chief information security officers (CISOs), and regulatory auditors satisfying 45 CFR § 164.312(a)(1) access control auditing safeguards.
+
+15. A security optimization compiler apparatus comprising non-transitory computer-readable memory storing instructions that, when executed by a processor, cause the processor to:
+    - receive an input representing runtime operational state context and threat detection signals from a network;
+    - model a security response decision problem as a solver-independent intermediate representation comprising decision variables for potential actions and hyperedges for action dependencies;
+    - identify and excise decision variables deemed infeasible under said operational state context;
+    - update dependent conflict constraints and aggregate resource bounds following variable excision;
+    - deterministically verify that the sanitized intermediate representation satisfies predefined hard safety invariants; and
+    - compile the sanitized intermediate representation into an incident-specific mathematical decision formulation solvable by a computational optimization engine.
 
 ---
 

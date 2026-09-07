@@ -1,6 +1,11 @@
 # 🛡️ Cloud Guardian: Adaptive Runtime Security Constraint Compilation & Decision System
 
-> **Master Repository Documentation**  
+> [!IMPORTANT]
+> **PROPRIETARY INTELLECTUAL PROPERTY — PATENT APPLICATION FILED / PENDING**  
+> **Jurisdiction**: Indian Patent Office (IPO) Complete Specification Form 2 / PCT Application  
+> **Applicant & Inventor**: Naveen Ravi | **Invention**: Adaptive Runtime Security Constraint Compilation and Decision System  
+> **Confidentiality Notice**: The contents, source algorithms, mathematical formulations, and empirical evaluation data in this repository constitute proprietary intellectual property. Unauthorized commercial reproduction, distribution, or public disclosure without explicit written consent is strictly prohibited under the Patents Act, 1970 and international patent treaties.
+
 > **System Status**: Fully Verified (10/10 Verification Pass) | 100% Decision Fidelity ($DF\%$) | Pre-Solve Safety Certified | 9-Layer Architecture
 
 ---
