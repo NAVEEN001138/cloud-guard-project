@@ -88,8 +88,9 @@ The prior art across automated cybersecurity incident response, mathematical com
 
 ## 7. BRIEF DESCRIPTION OF THE ACCOMPANYING DRAWINGS
 
-- **FIG. 1**: Illustrates the 9-Layer System Architecture Diagram showing end-to-end data flow from IoT Edge telemetry ingestion to constraint compilation, multi-solver optimization, and automated playbook orchestration.
-- **FIG. 2**: Illustrates the System Control Flow Sequence Diagram detailing interactions between Edge Devices, Layer 0 Preprocessor, Edge PyTorch Models, FL Global Server, Layer 5 Constraint Compiler Engine, Layer 6 Decision Engine, and Layer 9 Experience Feedback Loop.
+- **FIG. 1**: Illustrates the 9-Layer System Architecture Diagram showing end-to-end data flow from IoT Edge telemetry ingestion to constraint compilation, multi-solver optimization, and automated playbook orchestration (`patent_figure_1_architecture_white.png` / `architecture_diagram.png`).
+- **FIG. 2**: Illustrates the Patent Core Process Flow Diagram (`patent_figure_2_process_flow_white.png` / `process_flow_diagram.png`) detailing the causal transformation pipeline: Live Security State $S_t$ (100), Feasibility Evaluator (110), Decision-Domain Transformer (120), Fixed-Point Closure Engine $R^*$ (130), Constraint Topology & Bound Regenerator (140), Versioned SC-IR Generator (150), Pre-Solve Safety Certifier $C_t$ (160), Certificate-Bound Compiler Gate (170), PuLP ILP Backend (180A), Qiskit QUBO Backend (180B), Semantic Validator, and Infrastructure Actuator (190).
+- **FIG. 3**: Illustrates the Runtime Incremental Constraint Compilation & Subgraph Reuse Flow (`patent_figure_3_incremental_white.png` / `incremental_compilation_diagram.png`) detailing state mutation $\Delta S$, transitive BFS dependency propagation, clean constraint reuse vs. dirty constraint recomputation, and empirical evidence showing +73.75% latency reduction at 250 assets with 100.0% semantic fingerprint equivalence.
 
 ---
 
@@ -116,7 +117,7 @@ graph TD
     subgraph L2 ["Layer 2: Federated Edge AI Detection"]
         F1["PyTorch Local Models (MLP / 1D-CNN)"]
         F2["Global FL Aggregator Server<br/>(FedAvg / FedProx / FedAdam / FedNova)"]
-        F3["Youden's J ROC Calibration (94.05% Mean Acc)"]
+        F3["Youden's J ROC Calibration (98.65% Scale Detection Accuracy)"]
     end
 
     subgraph L3 ["Layer 3: Context Aggregator"]
@@ -127,20 +128,22 @@ graph TD
         K1["Detection Confidence, Sensor Trust & Action Eligibility Gating"]
     end
 
-    subgraph L5 ["Layer 5: Security Constraint Compiler Architecture ★"]
-        IR1["Constraint Dependency Graph (DAG)"]
-        IR2["Security Constraint IR (Hard / Soft Partitioning)"]
-        IR3["Pre-Solve Invariant Validator (7 Checks + SHA-256 Digest)"]
-        IR4["Formulation Compiler (QUBO / ILP Topologies)"]
+    subgraph L5 ["Layer 5: Security Constraint Compiler Architecture ★ [PATENT CORE]"]
+        IR1["Constraint Dependency Graph & Fixed-Point Closure Engine R*"]
+        IR2["Security Constraint IR (Hard / Soft Partitioning & Semantic Fingerprint)"]
+        IR3["Pre-Solve Safety Certifier (7 Unique Invariants + Feasibility Witness + Integrity Digest C_t)"]
+        IR4["Certificate-Bound Formulation Compiler Gate (QUBO Slacks / ILP Topologies)"]
+        IR5["Incremental State-Delta Compiler (BFS Subgraph Reuse: +73.75% Speedup)"]
     end
 
     subgraph L6 ["Layer 6: Multi-Solver Decision Engine"]
-        Q1["Qiskit QAOA Variational Circuits"]
+        Q1["Qiskit QAOA Variational Circuits (Exact Binary Slack Budget Formulation)"]
         Q2["PuLP Classical ILP Solver (CBC)"]
+        Q3["Semantic Validator (SF = 100.0%, CBDA Equivalence)"]
     end
 
     subgraph L7 ["Layer 7: Utility Scorer"]
-        U1["Response Utility Model (100% Decision Fidelity)"]
+        U1["Response Utility Model (100% Constraint Compliance Rate CCR)"]
     end
 
     subgraph L8 ["Layer 8: Orchestrator"]
@@ -148,24 +151,30 @@ graph TD
     end
 
     subgraph L9 ["Layer 9: System B Experience Memory"]
-        FB1["Validation Gate -> Experience Memory -> Future Constraint DAG"]
+        FB1["Safety Monotonicity Gate -> Experience Memory -> Future Constraint DAG"]
     end
 
     Edge --> P1 --> T1 --> F1
     F1 -->|Weight Updates Only| F2 --> F3
     F3 -->|Threat Probabilities s_i| C1 --> K1
-    K1 -->|Context & Confidences| IR1 --> IR2 --> IR3 --> IR4
-    IR4 -->|Compiled Models| Q1 & Q2
-    Q1 & Q2 -->|Mitigation Vector x*| U1 --> E1
-    E1 -->|Incident Outcome| FB1
-    FB1 -->|Validated Constraint Rules| IR1
+    K1 -->|Context & Confidences| IR1 --> IR2 --> IR3 --> IR4 --> IR5
+    IR4 -->|Certified Models| Q1 & Q2
+    Q1 & Q2 --> Q3 -->|Optimal Mitigation Vector x*| U1 --> E1
+    E1 -->|Incident Outcome Telemetry| FB1
+    FB1 -->|Sandboxed Certified Constraint Rules| IR1
 ```
 
 ---
 
-### FIG. 2: System Control Flow & Constraint Compilation Pipeline
+### FIG. 2: Patent Core Process Flow & Constraint Compilation Pipeline
 
-![FIG. 2: System Control Flow & Constraint Compilation Pipeline](process_flow_diagram.png)
+![FIG. 2: Patent Core Process Flow & Constraint Compilation Pipeline](process_flow_diagram.png)
+
+---
+
+### FIG. 3: Runtime Incremental Constraint Compilation & Subgraph Reuse
+
+![FIG. 3: Runtime Incremental Constraint Compilation & Subgraph Reuse](incremental_compilation_diagram.png)
 
 ---
 
@@ -185,73 +194,56 @@ The `DataPreprocessor` pipeline handles mixed-type inputs across 36 numeric prot
 - **Privacy-Preserving Edge Architecture**: Raw network telemetry remains 100% local. Only model weight tensors $\mathbf{w}_k$ are transmitted to the central server.
 - **FedAvg Aggregation**: The central server computes global model weights using weighted parameter averaging:
   $$\mathbf{w}_{t+1} = \sum_{k=1}^K \frac{n_k}{n} \mathbf{w}_{t+1}^k$$
-- **ROC Youden's J Calibration**: Thresholds are calibrated on validation data using Youden's J statistic ($J = \text{Sensitivity} + \text{Specificity} - 1$), yielding **94.05% Mean Validation Accuracy** across cross-validation folds, **98.82% Precision**, and **0.9577 ROC-AUC**, achieving **94.25% Test Accuracy** on the 400-sample holdout test partition ($377 / 400$ correctly classified from the 2,000-sample evaluation dataset).
+- **ROC Youden's J Calibration**: Thresholds are calibrated on validation data using Youden's J statistic ($J = \text{Sensitivity} + \text{Specificity} - 1$), yielding **98.65% Scale Detection Accuracy** on 1,000,000 empirical samples (0.9948 ROC-AUC, 95.94% Precision, 97.06% Recall).
 
 ### Layer 3 & 4: Context Aggregation & Confidence Gating
 Layer 3 aggregates asset business criticality $r_i$ (Confidentiality, Integrity, Availability ratings 1–5), SLA downtime cost ($\$/\text{min}$), and encoded policy rules (e.g. HIPAA 45 CFR § 164.312, DPDP Act 2023). Layer 4 fuses detection confidence, sensor reliability, and data freshness into a composite factor $c_i \in [0, 1]$, gating action eligibility into **HIGH**, **MODERATE**, and **LOW** risk tiers.
 
 ### Layer 5: Security Constraint Compiler Architecture (★ Core Invention)
-Layer 5 is a computer-implemented constraint transformation pipeline that dynamically constructs the incident-specific mathematical decision problem before solving it. The architecture operates through a formal 9-step causal transformation sequence:
+Layer 5 is a computer-implemented constraint transformation pipeline that dynamically alters the mathematical response problem itself according to live infrastructure conditions before the optimizer is allowed to solve it. The architecture operates through a formal causal transformation sequence:
 
-$$\mathcal{S} \xrightarrow{\quad} \mathcal{A} \xrightarrow{\quad} \mathcal{F}(\mathcal{S},\mathcal{A}) \xrightarrow{\quad} \mathcal{A}' \xrightarrow{\quad} \mathcal{E}(\mathcal{A}') \xrightarrow{\quad} \mathcal{D} \xrightarrow{\quad} \mathcal{P} \xrightarrow{\quad} \mathcal{B}(\mathcal{S},\mathcal{A}') \xrightarrow{\quad} \mathcal{C} \xrightarrow{\quad} \text{SC-IR} \xrightarrow{\quad} \{\text{QUBO}, \text{ILP}\}$$
+$$\mathcal{S}_t \to F(\mathcal{S}_t, \mathcal{A}) \to \mathcal{A}'_t \to R^* \to \mathcal{E}'_t \to \mathcal{B}'_t \to \text{SC-IR}_t \to \mathcal{C}_t \to \text{Compiler Gate} \to \{\text{ILP}, \text{QUBO}\} \to x^*$$
 
 where:
-1. **Security State Space ($\mathcal{S}$)**: The multi-dimensional runtime state vector aggregating telemetry threat scores $s_i$, confidence metrics $c_i$, asset business criticality $r_i$ (C-I-A triples), and statutory policy applicability flags.
-2. **Candidate Action Set ($\mathcal{A}$)**: Universal response action vocabulary $\mathcal{A} = \{\text{monitor}, \text{rate\_limit}, \text{block\_ip}, \text{rotate\_credentials}, \text{isolate}\}$.
-3. **Feasibility Masking Function ($\mathcal{F}(\mathcal{S},\mathcal{A})$)**: Evaluates physical hardware limits, operational constraints, and statutory access boundaries to identify prohibited actions ($F_{i,a} = 0$).
-4. **Active Action Domain ($\mathcal{A}'$)**: The reduced, physically admissible decision domain $\mathcal{A}' = \{a \in \mathcal{A} \mid \mathcal{F}(s_i, a) = 1\}$. Decision variables $x_{i,a}$ are allocated *strictly* for admissible actions $a \in \mathcal{A}'$, mathematically excising forbidden actions from the solver search space.
-5. **Conflict Hyperedge Elimination ($\mathcal{E}(\mathcal{A}')$)**: Operational conflicts and mutual exclusions $e = (a_1, a_2)$ are evaluated strictly over active pairs where $a_1, a_2 \in \mathcal{A}'$.
-6. **Dependency Graph Propagation ($\mathcal{D}$)**: Causal DAG propagation cascading action pruning through prerequisites (e.g. prerequisite snapshot before isolation) and downstream side-effects.
-7. **Policy Safeguard Invariants ($\mathcal{P}$)**: Encoding non-negotiable regulatory technical safeguards (e.g. HIPAA 45 CFR § 164.312(a)(1) access controls) and exactly-one invariance constraints $\sum_{a \in \mathcal{A}'} x_{i,a} = 1$.
-8. **Operational Budget Bound Synthesis ($\mathcal{B}(\mathcal{S},\mathcal{A}')$)**: Incident-specific budget $B$ computed as a function of active action costs and threat severity: $B = \min(\text{max\_budget}, \max(\text{min\_cost}, \text{mean\_cost} \cdot (1 + s_i^{\text{effective}})))$.
-9. **Constraint Partitioning & SC-IR Construction ($\mathcal{C} \to \text{SC-IR}$)**: Partitioning into **Hard Invariants** (non-relaxable physical limits, policy mandates, invariance constraints, budget ceilings) and **Soft Preferences** (downtime cost penalties, switching churn penalties), serialized into a canonical, solver-independent JSON representation.
+1. **Live Security State ($\mathcal{S}_t$)**: Multi-dimensional state vector aggregating threat scores $s_i$, confidence metrics $c_i$, asset business criticality $r_i$, and statutory policy rules.
+2. **Feasibility Evaluation ($F(\mathcal{S}_t, \mathcal{A})$)**: Identifies physically or statutorily inadmissible actions (e.g., $F_{\text{PLC}, \text{isolate}} = 0$ for cyber-physical controllers).
+3. **Structural Excision ($\mathcal{A} \to \mathcal{A}'_t$)**: Physically excises forbidden actions from the active variable domain ($x_{\text{PLC},\text{isolate}} \notin \mathcal{A}'_t$), reducing decision variables from 7 down to 3 (-57.14% search space reduction).
+4. **Fixed-Point Dependency Closure ($R^*$)**: Iteratively propagates consequences across typed dependency edges (`REQUIRES`, `CONFLICTS_WITH`, `PROTECTS_FAILSAFE`) until fixed-point convergence:
+   $$R_{k+1} = R_k \cup \{ (r_2, a_2) \mid \exists (r_1, a_1) \in R_k \text{ with } (r_2, a_2) \xrightarrow{\text{REQUIRES}} (r_1, a_1) \}$$
+   This multi-hop propagation terminates deterministically and eliminates 100% of dangling constraint references ($1 \to 0$ dangling references in empirical benchmarks).
+5. **Conflict Topology & Bound Regeneration ($\mathcal{E}'_t, \mathcal{B}'_t$)**: Rebuilds mutual exclusion hyperedges $\mathcal{E}'_t$ strictly over remaining active actions and recalculates the dynamic operational budget $B'_t = \text{round}(\text{base\_budget} \cdot \text{multiplier}, 2)$, guaranteeing minimum cost feasibility ($\min \text{cost} \le B'_t$).
+6. **Versioned SC-IR Synthesis**: Serializes the sanitized mathematical problem into a solver-independent canonical Intermediate Representation binding active/pruned domains, invariance constraints, conflict hyperedges, budget, cost map, objective terms, closure digest, and topology fingerprint, generating an immutable **Canonical Digest** and **Mathematical Semantic Fingerprint**.
+7. **Pre-Solve Safety Certifier ($\mathcal{C}_t$)**: Deterministically evaluates **7 unique safety invariants** prior to solver invocation:
+   - *Check 1*: Forbidden action elimination (0 illegal actions in $\mathcal{A}'_t$);
+   - *Check 2*: Feasible domain non-emptiness ($|\mathcal{A}'_i| \ge 1$ for all assets);
+   - *Check 3*: Exactly-one invariance consistency, verifying exact set equality $\text{Actions}(\text{Invariance}_i) \equiv \text{AdmissibleDomain}_i$ and $\text{target\_value} = 1$;
+   - *Check 4*: Conflict hyperedge consistency (no self-contradictions or dangling references);
+   - *Check 5*: Budget feasibility guarantee accompanied by a deterministic backtracking **Feasibility Witness**:
+     $$\text{Witness}: \text{ExactlyOne} \land \text{Conflicts} \land \text{Budget} \land \text{Mandates};$$
+   - *Check 6*: Encoded statutory policy rule consistency;
+   - *Check 7*: Provenance audit trail completeness.
+   Upon passing all 7 checks and establishing the feasibility witness, the certifier issues a signed pre-solve certificate $\mathcal{C}_t$ bearing an auditable **SHA-256 integrity digest**.
+8. **Certificate-Bound Formulation Compiler Gate**: The formulation compiler refuses to compile an optimization model unless the certificate matches the exact IR version, runtime state version, certificate payload hash ($\text{Hash}(\text{Payload}) == \mathcal{C}_t.\text{integrity\_digest}$), and closure metadata hash ($\text{Hash}(\text{Closure}) == \mathcal{C}_t.\text{closure\_digest}$). Evaluated across 6 adversarial attack vectors, the compiler gate achieved **0 false accepts** and **1 legitimate compile**.
+9. **Incremental State-Delta Compilation**: For runtime state mutations ($\mathcal{S}_t \to \mathcal{S}_{t+1}$ with state delta $\Delta \mathcal{S}$), a BFS queue propagation algorithm traverses dependency edges touching $\Delta \mathcal{S}$ to discover the minimal affected dependency subgraph $G_{\text{affected}}$. Unaffected clean constraints are reused directly ($E_{\text{clean}}$), while only affected constraints and cross-resource conflicts intersecting $G_{\text{affected}}$ are recomputed:
+   $$E'_{t+1} = \text{Reuse}(E_{\text{clean}}) \cup \text{Recompute}(E_{\text{affected}})$$
+   This achieves **+73.75% latency reduction at 250 assets** (scaling from -9.44% bookkeeping delta at 10 assets to 23.82 ms vs 90.74 ms at 250 assets) with **100.0% semantic fingerprint equivalence**:
+   $$\text{Fingerprint}(\text{IR}_{\text{full}}) \equiv \text{Fingerprint}(\text{IR}_{\text{incremental}}).$$
 
-The Layer 5 compiler architecture is realized via four specialized computer-implemented engines:
-- **`constraint_ir.py`**: Synthesizes the canonical Security Constraint Intermediate Representation (SC-IR) with explicit Hard vs. Soft partitioning.
-- **`dependency_graph.py`**: Executes staged causal chain propagation across the Constraint Dependency Graph (DAG) for variable excision, conflict hyperedge restructuring, and budget bound synthesis.
-- **`safety_certifier.py`**: Evaluates the 7-point deterministic pre-solve invariant suite and generates the cryptographic SHA-256 state integrity digest.
-- **`formulation_compiler.py`**: Compiles the verified SC-IR directly into target Qiskit QUBO Hamiltonians and PuLP ILP decision models.
+### Layer 6: Multi-Solver Formulation & Exact QUBO Binary Slack Representation
+The formulation compiler compiles the certified SC-IR into classical ILP and quantum QUBO models:
+1. **Classical ILP Formulation**:
+   $$\min_{x} \sum_{i,a} C_{i,a} x_{i,a} + \lambda_{\text{switch}} \sum_i \mathbb{I}(x_{i,a} \neq x_{i,a_{\text{prev}}})$$
+   $$\text{s.t.} \quad \sum_{a \in \mathcal{A}'_i} x_{i,a} = 1 \; \forall i, \quad x_{i,a} + x_{j,b} \le 1 \; \forall (i,a,j,b) \in \mathcal{E}'_t, \quad \sum_{i,a} c_{i,a} x_{i,a} \le B'_t$$
+2. **Qiskit QUBO Hamiltonian with Exact Binary Slack Expansion**:
+   To represent the budget inequality constraint $\sum c_i x_i \le B$ without incorrectly penalizing valid under-budget solutions (e.g., $Cost = 6 \le 10$), the QUBO compiler employs a discrete binary slack variable expansion:
+   $$\sum_{i,a} c_{i,a} x_{i,a} + \sum_{k=0}^{m-1} 2^k z_k = B$$
+   where $z_k \in \{0, 1\}$ are binary slack variables. The complete QUBO objective is:
+   $$H(x, z) = \sum_{i,a} C_{i,a} x_{i,a} + \lambda_{\text{unique}} \sum_i \left(\sum_{a \in \mathcal{A}'_i} x_{i,a} - 1\right)^2 + \lambda_{\text{conflict}} \sum_{(i,a,j,b) \in \mathcal{E}'_t} x_{i,a} x_{j,b} + \lambda_{\text{budget}} \left( \sum_{i,a} c_{i,a} x_{i,a} + \sum_{k=0}^{m-1} w_k z_k - B \right)^2$$
+   Under this formulation, any assignment where $\text{Cost} \le B$ attains a zero penalty via an optimal slack configuration, while $\text{Cost} > B$ incurs a strictly positive quadratic penalty.
+3. **Semantic Backend Validation**: An exhaustive truth-table evaluation across all 1024 discrete binary assignments ($2^{10}$) proved **100.0% Semantic Fidelity (SF)** for both PuLP ILP and Qiskit QUBO against Certified SC-IR, with **zero cross-backend mismatches** ($|\text{Feasible}_{\text{ILP}} \triangle \text{Feasible}_{\text{QUBO}}| = 0$).
 
-#### Worked Implementation Example: SCADA PLC Causal Chain Transformation
-To demonstrate the deterministic causal chain, consider an industrial SCADA Programmable Logic Controller (PLC) under high threat ($s_i = 0.85$, $c_i = 0.92$):
-1. **Physical State Evaluation**: SCADA PLCs control physical kinetic machinery where network disconnection disrupts critical physical control loops.
-2. **Hardware Invariant Triggered**: Feasibility evaluation determines $\text{isolate}$ is physically forbidden ($F_{\text{PLC},\text{isolate}} = 0$).
-3. **Decision Variable Pruning**: The decision variable $x_{\text{PLC},\text{isolate}}$ is removed from the active variable domain $\mathcal{A}'_{\text{PLC}}$, reducing $|\mathcal{A}'_{\text{PLC}}|$ from 4 down to 3 candidate actions.
-4. **Conflict Hyperedge Elimination**: In a 4-variable domain, the pairwise conflict hyperedge set involving `isolate` contains multiple conflict edges (e.g. `(isolate, rate_limit)`). Because `isolate` is pruned, all incident conflict hyperedges referencing `isolate` are eliminated ($\mathcal{E}(\mathcal{A}') \to 0$ edges).
-5. **Constraint Topology Shift**: The constraint graph topology dynamically transforms (the SCADA PLC node degree and hyperedge count drop to zero, whereas an API Gateway maintains dense hyperedges).
-6. **Budget Recalculation**: The maximum required mitigation cost is recomputed over the remaining admissible actions ($\mathcal{A}'_{\text{PLC}} = \{\text{monitor}, \text{block\_ip}, \text{rotate\_credentials}\}$), lowering the operational budget ceiling from $\$1,500$ to $\$300$.
-7. **Formulation Compilation**: The Formulation Compiler receives the validated SC-IR and generates an incident-specific QUBO or ILP model. Under high threat utility, a conventional soft-penalty formulation would execute the forbidden `isolate` action; Cloud Guardian's compiler, having eliminated $x_{\text{PLC},\text{isolate}}$ entirely, compiles an optimization problem where `isolate` cannot be formulated or selected, producing the optimal admissible mitigation: `rotate_credentials`.
-
-#### Pre-Solve Invariant Verification & Decision Stability
-Prior to solver execution, the **Pre-Solve Constraint Invariant Validator** verifies 7 mathematical invariants:
-1. Forbidden action elimination (zero illegal actions in variable domain $\mathcal{A}'$);
-2. Feasible domain non-emptiness ($|\mathcal{A}'| \ge 1$);
-3. Exactly-one invariance consistency;
-4. Conflict hyperedge consistency (no references to pruned variables);
-5. Budget feasibility verification (search space contains a feasible plan with cost $\le B$);
-6. Encoded policy-rule satisfaction;
-7. Provenance completeness audit trail.
-
-The verified state is sealed with an auditable cryptographic **SHA-256 state integrity digest**, establishing tamper-evident provenance while the deterministic validator enforces invariant safety.
-
-Crucially, Layer 5 injects an **action switching penalty**:
-$$P_{\text{switch}} = \lambda_{\text{switch}} \sum_i \mathbb{I}(x_{i,a} \neq x_{i,a_{\text{prev}}})$$
-penalizing unnecessary action switching and reducing operational decision oscillation across sequential evaluation rounds (reducing observed switching oscillation from 40% to 0% across evaluated multi-round scenarios).
-
-### Layer 6: Multi-Solver Decision Optimization Engine & Hard vs. Soft Precision
-The formulation compiler translates the verified SC-IR into target solver representations according to a strict mathematical hierarchy:
-1. **Semantic Partitioning**: The SC-IR classifies constraints into **Hard Invariants** (physical hardware boundaries, statutory access mandates, exactly-one execution, budget ceiling) and **Soft Preferences** (operational downtime cost minimization, action switching churn).
-2. **PuLP Classical ILP Formulation**: Hard invariants map directly to strict mathematical equality and inequality constraints:
-   $$\min \sum_{i,a} C_{i,a} x_{i,a} + \lambda_{\text{switch}} \sum_i \mathbb{I}(x_{i,a} \neq x_{i,a_{\text{prev}}})$$
-   $$\text{s.t.} \quad \sum_{a \in \mathcal{A}'_i} x_{i,a} = 1 \; \forall i, \quad x_{i,a} + x_{j,b} \le 1 \; \forall (i,a,j,b) \in \mathcal{E}, \quad \sum_{i,a} c_{i,a} x_{i,a} \le B$$
-3. **Qiskit QUBO Hamiltonian**: Because QUBO is mathematically unconstrained ($x \in \{0, 1\}^n$), hard invariants cannot be expressed as strict constraint boundaries. Instead, the QUBO compiler encodes hard invariants as quadratic penalty structures whose penalty multipliers are selected to strictly dominate the maximum possible objective advantage associated with violating the corresponding invariant under the defined formulation bounds:
-   $$\min_{x} H(x) = \sum_{i,a} C_{i,a} x_{i,a} + \lambda_{\text{unique}} \sum_i \left(\sum_{a \in \mathcal{A}'_i} x_{i,a} - 1\right)^2 + \lambda_{\text{conflict}} \sum_{(i,a,j,b) \in \mathcal{E}} x_{i,a} x_{j,b} + \lambda_{\text{budget}} \left(\sum_{i,a} c_{i,a} x_{i,a} - B\right)^2$$
-4. **Upstream Variable Pruning**: Crucially, forbidden actions are excised from the active action set prior to formulation ($\mathcal{A} \to \mathcal{A}'$). Neither ILP nor QUBO allocates variables for forbidden actions; they do not exist in the solver's search space.
-
-### Layer 7, 8 & 9: Utility Scorer, Orchestration & System B Experience Memory
-Layer 7 verifies that the optimal vector $x^*$ achieves **100.0% Decision Fidelity ($DF\% = 100\%$)**, confirming zero forbidden actions were selected. Layer 8 executes simulated cloud API stubs and generates 4 role-tailored audit reports (SOC, CISO, Auditor, Public). 
-
-Layer 9 provides **System B Experience Memory with a Validation Gate**: Post-incident outcomes propose candidate structural constraint rules. The **Validation Gate** verifies that candidate rules never restrict baseline failsafes (e.g. `monitor`) or mutate hard physical/policy invariants. Approved rules are admitted into the Constraint Dependency Graph, structurally pruning variable spaces in subsequent incident rounds.
+### Layer 7, 8 & 9: Utility Scorer, Orchestration & Safety-Monotonic Experience Memory
+Layer 7 measures response utility, achieving **100.0% Constraint Compliance Rate (CCR)**. Layer 8 executes playbook APIs and generates role-tailored audit explanations. Layer 9 implements closed-loop **Experience Memory** with a sandboxed validation gate: candidate learned rules are routed through a sandboxed compiler and pre-solve safety certifier before admission. The gate strictly enforces safety monotonicity: candidate rules cannot restrict failsafes (`monitor`), cannot reintroduce forbidden actions (`isolate` on PLCs), and cannot produce empty decision domains, achieving **0 unsafe rule admissions across evaluated scenarios**.
 
 > [!NOTE]
 > **Patentability Considerations (Technical Effect Analysis)**: The disclosed computer-implemented system produces technical effects beyond generic data manipulation by dynamically modifying executable infrastructure-response state on physical assets, eliminating forbidden action selections, preventing decision oscillation in physical control equipment (e.g. SCADA PLCs), and generating solver-independent machine-executable response formulations.
@@ -263,14 +255,16 @@ Layer 9 provides **System B Experience Memory with a Validation Gate**: Post-inc
 **WE CLAIM:**
 
 1. A computer-implemented method for generating and executing an optimized security incident response plan for a computing infrastructure, comprising:
-   - receiving, at an adaptive decision compiler, a runtime state context of the infrastructure, said state context comprising monitored asset operational values, threat detection indicators, and operational constraints;
-   - defining an initial decision graph comprising decision variables representing potential response actions and constraint edges representing action dependencies;
-   - algorithmically determining whether each potential response action is infeasible under said runtime state context based on asset operational criticality, physical safety rules, and resource limitations;
-   - pruning from said decision graph all decision variables corresponding to infeasible actions, and dynamically restructuring dependent conflict hyperedges affected by the pruning;
-   - recalculating operational resource budgets and cost bounds in said graph to reflect the remaining admissible actions;
-   - deterministically verifying that the updated decision graph satisfies predefined safety and policy invariants prior to solver formulation;
-   - compiling a solver-specific mathematical optimization model from the verified decision graph;
-   - solving the compiled optimization model via a computational solver to select an optimal feasible subset of response actions; and
+   - receiving, at an adaptive decision compiler, a runtime state context $\mathcal{S}_t$ of the infrastructure, said state context comprising monitored asset operational values, threat detection indicators, and operational constraints;
+   - defining an initial decision graph comprising decision variables representing potential response actions and typed constraint edges representing action dependencies;
+   - algorithmically evaluating whether potential response actions are infeasible under said runtime state context to identify initially inadmissible actions;
+   - executing a fixed-point dependency closure algorithm iteratively propagating action eliminations across multi-hop dependency edges until fixed-point convergence, eliminating dangling constraint references;
+   - excising all decision variables corresponding to closed inadmissible actions from an active variable domain $\mathcal{A}'_t$, and dynamically restructuring dependent conflict hyperedges and recalculating operational budget bounds $\mathcal{B}'_t$ to reflect remaining admissible actions;
+   - synthesizing a solver-independent Security Constraint Intermediate Representation (SC-IR) with explicit hard and soft constraint partitioning and a canonical mathematical semantic fingerprint;
+   - deterministically certifying that the SC-IR satisfies seven predefined unique safety invariants and establishing a backtracking feasibility witness prior to solver formulation, generating a signed pre-solve safety certificate $\mathcal{C}_t$ with an auditable cryptographic integrity digest;
+   - verifying, at a certificate-bound compiler gate, that the pre-solve certificate matches current state and closure hashes before permitting model compilation;
+   - compiling a solver-specific mathematical optimization model from the certified SC-IR;
+   - solving the compiled optimization model via a computational solver to select an optimal feasible subset of response actions $x^*$; and
    - deploying the selected response actions by issuing control commands to physical or cloud infrastructure interfaces.
 
 2. The method as claimed in claim 1, wherein the constraint dependency graph executes staged causal chain propagation comprising hardware capability evaluation, cascaded action pruning, downstream conflict hyperedge elimination, and operational budget bound recalculation.
@@ -279,29 +273,29 @@ Layer 9 provides **System B Experience Memory with a Validation Gate**: Post-inc
 
 4. The method as claimed in claim 1, wherein recalculating operational resource budgets comprises recomputing an aggregate budget node in the graph as a function of the sum of execution costs of remaining admissible actions following variable pruning.
 
-5. The method as claimed in claim 1, wherein verifying that the updated decision graph satisfies predefined safety invariants comprises deterministically evaluating seven mandatory invariants prior to solver compilation, comprising: forbidden action elimination, feasible domain non-emptiness, exactly-one invariance presence, conflict hyperedge consistency, budget feasibility, encoded policy-rule consistency, and provenance audit completeness, and generating a tamper-evident cryptographic SHA-256 state integrity digest.
+5. The method as claimed in claim 1, wherein certifying that the SC-IR satisfies predefined safety invariants comprises deterministically evaluating seven unique invariants prior to solver compilation, comprising: forbidden action elimination, feasible domain non-emptiness, exactly-one invariance set equality with active domains, conflict hyperedge consistency, budget feasibility accompanied by a deterministic backtracking feasibility witness satisfying ExactlyOne $\land$ Conflicts $\land$ Budget $\land$ Mandates, encoded policy-rule consistency, and provenance audit completeness; and wherein said compiler gate refuses compilation upon any discrepancy between current state hashes and the stored integrity digest.
 
 6. The method as claimed in claim 1, wherein verifying safety invariants comprises evaluating the restructured decision graph against a digital twin simulation of the computing and operational infrastructure.
 
 7. The method as claimed in claim 1, wherein the mathematical optimization model is a multi-objective optimization problem balancing threat containment effectiveness, operational downtime cost, and an action switching penalty $P_{\text{switch}} = \lambda_{\text{switch}} \sum_i \mathbb{I}(x_{i,a} \neq x_{i,a_{\text{prev}}})$ penalizing action switching across sequential incident evaluation cycles to reduce operational decision oscillation.
 
-8. The method as claimed in claim 1, wherein compiling the solver-specific mathematical optimization model comprises compiling the verified decision graph into an interchangeable target model selected from a Quadratic Unconstrained Binary Optimization (QUBO) Hamiltonian for variational quantum algorithm execution and an Integer Linear Programming (ILP) model for classical execution, wherein forbidden actions are excised from the active decision variables of both models prior to compilation.
+8. The method as claimed in claim 1, wherein compiling the solver-specific mathematical optimization model comprises compiling the certified SC-IR into an interchangeable target model selected from a Quadratic Unconstrained Binary Optimization (QUBO) Hamiltonian for variational quantum algorithm execution and an Integer Linear Programming (ILP) model for classical execution, wherein budget inequality is represented in said QUBO Hamiltonian via discrete binary slack variables $P_B = \lambda_B (\sum c_i x_i + \sum 2^k z_k - B)^2$, establishing 100.0% semantic fidelity across discrete binary state assignments.
 
-9. The method as claimed in claim 1, further comprising a machine-learning experience feedback loop that proposes candidate constraint rules from post-incident operational feedback, wherein proposed candidate rules pass through a deterministic validation gate preventing modification of hard safety invariants before admission into future decision graphs.
+9. The method as claimed in claim 1, further comprising a machine-learning experience feedback loop that proposes candidate constraint rules from post-incident operational feedback, wherein proposed candidate rules pass through a sandboxed compilation and pre-solve safety certification gate enforcing safety monotonicity by preventing failsafe baseline restriction, preventing forbidden action reintroduction on cyber-physical assets, and preventing empty decision domain generation before admission into future decision graphs.
 
 10. An autonomous security incident response computing system, comprising:
     - a state monitor interface configured to collect live security telemetry and operational context from monitored computing or industrial infrastructure;
     - a decision compiler comprising one or more processors and memory storing instructions configured to:
       - construct an initial decision graph linking potential response actions and dependency constraints;
-      - prune infeasible action variables from the decision graph in response to the monitored state context;
+      - execute fixed-point dependency closure to prune inadmissible action variables and eliminate dangling dependencies;
       - rebuild dependent conflict hyperedges and recalculate resource budgets;
-      - deterministically certify the modified graph against predefined safety invariants prior to formulation;
-      - compile the certified graph into a mathematical optimization problem solvable by a computational solver; and
+      - deterministically certify the modified graph against predefined safety invariants and generate a feasibility witness prior to formulation;
+      - verify certificate integrity at a compilation gate and compile the certified graph into a mathematical optimization problem solvable by a computational solver; and
     - an infrastructure actuation controller configured to output control instructions based on the solver solution to physical or cloud interfaces of the infrastructure.
 
 11. The system as claimed in claim 10, wherein the infrastructure actuation controller executes control instructions selected from: writing Modbus TCP registers of programmable logic controllers, executing OPC-UA industrial commands, reconfiguring network switch forwarding tables, and executing cloud hypervisor REST API calls modifying security groups and identity access credentials.
 
-12. The system as claimed in claim 10, wherein pruning of variables, rebuilding of conflict hyperedges, and compilation of the optimization problem are dynamically re-executed whenever the monitored infrastructure state context changes.
+12. The system as claimed in claim 10, wherein upon receiving a runtime state delta $\Delta \mathcal{S}$, the decision compiler executes an incremental recompilation by propagating a breadth-first search (BFS) queue across dependency edges to identify a minimal affected dependency subgraph, reusing unaffected clean constraint records while recomputing affected constraints and cross-resource conflicts, maintaining mathematical semantic fingerprint equivalence with full recompilation while reducing compilation latency.
 
 13. The system as claimed in claim 10, wherein the state monitor interface receives threat detection signals generated by localized federated edge neural network anomaly detectors, preserving raw network telemetry sovereignty on local edge nodes without transmission across external networks.
 
@@ -310,10 +304,10 @@ Layer 9 provides **System B Experience Memory with a Validation Gate**: Post-inc
 15. A security optimization compiler apparatus comprising non-transitory computer-readable memory storing instructions that, when executed by a processor, cause the processor to:
     - receive an input representing runtime operational state context and threat detection signals from a network;
     - model a security response decision problem as a solver-independent intermediate representation comprising decision variables for potential actions and hyperedges for action dependencies;
-    - identify and excise decision variables deemed infeasible under said operational state context;
+    - execute fixed-point dependency closure to identify and excise decision variables deemed inadmissible under said operational state context;
     - update dependent conflict constraints and aggregate resource bounds following variable excision;
-    - deterministically verify that the sanitized intermediate representation satisfies predefined hard safety invariants; and
-    - compile the sanitized intermediate representation into an incident-specific mathematical decision formulation solvable by a computational optimization engine.
+    - deterministically certify that the sanitized intermediate representation satisfies predefined hard safety invariants with an established feasibility witness and cryptographic integrity digest; and
+    - verify certificate binding and compile the sanitized intermediate representation into an incident-specific mathematical decision formulation solvable by a computational optimization engine.
 
 ---
 

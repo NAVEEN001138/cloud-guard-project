@@ -145,21 +145,28 @@ class IncrementalConstraintCompiler:
         primary_dirty.update(delta.changed_capabilities.keys())
         primary_dirty.update(delta.changed_threat_state.keys())
         primary_dirty.update(delta.changed_policy_state.keys())
+        primary_dirty.update(delta.changed_resource_state.keys())
         primary_dirty.intersection_update(all_rids)
 
-        # 2. Propagate along explicit dependency edges to find transitively affected nodes
+        # 2. Transitive BFS Propagation along explicit dependency edges
         dirty_assets = set(primary_dirty)
         dirty_edges = []
         edges = explicit_dependencies or []
+        queue = list(primary_dirty)
 
-        for edge in edges:
-            src_rid = edge.source_entity.split(":", 1)[0] if ":" in edge.source_entity else edge.source_entity
-            tgt_rid = edge.target_entity.split(":", 1)[0] if ":" in edge.target_entity else edge.target_entity
+        while queue:
+            curr = queue.pop(0)
+            for edge in edges:
+                src_rid = edge.source_entity.split(":", 1)[0] if ":" in edge.source_entity else edge.source_entity
+                tgt_rid = edge.target_entity.split(":", 1)[0] if ":" in edge.target_entity else edge.target_entity
 
-            if src_rid in primary_dirty or tgt_rid in primary_dirty:
-                dirty_edges.append(edge)
-                dirty_assets.add(src_rid)
-                dirty_assets.add(tgt_rid)
+                if src_rid == curr or tgt_rid == curr:
+                    if edge not in dirty_edges:
+                        dirty_edges.append(edge)
+                    other = tgt_rid if src_rid == curr else src_rid
+                    if other in all_rids and other not in dirty_assets:
+                        dirty_assets.add(other)
+                        queue.append(other)
 
         dirty_assets.intersection_update(all_rids)
 
@@ -310,12 +317,20 @@ class IncrementalConstraintCompiler:
             if prec.target_resource in clean_assets:
                 new_ir.provenance_records.append(copy.deepcopy(prec))
 
-        # 4c. Selective Conflict Hyperedge Update
-        # Reuse conflicts strictly between clean assets; recompute for dirty assets
+        # 4c. Selective Conflict Hyperedge Update:
+        # Reuse conflicts strictly between clean assets; re-evaluate cross-resource conflicts intersecting dirty assets
         for conf in previous_ir.conflict_hyperedges:
             if conf.resource_1 in clean_assets and conf.resource_2 in clean_assets:
                 new_ir.conflict_hyperedges.append(copy.deepcopy(conf))
                 reused_constraints.append(f"CONFLICT_{conf.resource_1}_{conf.action_1}")
+            elif conf.resource_1 in dirty_assets or conf.resource_2 in dirty_assets:
+                # If cross-resource conflict touches a dirty asset, verify both actions remain admissible
+                dom1 = new_ir.variable_domains.get(conf.resource_1)
+                dom2 = new_ir.variable_domains.get(conf.resource_2)
+                if dom1 and dom2 and conf.action_1 in dom1.admissible_actions and conf.action_2 in dom2.admissible_actions:
+                    if conf.resource_1 != conf.resource_2:  # Cross-resource
+                        new_ir.conflict_hyperedges.append(copy.deepcopy(conf))
+                        recomputed_constraints.append(f"CONFLICT_CROSS_{conf.resource_1}_{conf.resource_2}")
 
         for r in dirty_scen_resources:
             rid = r["id"]
@@ -328,7 +343,7 @@ class IncrementalConstraintCompiler:
                         resource_2=rid,
                         action_2=a2,
                         reason=reason,
-                        rule_id="INC_WITHIN_RES_CONFLICT",
+                        rule_id="WITHIN_RES_CONFLICT",
                     ))
                     recomputed_constraints.append(f"CONFLICT_{rid}_{a1}")
 

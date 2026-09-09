@@ -118,8 +118,9 @@ def run_single_trial(sample_size: int, trial_idx: int, total_trials: int) -> Dic
     # Run Layer 5 Safety Certifier (7-point invariant verification)
     cert = PreSolveSafetyCertifier.certify(ir)
     invariants_passed = cert.is_valid()
-    checks_passed = sum(1 for v in cert.verification_checks.values() if v)
-    total_checks = len(cert.verification_checks)
+    unique_checks = cert.get_unique_checks()
+    checks_passed = sum(1 for v in unique_checks.values() if v)
+    total_checks = len(unique_checks)
     
     # Compile and solve ILP
     ilp_prob, x_vars = FormulationCompiler.compile_to_ilp(ir, certificate=cert)
@@ -137,13 +138,14 @@ def run_single_trial(sample_size: int, trial_idx: int, total_trials: int) -> Dic
             
     forbidden_rate = (forbidden_violations / len(eval_scen["resources"])) * 100.0
     
-    # Decision Fidelity: verified against formulation cuts
-    decision_fidelity = 100.0 if forbidden_violations == 0 and invariants_passed else 0.0
+    # Constraint Compliance Rate (CCR) / Safety Compliance
+    ccr_pct = 100.0 if forbidden_violations == 0 and invariants_passed else 0.0
+    decision_fidelity = ccr_pct
     
-    print(f"    - Layer 5 Safety Invariants: {checks_passed}/{total_checks} Checks Passed [{cert.status}]")
+    print(f"    - Layer 5 Safety Invariants: {checks_passed}/{total_checks} Unique Checks Passed [{cert.status}]")
     print(f"    - SHA-256 Integrity Digest: {cert.integrity_digest[:24]}...")
     print(f"    - Forbidden Action Rate   : {forbidden_rate:.1f}% (Violations = {forbidden_violations})")
-    print(f"    - Decision Fidelity ($DF%): {decision_fidelity:.2f}%")
+    print(f"    - Constraint Compliance Rate (CCR): {ccr_pct:.2f}%")
     
     return {
         "sample_size": sample_size,
@@ -161,8 +163,10 @@ def run_single_trial(sample_size: int, trial_idx: int, total_trials: int) -> Dic
         "opt_roc_threshold": round(opt_threshold, 4),
         "pre_solve_status": cert.status,
         "invariants_passed": f"{checks_passed}/{total_checks}",
+        "unique_invariants_count": total_checks,
         "integrity_digest": cert.integrity_digest,
         "forbidden_action_rate_pct": round(forbidden_rate, 1),
+        "constraint_compliance_rate_pct": round(ccr_pct, 2),
         "decision_fidelity_pct": round(decision_fidelity, 2),
         "ir_variables": ir.topology.num_variables,
         "hard_invariants_count": len(ir.hard_constraints),

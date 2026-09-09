@@ -1,0 +1,56 @@
+name: Cloud Guardian CI & Patent Verification
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pylint flake8
+
+    - name: Run Patent Strengthening Unit Tests (34/34 Tests)
+      run: |
+        python test_patent_strengthening.py
+
+    - name: Run 9-Layer System Verification (10/10 Components)
+      run: |
+        python verify_system.py
+
+    - name: Run Layer 5 Constraint Compiler Benchmark (Experiments 1 to 6)
+      run: |
+        python run_constraint_compiler_benchmark.py
+
+    - name: Run Layer 5 Patent Strengthening Benchmark Suite (Experiments 7 to 11)
+      run: |
+        python run_patent_strengthening_benchmark.py
+
+    - name: Generate Publication & Patent Diagram Figures (300 DPI)
+      run: |
+        python generate_diagram_images.py
+
+    - name: Code Quality & Syntax Verification (Lint)
+      run: |
+        # Check syntax errors and undefined names across codebase
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Check Layer 5 core modules with pylint errors only
+        pylint layer5_constraints/ --errors-only

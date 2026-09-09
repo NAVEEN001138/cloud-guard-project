@@ -24,6 +24,8 @@ Problem Solved:
 =============================================================================
 """
 
+import json
+import hashlib
 from typing import Dict, List, Tuple, Optional, Any, Union
 
 try:
@@ -123,6 +125,31 @@ class FormulationCompiler:
                 "The SC-IR was modified after safety certification."
             )
 
+        # Recompute and verify certificate's own integrity digest
+        if certificate.integrity_digest:
+            expected_cert_payload = (
+                f"{certificate.certificate_id}:{certificate.ir_sha256}:{certificate.ir_version}:{certificate.runtime_state_version}:"
+                f"{certificate.status}:{json.dumps(certificate.verification_checks, sort_keys=True)}:{certificate.closure_digest}"
+            )
+            expected_cert_hash = hashlib.sha256(expected_cert_payload.encode("utf-8")).hexdigest()
+            if certificate.integrity_digest != expected_cert_hash:
+                raise IntegrityBindingError(
+                    f"Compilation rejected: Certificate integrity digest mismatch. "
+                    f"Expected {expected_cert_hash[:16]}..., got {certificate.integrity_digest[:16]}... "
+                    "The safety certificate payload was altered after issuance."
+                )
+
+        # Recompute and verify closure metadata digest if present
+        if ir.dependency_closure_metadata:
+            c_dict = ir.dependency_closure_metadata.to_dict() if hasattr(ir.dependency_closure_metadata, "to_dict") else str(ir.dependency_closure_metadata)
+            expected_closure_hash = hashlib.sha256(json.dumps(c_dict, sort_keys=True).encode("utf-8")).hexdigest()
+            if certificate.closure_digest and certificate.closure_digest != expected_closure_hash:
+                raise IntegrityBindingError(
+                    f"Compilation rejected: Closure metadata digest mismatch. "
+                    f"Expected {expected_closure_hash[:16]}..., got {certificate.closure_digest[:16]}... "
+                    "The dependency closure state was altered after certification."
+                )
+
         # Invariant checks verification
         if not all(certificate.verification_checks.values()):
             failed_checks = [k for k, v in certificate.verification_checks.items() if not v]
@@ -142,6 +169,9 @@ class FormulationCompiler:
         """
         Compiles certified SecurityConstraintIR into a Qiskit QuadraticProgram.
         Requires a valid, un-tampered PreSolve Safety Certificate.
+        Uses binary slack variable expansion for the budget inequality (sum c_i x_i <= B):
+            sum c_i x_i + sum 2^k z_k == B
+        ensuring that under-budget valid responses are not incorrectly penalized.
         """
         # 1. Gate: Verify certificate binding
         cls.verify_binding(ir, certificate)
@@ -169,10 +199,14 @@ class FormulationCompiler:
                 vname = var_lookup[(rid, act)]
                 linear_terms[vname] = term.coefficient
 
-        # 4. Invariance Constraint Compilation: (sum_a x_{i,a} - 1)^2
-        # Expansion: -sum_a x_{i,a} + 2 * sum_{a < b} x_{i,a} * x_{i,b}
+        # 4. Invariance Constraint Penalty: lambda_I * (sum_a x_{i,a} - 1)^2
+        # Expansion: -lambda_I * sum_a x_{i,a} + 2 * lambda_I * sum_{a < b} x_{i,a} * x_{i,b}
         for inv in ir.invariance_constraints:
-            active_vars = [var_lookup[(inv.resource_id, a)] for a in sorted(inv.actions) if (inv.resource_id, a) in var_lookup]
+            active_vars = [
+                var_lookup[(inv.resource_id, a)]
+                for a in sorted(inv.actions)
+                if (inv.resource_id, a) in var_lookup
+            ]
             for v in active_vars:
                 linear_terms[v] = linear_terms.get(v, 0.0) - lambda_invariance
 
@@ -182,7 +216,7 @@ class FormulationCompiler:
                     pair = (v1, v2) if v1 < v2 else (v2, v1)
                     quadratic_terms[pair] = quadratic_terms.get(pair, 0.0) + 2.0 * lambda_invariance
 
-        # 5. Conflict Hyperedge Compilation: x1 + x2 <= 1  => penalty * x1 * x2
+        # 5. Conflict Hyperedge Constraint Penalty: lambda_C * x1 * x2
         for conf in ir.conflict_hyperedges:
             pair1 = (conf.resource_1, conf.action_1)
             pair2 = (conf.resource_2, conf.action_2)
@@ -192,39 +226,54 @@ class FormulationCompiler:
                 pair = (v1, v2) if v1 < v2 else (v2, v1)
                 quadratic_terms[pair] = quadratic_terms.get(pair, 0.0) + lambda_conflict
 
-        # 6. Budget Penalty Compilation: (sum c_{i,a} x_{i,a} - B)^2
+        # 6. Budget Inequality Constraint Penalty with Binary Slack Variables:
+        # P_B = lambda_B * (sum c_i x_i + sum w_k z_k - B)^2
+        slack_weights = []
         if ir.budget_constraint and ir.budget_constraint.max_budget > 0:
-            B = ir.budget_constraint.max_budget
-            quad_penalty = lambda_invariance / (B ** 2)
+            B = float(ir.budget_constraint.max_budget)
+            # Scaling factor for budget penalty to ensure dominating invariant enforcement
+            lambda_B = lambda_invariance / (B ** 2) if B > 0 else lambda_invariance
 
-            all_active = [
-                (rid, act) for (rid, act) in ir.get_all_variables() if (rid, act) in var_lookup
-            ]
+            # Generate binary power slack weights to span [0, B] with 0.5 resolution
+            delta = 0.5
+            total = 0.0
+            curr = delta
+            while total + curr < B:
+                slack_weights.append(curr)
+                total += curr
+                curr *= 2.0
+            if B - total > 1e-5:
+                slack_weights.append(round(B - total, 4))
 
-            # Linear cross-term with B: -2 * penalty * B * cost
-            for rid, act in all_active:
-                v = var_lookup[(rid, act)]
-                cost = ir.budget_constraint.cost_map.get((rid, act), 0.0)
-                linear_terms[v] = linear_terms.get(v, 0.0) - 2.0 * quad_penalty * B * cost
+            # Allocate binary slack variables
+            slack_names = []
+            for k, w in enumerate(slack_weights):
+                s_name = f"slack_{k}"
+                qp.binary_var(s_name)
+                slack_names.append((s_name, w))
 
-            # Quadratic cost expansion: sum_{i,j} cost_i * cost_j * x_i * x_j
-            for i in range(len(all_active)):
-                r1, a1 = all_active[i]
-                v1 = var_lookup[(r1, a1)]
-                c1 = ir.budget_constraint.cost_map.get((r1, a1), 0.0)
+            # Combined list of all terms in budget sum: (variable_name, coefficient)
+            budget_terms = [
+                (var_lookup[(rid, act)], float(ir.budget_constraint.cost_map.get((rid, act), 0.0)))
+                for (rid, act) in ir.get_all_variables()
+                if (rid, act) in var_lookup
+            ] + slack_names
 
-                for j in range(i, len(all_active)):
-                    r2, a2 = all_active[j]
-                    v2 = var_lookup[(r2, a2)]
-                    c2 = ir.budget_constraint.cost_map.get((r2, a2), 0.0)
+            # Linear terms expansion: lambda_B * (c_i^2 - 2 * B * c_i) * y_i
+            for vname, coeff in budget_terms:
+                lin_delta = lambda_B * (coeff ** 2 - 2.0 * B * coeff)
+                linear_terms[vname] = linear_terms.get(vname, 0.0) + lin_delta
 
-                    if i == j:
-                        linear_terms[v1] = linear_terms.get(v1, 0.0) + quad_penalty * (c1 ** 2)
-                    else:
-                        pair = (v1, v2) if v1 < v2 else (v2, v1)
-                        quadratic_terms[pair] = quadratic_terms.get(pair, 0.0) + 2.0 * quad_penalty * c1 * c2
+            # Quadratic cross terms expansion: 2 * lambda_B * c_i * c_j * y_i * y_j
+            for i in range(len(budget_terms)):
+                v1, c1 = budget_terms[i]
+                for j in range(i + 1, len(budget_terms)):
+                    v2, c2 = budget_terms[j]
+                    pair = (v1, v2) if v1 < v2 else (v2, v1)
+                    quadratic_terms[pair] = quadratic_terms.get(pair, 0.0) + 2.0 * lambda_B * c1 * c2
 
         qp.minimize(linear=linear_terms, quadratic=quadratic_terms)
+        qp.slack_weights = slack_weights
 
         # Build Semantic Manifest
         manifest = SemanticManifest(

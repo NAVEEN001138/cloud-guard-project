@@ -1,14 +1,16 @@
 """
 =============================================================================
-DIAGRAM GENERATOR: ARCHITECTURE & PROCESS FLOW IMAGES (300 DPI)
+DIAGRAM GENERATOR: PUBLICATION & PATENT FIGURES (300 DPI)
 Module: generate_diagram_images.py
 -----------------------------------------------------------------------------
-Generates publication-quality high-resolution PNG image files (300 DPI):
-  1. architecture_diagram.png - 9-Layer Security Constraint Compiler Architecture
-  2. process_flow_diagram.png - Runtime Security Constraint Compilation & Decision Flow
-
-Outputs are saved in the current directory and can be directly inserted into
-the patent application, IEEE research paper, or presentation slides.
+Generates high-resolution (300 DPI) diagrams for faculty review and patent filing:
+  1. architecture_diagram.png & architecture_diagram_white.png
+     - 9-Layer Architecture with visually dominant Layer 5 Patent Core.
+  2. process_flow_diagram.png & patent_figure_2_process_flow_white.png
+     - Patent Core Flow: S_t -> F(S_t, A) -> A'_t -> Closure R* -> E'_t + B'_t -> SC-IR_t -> C_t -> Gate -> Solvers
+     - White version includes official patent reference numerals (100 to 190).
+  3. incremental_compilation_diagram.png & patent_figure_3_incremental_white.png
+     - Runtime Adaptation & Incremental Delta Subgraph Recompilation Flow.
 =============================================================================
 """
 
@@ -16,410 +18,667 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-# Set crisp rendering styles
 plt.rcParams["font.family"] = "sans-serif"
-plt.rcParams["font.size"] = 9
 
 
-def create_architecture_diagram():
+# =============================================================================
+# DIAGRAM 1: 9-Layer Architecture (Dark & White)
+# =============================================================================
+def create_architecture_diagram(white_bg: bool = False):
     fig, ax = plt.subplots(figsize=(16, 26), dpi=300)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis("off")
-    fig.patch.set_facecolor("#0b0f19")
+
+    bg_canvas = "#ffffff" if white_bg else "#0b0f19"
+    text_primary = "#000000" if white_bg else "#00d4ff"
+    text_sub = "#333333" if white_bg else "#94a3b8"
+    fig.patch.set_facecolor(bg_canvas)
+
+    header_face = "#f8fafc" if white_bg else "#0f172a"
+    header_edge = "#000000" if white_bg else "#00d4ff"
 
     # Header Card
     header_box = patches.FancyBboxPatch(
         (0.05, 0.942), 0.90, 0.040,
-        boxstyle="round,pad=0.004,rounding_size=0.010",
-        facecolor="#0f172a", edgecolor="#00d4ff", linewidth=2.0
+        boxstyle="round,pad=0.004,rounding_size=0.008",
+        facecolor=header_face, edgecolor=header_edge, linewidth=2.0 if white_bg else 2.0
     )
     ax.add_patch(header_box)
 
     ax.text(
         0.5, 0.968,
         "CLOUD GUARDIAN: 9-LAYER SECURITY CONSTRAINT COMPILER ARCHITECTURE",
-        fontsize=14.0, fontweight="bold", color="#00d4ff", ha="center", va="center"
+        fontsize=13.5, fontweight="bold", color=text_primary, ha="center", va="center"
     )
     ax.text(
         0.5, 0.952,
-        "Adaptive Runtime Security Constraint Compilation and Multi-Solver Decision Framework",
-        fontsize=9.5, color="#94a3b8", ha="center", va="center"
+        "Adaptive Runtime Security Constraint Compilation and Multi-Solver Response Framework",
+        fontsize=9.5, color=text_sub, ha="center", va="center"
     )
 
-    # Clean, perfectly budgeted layer definitions (3 concise bullets for standard, 5 for Layer 5)
     layer_data = [
-        ("Layer 0: Preprocessing & Scaler Cache Manager (Feature Engineering Engine)", [
+        ("Layer 0: Preprocessing & Scaler Cache Manager (Telemetry Normalization)", [
             "Raw Edge-IIoTset Telemetry: 36 protocol features across Modbus TCP, MQTT, TCP/UDP, ARP, ICMP",
             "Median Imputation -> 1.5x IQR Outlier Clipping -> log1p Variance Stabilization -> StandardScaler",
-            "Output: Module-level fitted Scaler Cache (preprocessor_cache.pkl) for uniform FedAvg weight scaling"
-        ], "#1e293b", "#38bdf8", False),
+            "Output: Preprocessor cache (preprocessor_cache.pkl) for uniform FedAvg local client weight scaling"
+        ], False),
 
         ("Layer 1: Telemetry Ingestion & Incident Scenario Sharding", [
-            "Multi-Protocol Telemetry Ingestion (157,800 network traffic flows across 15 attack classes)",
-            "5 Heterogeneous Asset Incident Scenarios: Industrial SCADA PLC, Healthcare ePHI, API GW, IAM, Camera IoT",
+            "Multi-Protocol Telemetry Ingestion (157,800 network traffic flows across 15 cyber-attack classes)",
+            "5 Heterogeneous Asset Profiles: Industrial SCADA PLC, Healthcare ePHI, API GW, IAM Role, IoT Camera",
             "Non-IID Edge Data Partitioning: Distributed client shards (PLC, Smart Gateway, IoT Sensor Node)"
-        ], "#1e293b", "#818cf8", False),
+        ], False),
 
         ("Layer 2: Federated Edge AI Threat Detection Hub", [
-            "Local Edge Node Training: Local PyTorch MLP / 1D-CNN (Private telemetry remains strictly on-device)",
+            "Local Edge Node Training: Local PyTorch MLP / 1D-CNN (Telemetry remains strictly private on-device)",
             "Global Server Aggregation: Multi-algorithm support (FedAvg, FedProx, FedNova, FedAdam, FedMedian)",
-            "Youden's J ROC Threshold Calibration: 94.05% Calibrated Mean Validation Accuracy (0.9577 ROC-AUC, 98.82% Precision)"
-        ], "#1e293b", "#34d399", False),
+            "Youden's J ROC Threshold Calibration: 98.65% Scale Detection Accuracy (0.9948 ROC-AUC, 95.94% Precision)"
+        ], False),
 
         ("Layer 3: Asset Context & Regulatory Safeguards Aggregator", [
             "Threat Ingestion: Dynamic threat score (s_i), attack velocity, and lateral movement probability",
             "Asset & Operational Context: C-I-A Priority Profiles, SLA Downtime Recovery Cost ($/min), Business Impact",
-            "Regulatory Technical Safeguards: Encoded policy rules (HIPAA 45 CFR § 164.312, GDPR Art. 32, NERC CIP-007)"
-        ], "#1e293b", "#fbbf24", False),
+            "Regulatory Technical Safeguards: Encoded rules (HIPAA 45 CFR § 164.312, GDPR Art. 32, NERC CIP-007)"
+        ], False),
 
         ("Layer 4: Signal Fusion & Decision Confidence Evaluator", [
             "Multi-Factor Confidence Fusion: Model uncertainty + sensor reliability + telemetry freshness = Confidence (c_i)",
             "Calibrated Confidence Tiers: HIGH (c >= 0.85), MODERATE (0.60 <= c < 0.85), LOW (c < 0.60)",
             "Confidence-Gated Action Domain: Restricts high-disruption interventions when confidence < 0.70"
-        ], "#1e293b", "#f87171", False),
+        ], False),
 
-        ("Layer 5: Security Constraint Compiler Architecture ★ (Patent Core)", [
-            "Causal Dependency Graph (DAG): Capability Node -> Variable Domain Pruning (x_forbidden ∉ A')",
-            "Topology Restructuring: Pruning downstream conflict hyperedges E(A') & synthesizing incident budget bound B",
-            "Security Constraint IR (SC-IR): Solver-independent canonical JSON with explicit Hard vs. Soft Partitioning",
-            "Pre-Solve Invariant Validator: 7 deterministic safety invariant checks + Cryptographic SHA-256 State Integrity Digest",
-            "Incident-Specific Formulation Compiler: Compiles verified IR into target QUBO Hamiltonians & classical ILP models"
-        ], "#1e1b4b", "#c084fc", True),
+        ("LAYER 5: RUNTIME CONSTRAINT COMPILER & PRE-SOLVE CERTIFICATION ★ [PATENT CORE]", [
+            "Live State Transformation: S_t -> Structural Excision F(S_t, A) -> Prunes Inadmissible Actions (x_forbidden ∉ A'_t)",
+            "Fixed-Point Dependency Closure: Deterministic iterative propagation R* (Depth=2, Dangling Refs: 1 -> 0)",
+            "Conflict & Bound Regeneration: Rebuilds conflict hyperedges E'_t & operational bounds B'_t (min_cost <= budget)",
+            "Solver-Independent SC-IR: Canonical JSON binding hard invariance, soft preferences, and closure metadata hash",
+            "Pre-Solve Safety Certifier: Deterministic 7-point invariant verification + feasibility witness + integrity digest C_t",
+            "Certificate-Gated Compiler: Mandatory cryptographic verification gate before model compilation (0/6 false accepts)",
+            "Incremental Delta Compiler: Minimal affected subgraph recomputation achieving +73.75% latency reduction at 250 assets"
+        ], True),
 
         ("Layer 6: Interchangeable Multi-Solver Decision Engine", [
-            "Problem Formulation: Strictly constructed over pre-solve certified feasible decision variables A'",
+            "Problem Formulation: Strictly constructed over pre-solve certified feasible decision variables A'_t",
             "Interchangeable Solvers: IBM Qiskit QAOA variational circuits & PuLP Integer Linear Programming (CBC)",
-            "100.0% Decision Fidelity (DF%): Identical optimal mitigation vector x* across classical & quantum solvers"
-        ], "#1e293b", "#38bdf8", False),
+            "100.0% Semantic Fidelity (SF) & Exact Cross-Backend Decision Agreement (CBDA) verified across discrete assignments"
+        ], False),
 
         ("Layer 7 & 8: Response Utility, Orchestration & Explainability", [
             "Multi-Attribute Utility: Balances containment efficacy vs downtime vs cost (P_switch suppresses churn 40% -> 0%)",
             "Automated Playbook Execution: Network isolation, credential rotation, IP rate-limiting, least-privilege tokens",
             "RBAC Role-Tailored Audit Rationale: Deterministic explainability for SOC Analysts, CISOs, Auditors & Public Logs"
-        ], "#1e293b", "#4ade80", False),
+        ], False),
 
         ("Layer 9: System B Experience Memory with Strict Validation Gate", [
             "Post-Incident Empirical Learning: Ingests containment latency, service interruption, and SLA outcome telemetry",
-            "Strict Validation Gate: Verifies candidate constraint rules NEVER restrict failsafes (monitor) or mutate hard safety invariants",
-            "Closed-Loop Structural Adaptation: Injects verified structural rules into future incident DAGs to refine variable domains"
-        ], "#1e293b", "#f472b6", False),
+            "Strict Pre-Solve Validation Gate: Routes candidate learned rules through sandboxed compiler + certifier before admission",
+            "Safety Monotonicity Enforced: Strictly prevents failsafe removal, forbidden reintroduction, or empty domain creation (0 unsafe admissions)"
+        ], False),
     ]
 
-    # Dynamically compute box heights and top-to-bottom layout
     curr_top = 0.924
-    box_gap = 0.016
+    box_gap = 0.015
     rendered_boxes = []
 
-    for idx, (title, details, bg_color, border_color, is_core) in enumerate(layer_data):
-        box_height = 0.106 if is_core else 0.068
+    for idx, (title, details, is_core) in enumerate(layer_data):
+        box_height = 0.130 if is_core else 0.065
         y_pos = curr_top - box_height
 
-        # Drawing Box with crisp rounded padding
+        if white_bg:
+            bg_color = "#f1f5f9" if is_core else "#ffffff"
+            border_color = "#000000" if is_core else "#475569"
+            title_color = "#000000"
+            bullet_color = "#1e293b"
+            lw = 2.8 if is_core else 1.2
+        else:
+            bg_color = "#1e1b4b" if is_core else "#1e293b"
+            border_color = "#c084fc" if is_core else "#38bdf8"
+            title_color = "#e9d5ff" if is_core else "#38bdf8"
+            bullet_color = "#ffffff" if is_core else "#f1f5f9"
+            lw = 2.8 if is_core else 1.5
+
         rect = patches.FancyBboxPatch(
             (0.05, y_pos), 0.90, box_height,
-            boxstyle="round,pad=0.004,rounding_size=0.010",
-            facecolor=bg_color, edgecolor=border_color,
-            linewidth=2.4 if is_core else 1.8
+            boxstyle="round,pad=0.004,rounding_size=0.008",
+            facecolor=bg_color, edgecolor=border_color, linewidth=lw
         )
         ax.add_patch(rect)
 
-        # Title Text
-        title_size = 10.5 if is_core else 9.5
+        title_size = 10.8 if is_core else 9.3
         ax.text(
-            0.07, y_pos + box_height - 0.014,
+            0.07, y_pos + box_height - 0.013,
             title, fontsize=title_size, fontweight="bold",
-            color=border_color, va="top"
+            color=title_color, va="top"
         )
 
-        # Detail Lines
-        line_spacing = 0.0142 if is_core else 0.0140
+        line_spacing = 0.0150 if is_core else 0.0142
         for line_idx, line in enumerate(details):
+            prefix = "★ " if is_core else "• "
             ax.text(
-                0.08, y_pos + box_height - 0.029 - line_idx * line_spacing,
-                f"• {line}", fontsize=8.2, color="#f1f5f9", va="top"
+                0.08, y_pos + box_height - 0.030 - line_idx * line_spacing,
+                f"{prefix}{line}", fontsize=8.0 if is_core else 7.8,
+                color=bullet_color, va="top", fontweight="bold" if (is_core and line_idx < 3) else "normal"
             )
 
         rendered_boxes.append((y_pos, box_height, border_color))
         curr_top = y_pos - box_gap
 
-    # Clean downward arrows between consecutive boxes
+    # Connecting arrows
     for idx in range(len(rendered_boxes) - 1):
         curr_y, _, border_color = rendered_boxes[idx]
         next_y, next_h, _ = rendered_boxes[idx + 1]
-        arrow_start_y = curr_y - 0.003
-        arrow_end_y = (next_y + next_h) + 0.003
         arrow = patches.FancyArrowPatch(
-            (0.5, arrow_start_y), (0.5, arrow_end_y),
-            arrowstyle="-|>", mutation_scale=13, color=border_color, linewidth=1.8
+            (0.5, curr_y - 0.002), (0.5, (next_y + next_h) + 0.002),
+            arrowstyle="-|>", mutation_scale=12,
+            color="#000000" if white_bg else border_color, linewidth=1.5
         )
         ax.add_patch(arrow)
 
-    # Footer Card - Mathematical Claim & Evidence Summary
-    footer_top = rendered_boxes[-1][0] - 0.018
+    # Footer Card
+    footer_top = rendered_boxes[-1][0] - 0.016
     footer_height = 0.046
     footer_box = patches.FancyBboxPatch(
         (0.05, footer_top - footer_height), 0.90, footer_height,
-        boxstyle="round,pad=0.004,rounding_size=0.010",
-        facecolor="#0f172a", edgecolor="#64748b", linewidth=1.2
+        boxstyle="round,pad=0.004,rounding_size=0.008",
+        facecolor="#f8fafc" if white_bg else "#0f172a",
+        edgecolor="#000000" if white_bg else "#64748b", linewidth=1.5 if white_bg else 1.2
     )
     ax.add_patch(footer_box)
 
     ax.text(
-        0.5, footer_top - 0.016,
-        "INVENTIVE STEP: Runtime Transformation S -> A' -> (E(A'), B, P) -> SC-IR -> Verified Invariants -> {QUBO, ILP}",
-        fontsize=9.5, fontweight="bold", color="#38bdf8", ha="center", va="center"
+        0.5, footer_top - 0.015,
+        "CORE PATENT CLAIM: Runtime Problem Reformulation S_t -> A'_t -> R* -> E'_t + B'_t -> SC-IR_t -> C_t -> {ILP, QUBO}",
+        fontsize=9.5, fontweight="bold", color="#000000" if white_bg else "#38bdf8", ha="center", va="center"
     )
     ax.text(
-        0.5, footer_top - 0.033,
-        "Rigorous Boundary: Problem formulation occurs STRICTLY over pre-solve certified feasible action domain A'. 100.0% Decision Fidelity (DF%).",
-        fontsize=8.5, color="#94a3b8", ha="center", va="center"
+        0.5, footer_top - 0.032,
+        "Empirical Proof: 40% -> 0% forbidden violations | 100% QUBO/ILP Semantic Fidelity (SF) | 0/6 false accepts | +73.75% incremental speedup",
+        fontsize=8.5, color="#333333" if white_bg else "#94a3b8", ha="center", va="center"
     )
 
-    out_path = "architecture_diagram.png"
-    plt.savefig(out_path, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
+    filename = "architecture_diagram_white.png" if white_bg else "architecture_diagram.png"
+    plt.savefig(filename, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close()
-    print(f"[OK] Generated: {os.path.abspath(out_path)}")
+    print(f"[OK] Generated: {os.path.abspath(filename)}")
 
 
-def create_process_flow_diagram():
-    fig, ax = plt.subplots(figsize=(18, 12.5), dpi=300)
+# =============================================================================
+# DIAGRAM 2: Patent Core Transformation Process Flow (Dark & White/Patent)
+# =============================================================================
+def create_process_flow_diagram(white_bg: bool = False):
+    fig, ax = plt.subplots(figsize=(20, 13), dpi=300)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis("off")
-    fig.patch.set_facecolor("#0b0f19")
+
+    bg_canvas = "#ffffff" if white_bg else "#0b0f19"
+    text_primary = "#000000" if white_bg else "#00d4ff"
+    text_sub = "#333333" if white_bg else "#94a3b8"
+    fig.patch.set_facecolor(bg_canvas)
+
+    header_face = "#f8fafc" if white_bg else "#0f172a"
+    header_edge = "#000000" if white_bg else "#00d4ff"
 
     # Header Banner
     header_box = patches.FancyBboxPatch(
-        (0.04, 0.935), 0.92, 0.048,
-        boxstyle="round,pad=0.004,rounding_size=0.010",
-        facecolor="#0f172a", edgecolor="#00d4ff", linewidth=2.0
+        (0.04, 0.932), 0.92, 0.052,
+        boxstyle="round,pad=0.004,rounding_size=0.008",
+        facecolor=header_face, edgecolor=header_edge, linewidth=2.0
     )
     ax.add_patch(header_box)
 
-    ax.text(
-        0.50, 0.965,
-        "RUNTIME SECURITY CONSTRAINT COMPILATION & DECISION PIPELINE",
-        fontsize=14.5, fontweight="bold", color="#00d4ff", ha="center", va="center"
+    title_text = (
+        "FIG. 2: RUNTIME SECURITY CONSTRAINT COMPILATION & CERTIFICATION PROCESS FLOW"
+        if white_bg else
+        "PATENT CORE PROCESS FLOW: RUNTIME CONSTRAINT COMPILATION & PRE-SOLVE CERTIFICATION"
     )
     ax.text(
-        0.50, 0.947,
-        "End-to-End Incident Pipeline: Telemetry -> Detection -> Causal Pruning -> SC-IR -> Invariant Validation -> Multi-Solver -> Response",
-        fontsize=9.2, color="#94a3b8", ha="center", va="center"
+        0.50, 0.966, title_text,
+        fontsize=14.0, fontweight="bold", color=text_primary, ha="center", va="center"
+    )
+    ax.text(
+        0.50, 0.946,
+        "Mathematical Transformation Pipeline: S_t -> F(S_t, A) -> A'_t -> Fixed-Point R* -> E'_t + B'_t -> SC-IR_t -> C_t -> Compiler Gate -> Backends",
+        fontsize=9.2, color=text_sub, ha="center", va="center"
     )
 
-    # Box dimensions
-    box_w = 0.18
-    box_h = 0.19
-    r1_y = 0.68
-    r2_y = 0.38
-    r3_y = 0.08
+    box_w = 0.185
+    box_h = 0.205
+    r1_y = 0.675
+    r2_y = 0.375
+    r3_y = 0.075
 
     # Row 1 (Left to Right): Steps 1 to 4
-    top_row = [
-        ("Step 1: Telemetry Ingest", [
-            "Raw Edge-IIoTset Traffic",
-            "Layer 0 Scaler Cache",
-            "Outlier Clipping & log1p"
-        ], "#1e293b", "#38bdf8", 0.04),
+    # With patent reference numerals for white version
+    row1 = [
+        ("100 Live Security State S_t", [
+            "Real-Time Telemetry Data",
+            "Threat Scores (s_i in [0,1])",
+            "Asset & Regulatory Context",
+            "Detection Confidence (c_i)"
+        ], 0.04),
 
-        ("Step 2: Federated AI", [
-            "Private Local PyTorch Edge",
-            "FedAvg Model Aggregation",
-            "Youden's J ROC Threshold"
-        ], "#1e293b", "#34d399", 0.25),
+        ("110 Feasibility Evaluator F(S_t, A)", [
+            "Evaluates Inadmissible Actions",
+            "Regulatory Mandates (HIPAA)",
+            "Physical Safety Invariants",
+            "PLC Automated Isolation Check"
+        ], 0.285),
 
-        ("Step 3: Context & Trust", [
-            "C-I-A Priority Impact",
-            "SLA Downtime Recovery",
-            "Confidence Gating (c_i)"
-        ], "#1e293b", "#fbbf24", 0.46),
+        ("120 Structural Excision A -> A'_t", [
+            "Hard Mathematical Removal",
+            "x_{i, forbidden} not in A'_t",
+            "Zero Search Space Presence",
+            "Search Space: 7 -> 3 vars (-57%)"
+        ], 0.53),
 
-        ("Step 4: Causal Pruning", [
-            "Constraint DAG (L5 ★)",
-            "Physical Safety Limits",
-            "Domain: x_forbidden ∉ A'"
-        ], "#1e1b4b", "#c084fc", 0.67),
+        ("130 Fixed-Point Closure Engine R*", [
+            "Multi-Hop Transitive Propagation",
+            "Traverses REQUIRES Dependencies",
+            "Eliminates Orphaned Conflicts",
+            "Dangling References: 1 -> 0"
+        ], 0.775),
     ]
 
-    for title, lines, bg, border, x_pos in top_row:
+    for title, lines, x_pos in row1:
         box = patches.FancyBboxPatch(
             (x_pos, r1_y), box_w, box_h,
-            boxstyle="round,pad=0.004,rounding_size=0.012",
-            facecolor=bg, edgecolor=border, linewidth=2.0
+            boxstyle="round,pad=0.004,rounding_size=0.008",
+            facecolor="#ffffff" if white_bg else "#1e1b4b",
+            edgecolor="#000000" if white_bg else "#c084fc",
+            linewidth=2.0
         )
         ax.add_patch(box)
-        ax.text(x_pos + box_w/2, r1_y + box_h - 0.024, title, fontsize=9.2, fontweight="bold", color=border, ha="center", va="top")
+        ax.text(
+            x_pos + box_w/2, r1_y + box_h - 0.024, title,
+            fontsize=9.2, fontweight="bold",
+            color="#000000" if white_bg else "#e9d5ff", ha="center", va="top"
+        )
         for l_idx, line in enumerate(lines):
-            ax.text(x_pos + box_w/2, r1_y + box_h - 0.070 - l_idx * 0.034, line, fontsize=8.2, color="#ffffff", ha="center", va="top")
+            ax.text(
+                x_pos + box_w/2, r1_y + box_h - 0.068 - l_idx * 0.033, f"• {line}",
+                fontsize=7.8, color="#1e293b" if white_bg else "#f1f5f9", ha="center", va="top"
+            )
 
-        # Horizontal arrow right
-        if x_pos < 0.65:
+        if x_pos < 0.75:
             arr = patches.FancyArrowPatch(
-                (x_pos + box_w + 0.004, r1_y + box_h/2), (x_pos + box_w + 0.026, r1_y + box_h/2),
-                arrowstyle="-|>", mutation_scale=14, color="#38bdf8", linewidth=1.8
+                (x_pos + box_w + 0.005, r1_y + box_h/2), (x_pos + box_w + 0.055, r1_y + box_h/2),
+                arrowstyle="-|>", mutation_scale=14,
+                color="#000000" if white_bg else "#38bdf8", linewidth=2.0
             )
             ax.add_patch(arr)
 
-    # Arrow from Row 1 Step 4 DOWN to Row 2 Step 5
-    arr_r1_to_r2 = patches.FancyArrowPatch(
-        (0.67 + box_w/2, r1_y - 0.004), (0.67 + box_w/2, r2_y + box_h + 0.004),
-        arrowstyle="-|>", mutation_scale=14, color="#c084fc", linewidth=2.0
+    # Vertical Arrow Row 1 to Row 2
+    arr_down_1 = patches.FancyArrowPatch(
+        (0.775 + box_w/2, r1_y - 0.005), (0.775 + box_w/2, r2_y + box_h + 0.005),
+        arrowstyle="-|>", mutation_scale=14,
+        color="#000000" if white_bg else "#c084fc", linewidth=2.0
     )
-    ax.add_patch(arr_r1_to_r2)
+    ax.add_patch(arr_down_1)
 
     # Row 2 (Right to Left): Steps 5 to 8
-    mid_row = [
-        ("Step 5: Topology Shift", [
-            "Prune Conflicts E(A')",
-            "Regenerate Budget B",
-            "Eliminate Dead Edges"
-        ], "#1e1b4b", "#c084fc", 0.67),
+    row2 = [
+        ("140 Topology & Bound Regenerator", [
+            "Regenerates Conflict Hyperedges E'_t",
+            "Synthesizes Dynamic Budget B'_t",
+            "Verifies Cost Feasibility:",
+            "min_cost <= effective_budget"
+        ], 0.775),
 
-        ("Step 6: SC-IR Synthesis", [
-            "Canonical JSON IR",
-            "Hard Invariants vs",
-            "Soft Preferences"
-        ], "#1e1b4b", "#c084fc", 0.46),
+        ("150 Versioned SC-IR_t Generator", [
+            "Solver-Independent Canonical IR",
+            "Binds Hard Invariants & Soft Prefs",
+            "Hashes Closure Digest R*",
+            "Generates Semantic Fingerprint"
+        ], 0.53),
 
-        ("Step 7: Invariant Cert.", [
-            "7 Deterministic Checks",
-            "Pre-Solve Certified",
-            "SHA-256 State Digest"
-        ], "#1e1b4b", "#c084fc", 0.25),
+        ("160 Pre-Solve Safety Certifier C_t", [
+            "7 Deterministic Invariant Checks",
+            "Backtracking Feasibility Witness",
+            "Exact Invariance Set Equality",
+            "Issues Certified Certificate C_t"
+        ], 0.285),
 
-        ("Step 8: Math Compilation", [
-            "Formulation Compiler",
-            "Target QUBO (Qiskit)",
-            "Target ILP (PuLP)"
-        ], "#1e1b4b", "#38bdf8", 0.04),
+        ("170 Certificate Compiler Gate", [
+            "Cryptographic Binding Gate",
+            "Recomputes Certificate Payload Hash",
+            "Verifies Version & Closure Match",
+            "0 False Accepts Across 6 Attacks"
+        ], 0.04),
     ]
 
-    for title, lines, bg, border, x_pos in mid_row:
+    for title, lines, x_pos in row2:
         box = patches.FancyBboxPatch(
             (x_pos, r2_y), box_w, box_h,
-            boxstyle="round,pad=0.004,rounding_size=0.012",
-            facecolor=bg, edgecolor=border, linewidth=2.0
+            boxstyle="round,pad=0.004,rounding_size=0.008",
+            facecolor="#ffffff" if white_bg else "#1e1b4b",
+            edgecolor="#000000" if white_bg else "#38bdf8",
+            linewidth=2.0
         )
         ax.add_patch(box)
-        ax.text(x_pos + box_w/2, r2_y + box_h - 0.024, title, fontsize=9.2, fontweight="bold", color=border, ha="center", va="top")
+        ax.text(
+            x_pos + box_w/2, r2_y + box_h - 0.024, title,
+            fontsize=9.2, fontweight="bold",
+            color="#000000" if white_bg else "#38bdf8", ha="center", va="top"
+        )
         for l_idx, line in enumerate(lines):
-            ax.text(x_pos + box_w/2, r2_y + box_h - 0.070 - l_idx * 0.034, line, fontsize=8.2, color="#ffffff", ha="center", va="top")
+            ax.text(
+                x_pos + box_w/2, r2_y + box_h - 0.068 - l_idx * 0.033, f"• {line}",
+                fontsize=7.8, color="#1e293b" if white_bg else "#f1f5f9", ha="center", va="top"
+            )
 
-        # Horizontal arrow left
-        if x_pos > 0.10:
+        if x_pos > 0.05:
             arr = patches.FancyArrowPatch(
-                (x_pos - 0.004, r2_y + box_h/2), (x_pos - 0.026, r2_y + box_h/2),
-                arrowstyle="-|>", mutation_scale=14, color="#c084fc", linewidth=1.8
+                (x_pos - 0.005, r2_y + box_h/2), (x_pos - 0.055, r2_y + box_h/2),
+                arrowstyle="-|>", mutation_scale=14,
+                color="#000000" if white_bg else "#38bdf8", linewidth=2.0
             )
             ax.add_patch(arr)
 
-    # Arrow from Row 2 Step 8 DOWN to Row 3 Step 9
-    arr_r2_to_r3 = patches.FancyArrowPatch(
-        (0.04 + box_w/2, r2_y - 0.004), (0.04 + box_w/2, r3_y + box_h + 0.004),
-        arrowstyle="-|>", mutation_scale=14, color="#38bdf8", linewidth=2.0
+    # Vertical Arrow Row 2 to Row 3
+    arr_down_2 = patches.FancyArrowPatch(
+        (0.04 + box_w/2, r2_y - 0.005), (0.04 + box_w/2, r3_y + box_h + 0.005),
+        arrowstyle="-|>", mutation_scale=14,
+        color="#000000" if white_bg else "#38bdf8", linewidth=2.0
     )
-    ax.add_patch(arr_r2_to_r3)
+    ax.add_patch(arr_down_2)
 
-    # Row 3 (Left to Right): Steps 9 to 11
-    bot_w = 0.245
-    bot_row = [
-        ("Step 9: Multi-Solver Execution", [
-            "Interchangeable QAOA / ILP Solvers",
-            "Optimizes Active Mitigations x*",
-            "100.0% Decision Fidelity (DF%)"
-        ], "#1e293b", "#38bdf8", 0.04),
+    # Row 3 (Left to Right): Steps 9 to 12
+    row3 = [
+        ("180A/B Compiler Backends", [
+            "180A: PuLP Integer Linear Program",
+            "180B: Qiskit QUBO Hamiltonian",
+            "Exact Binary Slack Budget Formulation:",
+            "P_B = lambda_B * (sum c_i x_i + sum 2^k z_k - B)^2"
+        ], 0.04),
 
-        ("Step 10: Orchestration & Stability", [
-            "Enforce Switching Penalty P_switch",
-            "Automated Playbook Execution",
-            "Role-Tailored Audit Explanations"
-        ], "#1e293b", "#4ade80", 0.33),
+        ("Semantic Validator (SF=100%)", [
+            "Exhaustive 2^n Assignment Test",
+            "Truth-Table Verification: IR vs Solvers",
+            "1024 Discrete State Evaluations",
+            "Zero Cross-Backend Mismatches"
+        ], 0.285),
 
-        ("Step 11: Experience Memory (L9)", [
-            "Post-Incident Efficacy Feedback",
-            "Strict Validation Gate on Rules",
-            "Admits Rules to Future DAG"
-        ], "#1e293b", "#f472b6", 0.62),
+        ("190 Infrastructure Actuator", [
+            "Optimal Response Vector x*",
+            "Targeted Disruption Suppression",
+            "Execution via Playbook APIs",
+            "0.0% Forbidden Action Violations"
+        ], 0.53),
+
+        ("Closed-Loop Feedback Gate", [
+            "Post-Incident Empirical Telemetry",
+            "Sandboxed Recompilation & Proof",
+            "Monotonicity: No Failsafe Removal",
+            "Zero Unsafe Learned Rules Admitted"
+        ], 0.775),
     ]
 
-    for title, lines, bg, border, x_pos in bot_row:
+    for title, lines, x_pos in row3:
         box = patches.FancyBboxPatch(
-            (x_pos, r3_y), bot_w, box_h,
-            boxstyle="round,pad=0.004,rounding_size=0.012",
-            facecolor=bg, edgecolor=border, linewidth=2.0
+            (x_pos, r3_y), box_w, box_h,
+            boxstyle="round,pad=0.004,rounding_size=0.008",
+            facecolor="#ffffff" if white_bg else "#1e293b",
+            edgecolor="#000000" if white_bg else "#4ade80",
+            linewidth=2.0
         )
         ax.add_patch(box)
-        ax.text(x_pos + bot_w/2, r3_y + box_h - 0.024, title, fontsize=9.2, fontweight="bold", color=border, ha="center", va="top")
+        ax.text(
+            x_pos + box_w/2, r3_y + box_h - 0.024, title,
+            fontsize=9.2, fontweight="bold",
+            color="#000000" if white_bg else "#4ade80", ha="center", va="top"
+        )
         for l_idx, line in enumerate(lines):
-            ax.text(x_pos + bot_w/2, r3_y + box_h - 0.070 - l_idx * 0.034, line, fontsize=8.2, color="#ffffff", ha="center", va="top")
+            ax.text(
+                x_pos + box_w/2, r3_y + box_h - 0.068 - l_idx * 0.033, f"• {line}",
+                fontsize=7.8, color="#1e293b" if white_bg else "#f1f5f9", ha="center", va="top"
+            )
 
-    # Connect step 9 to step 10
-    arr_bot1 = patches.FancyArrowPatch(
-        (0.04 + bot_w + 0.004, r3_y + box_h/2), (0.33 - 0.004, r3_y + box_h/2),
-        arrowstyle="-|>", mutation_scale=14, color="#4ade80", linewidth=1.8
+        if x_pos < 0.75:
+            arr = patches.FancyArrowPatch(
+                (x_pos + box_w + 0.005, r3_y + box_h/2), (x_pos + box_w + 0.055, r3_y + box_h/2),
+                arrowstyle="-|>", mutation_scale=14,
+                color="#000000" if white_bg else "#4ade80", linewidth=2.0
+            )
+            ax.add_patch(arr)
+
+    # Outer feedback loop from Step 12 back to Step 110/120
+    fb_x = 0.985
+    arr_fb1 = patches.FancyArrowPatch(
+        (0.775 + box_w + 0.005, r3_y + box_h/2), (fb_x, r3_y + box_h/2),
+        arrowstyle="-", color="#000000" if white_bg else "#f472b6", linewidth=1.8, linestyle="--"
     )
-    ax.add_patch(arr_bot1)
-
-    # Connect step 10 to step 11
-    arr_bot2 = patches.FancyArrowPatch(
-        (0.33 + bot_w + 0.004, r3_y + box_h/2), (0.62 - 0.004, r3_y + box_h/2),
-        arrowstyle="-|>", mutation_scale=14, color="#f472b6", linewidth=1.8
+    arr_fb2 = patches.FancyArrowPatch(
+        (fb_x, r3_y + box_h/2), (fb_x, r1_y + box_h/2),
+        arrowstyle="-", color="#000000" if white_bg else "#f472b6", linewidth=1.8, linestyle="--"
     )
-    ax.add_patch(arr_bot2)
-
-    # Clean, dedicated outer feedback loop channel:
-    # From Step 11 right edge -> dedicated channel (x=0.905) -> up to Row 1 Step 4 right edge
-    step11_right = 0.62 + bot_w
-    step4_right = 0.67 + box_w
-    channel_x = 0.905
-
-    # Segment 1: Step 11 to channel
-    arr_fb_seg1 = patches.FancyArrowPatch(
-        (step11_right + 0.004, r3_y + box_h/2), (channel_x, r3_y + box_h/2),
-        arrowstyle="-", color="#f472b6", linewidth=2.0, linestyle="--"
+    arr_fb3 = patches.FancyArrowPatch(
+        (fb_x, r1_y + box_h/2), (0.775 + box_w + 0.005, r1_y + box_h/2),
+        arrowstyle="-|>", mutation_scale=14,
+        color="#000000" if white_bg else "#f472b6", linewidth=1.8, linestyle="--"
     )
-    ax.add_patch(arr_fb_seg1)
+    ax.add_patch(arr_fb1)
+    ax.add_patch(arr_fb2)
+    ax.add_patch(arr_fb3)
 
-    # Segment 2: Vertical run through dedicated right channel
-    arr_fb_seg2 = patches.FancyArrowPatch(
-        (channel_x, r3_y + box_h/2), (channel_x, r1_y + box_h/2),
-        arrowstyle="-", color="#f472b6", linewidth=2.0, linestyle="--"
-    )
-    ax.add_patch(arr_fb_seg2)
-
-    # Segment 3: Channel to Step 4 with arrow
-    arr_fb_seg3 = patches.FancyArrowPatch(
-        (channel_x, r1_y + box_h/2), (step4_right + 0.004, r1_y + box_h/2),
-        arrowstyle="-|>", mutation_scale=15, color="#f472b6", linewidth=2.0, linestyle="--"
-    )
-    ax.add_patch(arr_fb_seg3)
-
-    # Feedback Gate Badge Card in the right channel
-    fb_card = patches.FancyBboxPatch(
-        (0.880, 0.44), 0.090, 0.12,
-        boxstyle="round,pad=0.004,rounding_size=0.008",
-        facecolor="#1e1b4b", edgecolor="#f472b6", linewidth=1.5
-    )
-    ax.add_patch(fb_card)
-
-    ax.text(
-        0.925, 0.540,
-        "CLOSED-LOOP\nFEEDBACK GATE",
-        fontsize=8.0, fontweight="bold", color="#f472b6", ha="center", va="top"
-    )
-    ax.text(
-        0.925, 0.495,
-        "• Experience Memory\n• Strict Validation\n• Invariant Protection\n• Future DAG Update",
-        fontsize=6.8, color="#cbd5e1", ha="center", va="top"
-    )
-
-    out_path = "process_flow_diagram.png"
-    plt.savefig(out_path, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
+    filename = "patent_figure_2_process_flow_white.png" if white_bg else "process_flow_diagram.png"
+    plt.savefig(filename, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close()
-    print(f"[OK] Generated: {os.path.abspath(out_path)}")
+    print(f"[OK] Generated: {os.path.abspath(filename)}")
+
+
+# =============================================================================
+# DIAGRAM 3: Runtime Adaptation & Incremental Compilation Flow (Dark & White)
+# =============================================================================
+def create_incremental_diagram(white_bg: bool = False):
+    fig, ax = plt.subplots(figsize=(18, 12), dpi=300)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+
+    bg_canvas = "#ffffff" if white_bg else "#0b0f19"
+    text_primary = "#000000" if white_bg else "#00d4ff"
+    text_sub = "#333333" if white_bg else "#94a3b8"
+    fig.patch.set_facecolor(bg_canvas)
+
+    # Header Card
+    header_box = patches.FancyBboxPatch(
+        (0.04, 0.930), 0.92, 0.052,
+        boxstyle="round,pad=0.004,rounding_size=0.008",
+        facecolor="#f8fafc" if white_bg else "#0f172a",
+        edgecolor="#000000" if white_bg else "#00d4ff", linewidth=2.0
+    )
+    ax.add_patch(header_box)
+
+    title_text = (
+        "FIG. 3: RUNTIME INCREMENTAL CONSTRAINT COMPILATION & SUBGRAPH REUSE"
+        if white_bg else
+        "RUNTIME ADAPTATION: INCREMENTAL STATE-DELTA CONSTRAINT RECOMPILATION"
+    )
+    ax.text(
+        0.50, 0.965, title_text,
+        fontsize=14.0, fontweight="bold", color=text_primary, ha="center", va="center"
+    )
+    ax.text(
+        0.50, 0.945,
+        "S_t -> S_{t+1} State Mutation: Delta S -> Minimal Affected Subgraph -> Selective Recompute vs. Subgraph Reuse -> IR_{t+1} -> C_{t+1}",
+        fontsize=9.2, color=text_sub, ha="center", va="center"
+    )
+
+    box_w = 0.26
+    box_h = 0.26
+
+    # Column 1: Base Certified State
+    b1 = patches.FancyBboxPatch(
+        (0.06, 0.58), box_w, box_h,
+        boxstyle="round,pad=0.004,rounding_size=0.008",
+        facecolor="#ffffff" if white_bg else "#1e293b",
+        edgecolor="#000000" if white_bg else "#38bdf8", linewidth=2.0
+    )
+    ax.add_patch(b1)
+    ax.text(0.06 + box_w/2, 0.58 + box_h - 0.026, "Previous Live State S_t", fontsize=10.0, fontweight="bold", color="#000000" if white_bg else "#38bdf8", ha="center", va="top")
+    lines_b1 = [
+        "Certified SC-IR_t (Version v_t)",
+        "Pre-Solve Safety Certificate C_t",
+        "Active Variable Domains A'_t",
+        "Conflict Hyperedges E'_t",
+        "Fleet Fleet Topology (N assets)",
+        "Operational Budget B'_t"
+    ]
+    for i, l in enumerate(lines_b1):
+        ax.text(0.06 + box_w/2, 0.58 + box_h - 0.068 - i * 0.030, f"• {l}", fontsize=8.0, color="#1e293b" if white_bg else "#f1f5f9", ha="center", va="top")
+
+    # Arrow Down to State Mutation
+    arr_mut = patches.FancyArrowPatch(
+        (0.06 + box_w/2, 0.58 - 0.005), (0.06 + box_w/2, 0.44 + 0.005),
+        arrowstyle="-|>", mutation_scale=14, color="#000000" if white_bg else "#fbbf24", linewidth=2.0
+    )
+    ax.add_patch(arr_mut)
+
+    # Runtime State Mutation Delta
+    b_mut = patches.FancyBboxPatch(
+        (0.06, 0.22), box_w, 0.21,
+        boxstyle="round,pad=0.004,rounding_size=0.008",
+        facecolor="#ffffff" if white_bg else "#1e1b4b",
+        edgecolor="#000000" if white_bg else "#fbbf24", linewidth=2.0
+    )
+    ax.add_patch(b_mut)
+    ax.text(0.06 + box_w/2, 0.22 + 0.21 - 0.024, "State Mutation Delta S", fontsize=10.0, fontweight="bold", color="#000000" if white_bg else "#fbbf24", ha="center", va="top")
+    lines_mut = [
+        "Localized Threat Score Surge",
+        "Resource Capability Shift",
+        "Compliance Rule Delta",
+        "Runtime State Delta: Delta S = S_{t+1} - S_t",
+        "Mutation Ratio <= 35% -> Selective"
+    ]
+    for i, l in enumerate(lines_mut):
+        ax.text(0.06 + box_w/2, 0.22 + 0.21 - 0.064 - i * 0.028, f"• {l}", fontsize=8.0, color="#1e293b" if white_bg else "#f1f5f9", ha="center", va="top")
+
+    # Arrow from Delta S to Center Partition
+    arr_center = patches.FancyArrowPatch(
+        (0.06 + box_w + 0.005, 0.325), (0.37 - 0.005, 0.50),
+        arrowstyle="-|>", mutation_scale=14, color="#000000" if white_bg else "#c084fc", linewidth=2.0
+    )
+    ax.add_patch(arr_center)
+
+    # Center: BFS Dependency Propagation & Selective Recomputation
+    b_center = patches.FancyBboxPatch(
+        (0.37, 0.22), box_w, 0.62,
+        boxstyle="round,pad=0.004,rounding_size=0.008",
+        facecolor="#ffffff" if white_bg else "#1e1b4b",
+        edgecolor="#000000" if white_bg else "#c084fc", linewidth=2.2
+    )
+    ax.add_patch(b_center)
+    ax.text(0.37 + box_w/2, 0.22 + 0.62 - 0.026, "Transitive BFS Propagation\n& Dual-Partition Compiler", fontsize=10.5, fontweight="bold", color="#000000" if white_bg else "#e9d5ff", ha="center", va="top")
+
+    lines_center = [
+        "1. Primary Dirty Set Initialization:",
+        "   changed_assets U changed_capabilities",
+        "   U changed_threat U changed_resource_state",
+        "",
+        "2. Multi-Hop BFS Queue Propagation:",
+        "   while queue: pop() -> find touching deps",
+        "   dirty.add(neighbor) until fixed point",
+        "",
+        "3. Dual Partition Execution:",
+        "   [+] Clean Subgraph (Unaffected):",
+        "       Directly reuse certified domains,",
+        "       invariance & conflict records",
+        "   [+] Affected Subgraph (Dirty):",
+        "       Re-evaluate capability constraints,",
+        "       recompute cross-resource conflicts,",
+        "       update objective terms & bounds",
+        "",
+        "4. Mathematical Bound Regeneration:",
+        "   effective_budget & min_possible_cost",
+    ]
+    for i, l in enumerate(lines_center):
+        ax.text(0.37 + 0.015, 0.22 + 0.62 - 0.078 - i * 0.024, l, fontsize=7.6, color="#1e293b" if white_bg else "#f1f5f9", va="top")
+
+    # Arrows from Center to Output
+    arr_out = patches.FancyArrowPatch(
+        (0.37 + box_w + 0.005, 0.53), (0.68 - 0.005, 0.53),
+        arrowstyle="-|>", mutation_scale=14, color="#000000" if white_bg else "#4ade80", linewidth=2.0
+    )
+    ax.add_patch(arr_out)
+
+    # Column 3: Resulting State IR_{t+1} and Evidence
+    b_out = patches.FancyBboxPatch(
+        (0.68, 0.22), box_w, 0.62,
+        boxstyle="round,pad=0.004,rounding_size=0.008",
+        facecolor="#ffffff" if white_bg else "#1e293b",
+        edgecolor="#000000" if white_bg else "#4ade80", linewidth=2.0
+    )
+    ax.add_patch(b_out)
+    ax.text(0.68 + box_w/2, 0.22 + 0.62 - 0.026, "Updated Certified State\nIR_{t+1} + Certificate C_{t+1}", fontsize=10.5, fontweight="bold", color="#000000" if white_bg else "#4ade80", ha="center", va="top")
+
+    lines_out = [
+        "Certified SC-IR_{t+1} (Version v_{t+1})",
+        "Fresh Safety Certificate C_{t+1}",
+        "Recomputed Subgraph Linked to Clean Base",
+        "Zero Stale Invariant Records",
+        "",
+        "========================================",
+        "EMPIRICAL SCALING EVIDENCE:",
+        "========================================",
+        "• 10 Assets :  1.14 ms ->  1.25 ms (-9.44% bookkeeping)",
+        "• 50 Assets :  7.35 ms ->  5.05 ms (+31.3% speedup)",
+        "• 100 Assets: 18.25 ms -> 10.75 ms (+41.1% speedup)",
+        "• 250 Assets: 90.74 ms -> 23.82 ms (+73.75% speedup)",
+        "",
+        "MATHEMATICAL EQUIVALENCE:",
+        "FullCompile(S_{t+1}) == IncrementalCompile(IR_t, Delta S)",
+        "100.0% Semantic Fingerprint Match",
+        "Exact Match on Decision Domains & Bounds"
+    ]
+    for i, l in enumerate(lines_out):
+        is_highlight = "73.75%" in l or "100.0%" in l
+        ax.text(
+            0.68 + 0.015, 0.22 + 0.62 - 0.078 - i * 0.024, l,
+            fontsize=7.6,
+            fontweight="bold" if is_highlight else "normal",
+            color=("#000000" if white_bg else "#38bdf8") if is_highlight else ("#1e293b" if white_bg else "#f1f5f9"),
+            va="top"
+        )
+
+    # Footer Card - Latency reduction metric highlight
+    footer_box = patches.FancyBboxPatch(
+        (0.04, 0.065), 0.92, 0.11,
+        boxstyle="round,pad=0.004,rounding_size=0.008",
+        facecolor="#f8fafc" if white_bg else "#0f172a",
+        edgecolor="#000000" if white_bg else "#4ade80", linewidth=1.5
+    )
+    ax.add_patch(footer_box)
+
+    ax.text(
+        0.5, 0.145,
+        "EMPIRICAL PROOF: +73.75% LATENCY REDUCTION AT 250 ASSETS WITH 100.0% SEMANTIC EQUIVALENCE",
+        fontsize=10.5, fontweight="bold", color="#000000" if white_bg else "#4ade80", ha="center", va="center"
+    )
+    ax.text(
+        0.5, 0.115,
+        "At small scales (N=10), incremental bookkeeping overhead causes a minor -9.44% latency delta; as asset count scales to 250, constraint reuse dominates.",
+        fontsize=8.5, color="#333333" if white_bg else "#cbd5e1", ha="center", va="center"
+    )
+    ax.text(
+        0.5, 0.088,
+        "Mathematical Semantic Fingerprint comparison proves: Fingerprint(IR_{full}) == Fingerprint(IR_{incremental}) across all operational constraints.",
+        fontsize=8.5, color="#333333" if white_bg else "#94a3b8", ha="center", va="center"
+    )
+
+    filename = "patent_figure_3_incremental_white.png" if white_bg else "incremental_compilation_diagram.png"
+    plt.savefig(filename, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
+    plt.close()
+    print(f"[OK] Generated: {os.path.abspath(filename)}")
 
 
 if __name__ == "__main__":
-    create_architecture_diagram()
-    create_process_flow_diagram()
+    print("Generating High-Resolution Diagrams (300 DPI)...")
+    create_architecture_diagram(white_bg=False)
+    create_architecture_diagram(white_bg=True)
+    create_process_flow_diagram(white_bg=False)
+    create_process_flow_diagram(white_bg=True)
+    create_incremental_diagram(white_bg=False)
+    create_incremental_diagram(white_bg=True)
+    print("All 6 publication and patent diagram files generated successfully.")

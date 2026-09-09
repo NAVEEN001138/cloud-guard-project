@@ -197,16 +197,39 @@ class SecurityConstraintIR:
         ensuring that semantically identical IR states produce identical cryptographic
         digests, while any semantic mutation alters the digest.
         """
+        # Expand canonical summary to bind full hard/soft constraint definitions, complete provenance, closure digest, and topology
+        hard_summary = sorted([
+            (c.constraint_id, c.category, c.mathematical_form, c.target_resource, c.target_action, c.hardness)
+            for c in self.hard_constraints
+        ])
+        soft_summary = sorted([
+            (c.constraint_id, c.category, c.mathematical_form, c.target_resource, c.target_action, c.hardness, round(float(c.coefficient_weight), 4))
+            for c in self.soft_constraints
+        ])
+        prov_summary = sorted([
+            (p.target_resource, p.target_action, p.constraint_type, p.origin, p.rule_id)
+            for p in self.provenance_records
+        ])
+        closure_hash = ""
+        if self.dependency_closure_metadata:
+            c_dict = self.dependency_closure_metadata.to_dict() if hasattr(self.dependency_closure_metadata, "to_dict") else str(self.dependency_closure_metadata)
+            closure_hash = hashlib.sha256(json.dumps(c_dict, sort_keys=True).encode("utf-8")).hexdigest()
+
+        topo_summary = None
+        if self.topology:
+            topo_summary = (
+                round(float(self.topology.graph_density), 4),
+                self.topology.num_variables,
+                self.topology.num_conflict_hyperedges,
+                self.topology.environment_fingerprint,
+            )
+
         canonical_summary = {
+            "incident_id": self.incident_id,
             "ir_version": self.ir_version,
             "runtime_state_version": self.runtime_state_version,
-            "incident_id": str(self.incident_id),
-            "domains": {
-                k: sorted(v.admissible_actions)
-                for k, v in sorted(self.variable_domains.items())
-            },
-            "pruned": {
-                k: sorted(v.pruned_actions)
+            "variable_domains": {
+                k: (sorted(v.admissible_actions), sorted(v.pruned_actions))
                 for k, v in sorted(self.variable_domains.items())
             },
             "invariance": sorted([
@@ -234,7 +257,11 @@ class SecurityConstraintIR:
                 (f"{r}:{a}", round(float(term.coefficient), 4))
                 for (r, a), term in self.objective_terms.items()
             ]),
-            "hard_invariants": sorted([c.constraint_id for c in self.hard_constraints]),
+            "hard_invariants": hard_summary,
+            "soft_constraints": soft_summary,
+            "provenance": prov_summary,
+            "closure_digest": closure_hash,
+            "topology_fingerprint": topo_summary,
             "regenerated_bounds": sorted([
                 (k, str(v)) for k, v in self.regenerated_bounds.items()
             ]),
@@ -244,6 +271,55 @@ class SecurityConstraintIR:
         self.canonical_digest = digest
         self.sha256_hash = digest
         return digest
+
+    def semantic_fingerprint(self) -> str:
+        """
+        Computes a deterministic SHA-256 fingerprint over purely mathematical optimization structures:
+        admissible actions, pruned actions, invariance definitions, conflict relations,
+        budget ceiling, cost mappings, objective coefficients, hard/soft constraints, and bounds.
+        Strictly excludes versions, timestamps, incident IDs, and runtime metadata.
+        """
+        math_summary = {
+            "variable_domains": sorted([
+                (k, sorted(v.admissible_actions), sorted(v.pruned_actions))
+                for k, v in self.variable_domains.items()
+            ]),
+            "invariance": sorted([
+                (inv.resource_id, sorted(inv.actions), inv.target_value)
+                for inv in self.invariance_constraints
+            ]),
+            "conflicts": sorted([
+                (c.resource_1, c.action_1, c.resource_2, c.action_2, c.rule_id)
+                for c in self.conflict_hyperedges
+            ]),
+            "max_budget": (
+                round(float(self.budget_constraint.max_budget), 4)
+                if self.budget_constraint is not None
+                else None
+            ),
+            "cost_map": sorted([
+                (f"{r}:{a}", round(float(c), 4))
+                for (r, a), c in self.budget_constraint.cost_map.items()
+            ]) if self.budget_constraint is not None else [],
+            "objective_coeffs": sorted([
+                (f"{r}:{a}", round(float(term.coefficient), 4))
+                for (r, a), term in self.objective_terms.items()
+            ]),
+            "hard_constraints": sorted([
+                (c.constraint_id, c.category, c.mathematical_form, c.target_resource, c.target_action, c.hardness)
+                for c in self.hard_constraints
+            ]),
+            "soft_constraints": sorted([
+                (c.constraint_id, c.category, c.mathematical_form, c.target_resource, c.target_action, c.hardness, round(float(c.coefficient_weight), 4))
+                for c in self.soft_constraints
+            ]),
+            "regenerated_bounds": sorted([
+                (k, str(v)) for k, v in self.regenerated_bounds.items()
+                if k in ("min_possible_cost", "effective_budget", "budget_consistent", "active_variable_count", "active_conflict_count")
+            ]),
+        }
+        raw = json.dumps(math_summary, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     def compute_sha256(self) -> str:
         """Backwards-compatible wrapper returning the canonical digest."""

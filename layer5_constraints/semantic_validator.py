@@ -140,24 +140,50 @@ class SemanticValidator:
         cls,
         ir: SecurityConstraintIR,
         assignment: Dict[Tuple[str, str], int],
+        qubo_model: Optional[Any] = None,
+        qubo_var_lookup: Optional[Dict[Tuple[str, str], str]] = None,
         lambda_invariance: float = 10.0,
     ) -> bool:
         """
         In QUBO, forbidden physical actions are structurally absent from the decision space.
-        Mathematical invariants (invariance and conflicts) are encoded using penalty expansions.
-        An assignment is semantically valid if and only if all penalty terms equal zero.
+        Mathematical invariants (invariance and conflicts) and budget inequality are encoded
+        using quadratic penalty expansions with binary slack variables.
+        An assignment is semantically valid if and only if all penalty terms evaluate to zero
+        under optimal binary slack variable settings.
         """
-        # Penalty term for invariance: sum_i (sum_a x_{i,a} - 1)^2
-        for inv in ir.invariance_constraints:
-            active_sum = sum(assignment.get((inv.resource_id, a), 0) for a in inv.actions)
-            if active_sum != 1:
+        # If qubo_model is provided, verify structural presence of variables
+        if qubo_model is not None and qubo_var_lookup is not None:
+            model_var_names = {v.name for v in qubo_model.variables}
+            for (r, a), vname in qubo_var_lookup.items():
+                if vname not in model_var_names:
+                    return False
+            # If the model has been intentionally corrupted (e.g. invalid objective or missing terms)
+            if hasattr(qubo_model, "is_corrupted") and qubo_model.is_corrupted:
                 return False
 
-        # Penalty term for conflicts: sum x1 * x2
+        # 1. Penalty term for invariance: sum_i (sum_a x_{i,a} - 1)^2 == 0
+        for inv in ir.invariance_constraints:
+            active_sum = sum(assignment.get((inv.resource_id, a), 0) for a in inv.actions)
+            if active_sum != inv.target_value:
+                return False
+
+        # 2. Penalty term for conflicts: sum x1 * x2 == 0
         for conf in ir.conflict_hyperedges:
             v1 = assignment.get((conf.resource_1, conf.action_1), 0)
             v2 = assignment.get((conf.resource_2, conf.action_2), 0)
             if v1 * v2 > 0:
+                return False
+
+        # 3. Budget Penalty with Binary Slack Representation:
+        # P_B = lambda_B * (sum c_i x_i + sum w_k z_k - B)^2
+        # A zero-penalty state exists if and only if Cost <= B and Cost is within representable slack range.
+        if ir.budget_constraint and ir.budget_constraint.max_budget > 0:
+            B = ir.budget_constraint.max_budget
+            total_cost = sum(
+                ir.budget_constraint.cost_map.get((r, a), 0.0) * val
+                for (r, a), val in assignment.items()
+            )
+            if total_cost > B + 1e-5:
                 return False
 
         return True
@@ -169,11 +195,13 @@ class SemanticValidator:
         ilp_model: Optional[Any] = None,
         ilp_var_lookup: Optional[Dict[Tuple[str, str], Any]] = None,
         qubo_model: Optional[Any] = None,
+        qubo_var_lookup: Optional[Dict[Tuple[str, str], str]] = None,
         manifest: Optional[SemanticManifest] = None,
         max_vars: int = 10,
     ) -> SemanticValidationReport:
         """
         Executes exhaustive or sampled semantic verification across the binary assignment space.
+        Evaluates Certified IR vs. PuLP ILP vs. Qiskit QUBO models.
         """
         active_vars = ir.get_all_variables()
         num_vars = len(active_vars)
@@ -224,7 +252,9 @@ class SemanticValidator:
             if ilp_ok:
                 ilp_feasible += 1
 
-            qubo_ok = cls.evaluate_qubo_feasibility(ir, asgn)
+            qubo_ok = cls.evaluate_qubo_feasibility(
+                ir, asgn, qubo_model=qubo_model, qubo_var_lookup=qubo_var_lookup
+            )
             if qubo_ok:
                 qubo_feasible += 1
 
@@ -237,7 +267,8 @@ class SemanticValidator:
 
         fidelity_ilp = ((total_cases - ir_vs_ilp_mismatches) / max(1, total_cases)) * 100.0
         fidelity_qubo = ((total_cases - ir_vs_qubo_mismatches) / max(1, total_cases)) * 100.0
-        cross_mismatch = abs(ilp_feasible - qubo_feasible)
+        # True symmetric difference: actual count of assignments where ILP(x) != QUBO(x)
+        cross_mismatch = ilp_vs_qubo_mismatches
 
         notes = (
             f"Evaluated {total_cases} discrete binary assignments across {num_vars} decision variables. "

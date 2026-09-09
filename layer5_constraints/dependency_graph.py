@@ -612,12 +612,12 @@ class ConstraintDependencyGraph:
             ir.variable_domains[rid] = VariableDomain(
                 resource_id=rid,
                 resource_type=rtype,
-                admissible_actions=admissible,
-                pruned_actions=pruned,
+                admissible_actions=list(admissible),
+                pruned_actions=list(pruned),
             )
             ir.invariance_constraints.append(InvarianceConstraint(
                 resource_id=rid,
-                actions=admissible,
+                actions=list(admissible),
                 target_value=1,
             ))
 

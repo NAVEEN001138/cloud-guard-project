@@ -1,7 +1,7 @@
 {
   "benchmark_metadata": {
     "title": "System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response",
-    "timestamp": "2026-09-09T23:11:25.784280",
+    "timestamp": "2026-09-10T00:22:39.952263",
     "python_version": "3.14.0",
     "platform": "win32"
   },
@@ -14,7 +14,7 @@
         "transitively_affected_entities": 0,
         "dangling_dependencies": 1,
         "stale_conflicts": 1,
-        "runtime_ms": 0.0068,
+        "runtime_ms": 0.0053,
         "solver_infeasibility_risk": "HIGH (Unsatisfied prerequisites active in model)"
       },
       "fixed_point_closure": {
@@ -24,7 +24,7 @@
         "closure_iterations": 3,
         "dangling_dependencies": 0,
         "stale_conflicts": 0,
-        "runtime_ms": 0.0799,
+        "runtime_ms": 0.0735,
         "closure_status": "CONVERGED"
       },
       "technical_effect": "Eliminates 100% of dangling dependency references across multi-hop topological chains."
@@ -84,53 +84,53 @@
     "experiment_9_incremental_vs_full_compilation": [
       {
         "fleet_size_assets": 10,
-        "full_compile_ms": 0.902,
-        "incremental_compile_ms": 0.987,
+        "full_compile_ms": 1.118,
+        "incremental_compile_ms": 1.108,
         "total_nodes": 10,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 43,
         "node_recompute_ratio": 0.1,
-        "latency_reduction_pct": -9.44,
+        "latency_reduction_pct": 0.9,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 50,
-        "full_compile_ms": 5.515,
-        "incremental_compile_ms": 4.008,
+        "full_compile_ms": 6.637,
+        "incremental_compile_ms": 5.057,
         "total_nodes": 50,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 233,
         "node_recompute_ratio": 0.02,
-        "latency_reduction_pct": 27.33,
+        "latency_reduction_pct": 23.8,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 100,
-        "full_compile_ms": 14.395,
-        "incremental_compile_ms": 8.046,
+        "full_compile_ms": 17.457,
+        "incremental_compile_ms": 10.72,
         "total_nodes": 100,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 471,
         "node_recompute_ratio": 0.01,
-        "latency_reduction_pct": 44.1,
+        "latency_reduction_pct": 38.59,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 250,
-        "full_compile_ms": 90.742,
-        "incremental_compile_ms": 23.821,
+        "full_compile_ms": 88.381,
+        "incremental_compile_ms": 29.94,
         "total_nodes": 250,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 1183,
         "node_recompute_ratio": 0.004,
-        "latency_reduction_pct": 73.75,
+        "latency_reduction_pct": 66.12,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       }
@@ -148,7 +148,7 @@
       "semantic_fidelity_qubo_pct": 100.0,
       "cross_backend_semantic_mismatch": 0,
       "evaluation_mode": "EXHAUSTIVE_ENUMERATION",
-      "technical_takeaway": "ILP preserves certified IR semantics with 100% fidelity. QUBO maps physical prohibitions structurally while enforcing invariants via dominating quadratic penalty expansion."
+      "technical_takeaway": "Both PuLP ILP and Qiskit QUBO preserve certified IR semantics with 100% semantic fidelity across all evaluated discrete assignments. The QUBO representation employs exact binary slack variable expansion for budget inequality constraints."
     },
     "experiment_11_safety_gated_learning": {
       "experiment_name": "Experiment 11: Safety-Gated Learning",
@@ -185,7 +185,7 @@
           "description": "Empty Domain Creation: Restrict all remaining actions on healthcare DB",
           "expected": "REJECT",
           "actual": "REJECTED",
-          "reason": "REJECTED: Rule produces empty feasible action domain for resources ['db_01']",
+          "reason": "REJECTED: Feasible domain non-empty violation -- pruning 'rotate_credentials' leaves resource 'db_01' (rds_database) with an empty decision domain",
           "pass": true
         }
       ],

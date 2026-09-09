@@ -12,6 +12,8 @@ __pycache__/
 *$py.class
 *.pkl
 .pytest_cache/
+benchmark_feedback_temp.json
+test_feedback_temp.json
 
 # Large Datasets, Archives & Unnecessary Folders
 datasets/

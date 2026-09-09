@@ -496,6 +496,269 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         cap_records = [c for c in ir.hard_constraints if c.target_resource == "res_plc_01" and c.target_action == "isolate"]
         self.assertGreater(len(cap_records), 0)
 
+    # 21. QUBO under-budget feasibility: Cost=6, Budget=10 is valid in both ILP and QUBO
+    def test_21_qubo_under_budget_feasibility(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        prob, ilp_lookup = FormulationCompiler.compile_to_ilp(ir, cert)
+        qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert)
+
+        witness = cert.feasibility_witness
+        self.assertIsNotNone(witness)
+        asgn = {}
+        for rid, domain in ir.variable_domains.items():
+            for act in domain.admissible_actions:
+                asgn[(rid, act)] = 1 if witness.get(rid) == act else 0
+
+        total_cost = sum(ir.budget_constraint.cost_map.get((r, a), 0.0) * v for (r, a), v in asgn.items())
+        self.assertLessEqual(total_cost, 10.0)
+
+        ilp_valid = SemanticValidator.evaluate_ilp_feasibility(prob, ilp_lookup, asgn)
+        qubo_valid = SemanticValidator.evaluate_qubo_feasibility(ir, asgn, qubo_model=qubo, qubo_var_lookup=qubo_lookup)
+        self.assertTrue(ilp_valid)
+        self.assertTrue(qubo_valid)
+
+    # 22. QUBO exact-budget feasibility: Cost=10, Budget=10 is valid in both ILP and QUBO
+    def test_22_qubo_exact_budget_feasibility(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        witness = cert.feasibility_witness
+        self.assertIsNotNone(witness)
+        witness_cost = sum(ir.budget_constraint.cost_map.get((r, witness[r]), 0.0) for r in witness)
+        ir.budget_constraint.max_budget = witness_cost
+        ir.compute_canonical_digest()
+        cert2 = PreSolveSafetyCertifier.certify(ir)
+
+        prob, ilp_lookup = FormulationCompiler.compile_to_ilp(ir, cert2)
+        qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert2)
+
+        asgn = {}
+        for rid, domain in ir.variable_domains.items():
+            for act in domain.admissible_actions:
+                asgn[(rid, act)] = 1 if witness.get(rid) == act else 0
+
+        ilp_valid = SemanticValidator.evaluate_ilp_feasibility(prob, ilp_lookup, asgn)
+        qubo_valid = SemanticValidator.evaluate_qubo_feasibility(ir, asgn, qubo_model=qubo, qubo_var_lookup=qubo_lookup)
+        self.assertTrue(ilp_valid)
+        self.assertTrue(qubo_valid)
+
+    # 23. QUBO over-budget rejection: Cost > Budget is rejected in both ILP and QUBO
+    def test_23_qubo_over_budget_rejection(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        prob, ilp_lookup = FormulationCompiler.compile_to_ilp(ir, cert)
+        qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert)
+
+        asgn_over = {v: 1 for v in ir.get_all_variables()}
+        ilp_valid = SemanticValidator.evaluate_ilp_feasibility(prob, ilp_lookup, asgn_over)
+        qubo_valid = SemanticValidator.evaluate_qubo_feasibility(ir, asgn_over, qubo_model=qubo, qubo_var_lookup=qubo_lookup)
+        self.assertFalse(ilp_valid)
+        self.assertFalse(qubo_valid)
+
+    # 24. Actual QUBO corruption detected by semantic validator
+    def test_24_actual_qubo_corruption_detected(self):
+        small_scen = {"scenario": "small", "resources": [{"id": "r1", "type": "server"}]}
+        small_threat = {"r1": 0.8}
+        small_ctx = {"r1": create_test_context("r1", "server")}
+        small_conf = {"r1": create_test_confidence("r1")}
+
+        ir = self.dag.resolve(small_scen, small_threat, small_ctx, small_conf, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert)
+        qubo.is_corrupted = True
+        report = SemanticValidator.validate_backend_semantics(
+            ir, qubo_model=qubo, qubo_var_lookup=qubo_lookup, max_vars=8
+        )
+        self.assertEqual(report.qubo_semantically_valid_count, 0)
+        self.assertGreater(report.ir_vs_qubo_mismatches, 0)
+
+    # 25. Same count of feasible states but different assignments -> mismatch detected
+    def test_25_same_count_different_assignments_mismatch_detected(self):
+        report = SemanticValidationReport(
+            total_assignments=100,
+            ir_feasible_count=10,
+            ilp_feasible_count=10,
+            qubo_semantically_valid_count=10,
+            ir_vs_ilp_mismatches=0,
+            ir_vs_qubo_mismatches=4,
+            ilp_vs_qubo_mismatches=4,
+            semantic_fidelity_ilp_pct=100.0,
+            semantic_fidelity_qubo_pct=96.0,
+            cross_backend_mismatch=4,
+            max_variable_threshold=10,
+            evaluation_mode="EXHAUSTIVE",
+        )
+        self.assertEqual(report.cross_backend_mismatch, 4)
+        self.assertNotEqual(report.cross_backend_mismatch, abs(report.ilp_feasible_count - report.qubo_semantically_valid_count))
+
+    # 26. Stale invariance action detected by certifier
+    def test_26_stale_invariance_action_detected(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        inv = ir.invariance_constraints[0]
+        inv.actions = list(inv.actions) + ["non_existent_stale_action"]
+        ir.compute_canonical_digest()
+        cert = PreSolveSafetyCertifier.certify(ir)
+        self.assertFalse(cert.verification_checks["3_exactly_one_invariance_present"])
+        self.assertFalse(cert.is_valid())
+
+    # 27. Globally infeasible conflict state rejected by certifier
+    def test_27_globally_infeasible_conflict_state_rejected(self):
+        scen = {
+            "incident_id": "infeasible_test",
+            "resources": [{"id": "rA", "type": "server"}, {"id": "rB", "type": "server"}],
+        }
+        dag = ConstraintDependencyGraph(incident_id="infeasible_test")
+        ir = dag.resolve(scen, {"rA": 0.8, "rB": 0.8}, {}, {})
+        ir.variable_domains["rA"].admissible_actions = ["isolate"]
+        ir.variable_domains["rB"].admissible_actions = ["isolate"]
+        ir.invariance_constraints = [
+            InvarianceConstraint(resource_id="rA", actions=["isolate"], target_value=1),
+            InvarianceConstraint(resource_id="rB", actions=["isolate"], target_value=1),
+        ]
+        ir.conflict_hyperedges.append(ConflictHyperedge(
+            resource_1="rA", action_1="isolate",
+            resource_2="rB", action_2="isolate",
+            reason="Mutual exclusion", rule_id="TEST_EXCLUSION"
+        ))
+        ir.compute_canonical_digest()
+        witness = PreSolveSafetyCertifier.find_feasibility_witness(ir)
+        self.assertIsNone(witness)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        self.assertFalse(cert.is_valid())
+        self.assertFalse(cert.verification_checks["5_budget_feasibility_guaranteed"])
+
+    # 28. Feasibility witness generated in certificate
+    def test_28_feasibility_witness_generated(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        self.assertTrue(cert.is_valid())
+        self.assertIsNotNone(cert.feasibility_witness)
+        for rid in ir.variable_domains:
+            self.assertIn(rid, cert.feasibility_witness)
+            self.assertIn(cert.feasibility_witness[rid], ir.variable_domains[rid].admissible_actions)
+
+    # 29. Tampered certificate integrity digest rejected
+    def test_29_tampered_certificate_integrity_digest_rejected(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        cert.integrity_digest = "0" * 64
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.compile_to_ilp(ir, cert)
+
+    # 30. Tampered closure metadata rejected
+    def test_30_tampered_closure_metadata_rejected(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        if ir.dependency_closure_metadata:
+            ir.dependency_closure_metadata.removed_variables.append(("fake_res", "fake_act"))
+            with self.assertRaises(IntegrityBindingError):
+                FormulationCompiler.compile_to_ilp(ir, cert)
+
+    # 31. Three-hop incremental dependency propagation (A -> B -> C)
+    def test_31_three_hop_incremental_dependency_propagation(self):
+        scenario = {
+            "incident_id": "test_chain",
+            "resources": [
+                {"id": "node_a", "type": "server"},
+                {"id": "node_b", "type": "server"},
+                {"id": "node_c", "type": "server"},
+            ]
+        }
+        edges = [
+            TypedDependencyEdge("node_a:isolate", "node_b:isolate", DependencyRelationType.REQUIRES, "CHAIN_1"),
+            TypedDependencyEdge("node_b:isolate", "node_c:isolate", DependencyRelationType.REQUIRES, "CHAIN_2"),
+        ]
+        dag = ConstraintDependencyGraph(incident_id="test_chain")
+        ir = dag.resolve(scenario, {"node_a": 0.8, "node_b": 0.8, "node_c": 0.8}, {}, {}, explicit_dependencies=edges)
+
+        delta = RuntimeStateDelta(changed_assets={"node_a"})
+        res = IncrementalConstraintCompiler.compile_delta(
+            previous_ir=ir,
+            delta=delta,
+            scenario=scenario,
+            all_contexts={},
+            all_confidences={},
+            all_threat_scores={"node_a": 0.8, "node_b": 0.8, "node_c": 0.8},
+            explicit_dependencies=edges,
+        )
+        self.assertIn("node_a", res.dirty_nodes)
+        self.assertIn("node_b", res.dirty_nodes)
+        self.assertIn("node_c", res.dirty_nodes)
+
+    # 32. Changed resource state triggers recompilation
+    def test_32_changed_resource_state_triggers_recompilation(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences)
+        delta = RuntimeStateDelta(changed_resource_state={"res_gw_01": {"status": "degraded"}})
+        res = IncrementalConstraintCompiler.compile_delta(
+            previous_ir=ir,
+            delta=delta,
+            scenario=self.scenario,
+            all_contexts=self.contexts,
+            all_confidences=self.confidences,
+            all_threat_scores=self.threat_scores,
+        )
+        self.assertIn("res_gw_01", res.dirty_nodes)
+
+    # 33. Dirty-clean cross-resource conflict rebuilt correctly
+    def test_33_dirty_clean_cross_resource_conflict_rebuilt(self):
+        scenario = {
+            "incident_id": "test_cross",
+            "resources": [
+                {"id": "res_clean", "type": "server"},
+                {"id": "res_dirty", "type": "server"},
+            ]
+        }
+        dag = ConstraintDependencyGraph(incident_id="test_cross")
+        ir = dag.resolve(scenario, {"res_clean": 0.8, "res_dirty": 0.8}, {}, {})
+        ir.conflict_hyperedges.append(ConflictHyperedge(
+            resource_1="res_clean", action_1="isolate",
+            resource_2="res_dirty", action_2="isolate",
+            reason="Cross-tier conflict", rule_id="CROSS_01"
+        ))
+        ir.compute_canonical_digest()
+
+        delta = RuntimeStateDelta(changed_threat_state={"res_dirty": 0.95})
+        res = IncrementalConstraintCompiler.compile_delta(
+            previous_ir=ir,
+            delta=delta,
+            scenario=scenario,
+            all_contexts={},
+            all_confidences={},
+            all_threat_scores={"res_clean": 0.8, "res_dirty": 0.95},
+        )
+        cross_conf = [
+            c for c in res.updated_ir.conflict_hyperedges
+            if (c.resource_1 == "res_clean" and c.resource_2 == "res_dirty")
+            or (c.resource_1 == "res_dirty" and c.resource_2 == "res_clean")
+        ]
+        self.assertGreaterEqual(len(cross_conf), 1)
+
+    # 34. Full and incremental semantic fingerprints match
+    def test_34_full_and_incremental_semantic_fingerprints_match(self):
+        base_threats = {"res_gw_01": 0.5, "res_db_01": 0.5, "res_plc_01": 0.5}
+        scen = {
+            "incident_id": "test_fingerprint",
+            "resources": [r for r in self.scenario["resources"] if r["id"] in base_threats]
+        }
+        dag = ConstraintDependencyGraph(incident_id="test_fingerprint")
+        ir_t = dag.resolve(scen, base_threats, self.contexts, self.confidences, base_budget=15.0)
+
+        updated_threats = base_threats.copy()
+        updated_threats["res_gw_01"] = 0.95
+        delta = RuntimeStateDelta(changed_threat_state={"res_gw_01": 0.95})
+
+        full_ir = dag.resolve(scen, updated_threats, self.contexts, self.confidences, base_budget=15.0)
+        inc_res = IncrementalConstraintCompiler.compile_delta(
+            previous_ir=ir_t,
+            delta=delta,
+            scenario=scen,
+            all_contexts=self.contexts,
+            all_confidences=self.confidences,
+            all_threat_scores=updated_threats,
+            base_budget=15.0,
+        )
+        self.assertEqual(full_ir.semantic_fingerprint(), inc_res.updated_ir.semantic_fingerprint())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

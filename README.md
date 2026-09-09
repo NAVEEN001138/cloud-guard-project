@@ -6,7 +6,7 @@
 > **Applicant & Inventor**: Naveen Ravi | **Invention**: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response  
 > **Confidentiality Notice**: The contents, source algorithms, mathematical formulations, and empirical evaluation data in this repository constitute proprietary intellectual property. Unauthorized commercial reproduction, distribution, or public disclosure without explicit written consent is strictly prohibited under the Patents Act, 1970 and international patent treaties.
 
-> **System Status**: Fully Verified (10/10 Verification Pass) | 20/20 Patent Unit Tests Pass | 100% Decision Fidelity ($DF\%$) | Pre-Solve Safety Certified | Certificate-Gated Compilation
+> **System Status**: Fully Verified (10/10 Verification Pass) | 34/34 Patent Unit Tests Pass | 100% Constraint Compliance Rate (CCR) | 100% Backend Semantic Fidelity (SF) | Pre-Solve Safety Certified | Certificate-Gated Compilation
 
 ---
 
@@ -15,7 +15,7 @@
 **Cloud Guardian** is a computer-implemented autonomous cybersecurity decision and incident response platform designed for heterogeneous Cloud, Edge, and Cyber-Physical (SCADA/IoT) environments.
 
 ### Central Patent Contribution
-Live infrastructure state causes modification of the membership of the optimization decision domain, followed by fixed-point dependency-aware regeneration of constraint topology and operational bounds, generation of a solver-independent intermediate representation (SC-IR), deterministic certification of that reconstructed state, and certificate-gated generation of solver-specific models before infrastructure actuation:
+Live infrastructure state causes modification of the membership of the optimization decision domain, followed by fixed-point dependency-aware regeneration of constraint topology and operational bounds, generation of a solver-independent intermediate representation (SC-IR), deterministic certification of that reconstructed state with an established feasibility witness, and certificate-gated generation of solver-specific models before infrastructure actuation:
 
 $$\mathcal{S}_t \to F(\mathcal{S}_t, \mathcal{A}) \to \mathcal{A}'_t \to \text{Fixed-Point Closure } R^* \to \mathcal{E}'_t \to \mathcal{B}'_t \to \text{SC-IR}_t \to \mathcal{C}_t \to \text{Certificate-Bound Compilation} \to \text{Solvers}$$
 
@@ -151,37 +151,46 @@ python run_constraint_compiler_benchmark.py
 5. **Dimension 2 Context Sweep**: Single asset (Cloud API Gateway) across 4 progressive operational contexts.
 6. **The Killer Ablation Study**: Full architecture vs. Parameter-only weights, Disconnected pruning, and Unverified solve.
 
-### 4. Run Multi-Scale Empirical Scaling Trials (2,000 to 100,000 Samples)
+### 4. Run Multi-Scale Empirical Scaling Trials (2,000 to 1,000,000 Samples)
 ```bash
 python run_data_scaling_trials.py
 ```
-*Executes throttled empirical scaling trials across $N \in [2k, 4k, 10k, 50k, 100k]$ samples, verifying 0.0% forbidden action violations, 8/8 invariant checks passed, and 100.00% Decision Fidelity across all data scales under CPU throttling. See [`EMPIRICAL_SCALING_TRIALS.md`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/EMPIRICAL_SCALING_TRIALS.md).*
+*Executes throttled empirical scaling trials across $N \in [2k, 4k, 10k, 50k, 100k, 1M]$ samples, verifying 0.0% forbidden action violations, 7/7 unique safety invariant checks passed, and 100.00% Constraint Compliance Rate (CCR) across all data scales under CPU throttling. See [`EMPIRICAL_SCALING_TRIALS.md`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/EMPIRICAL_SCALING_TRIALS.md).*
 
-### 5. Run Automated Patent Strengthening Test Suite (20 Tests)
+### 5. Run Automated Patent Strengthening Test Suite (34 Tests)
 ```bash
 python test_patent_strengthening.py
 ```
-*Executes all 20 mandatory unit and integration tests covering deterministic fixed-point closure, cycle termination, multi-hop propagation, canonical digest stability, certificate tampering rejection, incremental recompilation equivalence, and safety-gated learning.*
+*Executes all 34 unit and integration tests covering deterministic fixed-point closure, cycle termination, multi-hop propagation, canonical digest stability, certificate tampering rejection, exact binary slack QUBO budget inequality, feasibility witness generation, 3-hop incremental dependency propagation, and exact semantic fingerprint matching.*
 
 ### 6. Run Advanced Patent Strengthening Benchmark Suite (Experiments 7 to 11)
 ```bash
 python run_patent_strengthening_benchmark.py
 ```
 *Generates empirical proof tables for Patent Experiments 7 through 11:*
-- **Experiment 7**: Multi-hop fixed-point closure eliminating dangling references and stale conflicts.
+- **Experiment 7**: Multi-hop fixed-point closure eliminating dangling references and stale conflicts (1 -> 0 dangling references).
 - **Experiment 8**: Certificate binding attack suite demonstrating 0 false accepts across 6 tampering vectors.
-- **Experiment 9**: Incremental vs. full compilation scaling across 10, 50, 100, 250 assets with 100% semantic equivalence.
-- **Experiment 10**: Exhaustive solver semantic fidelity ($2^n$ state truth-table matching across ILP and QUBO).
+- **Experiment 9**: Incremental vs. full compilation scaling across 10, 50, 100, 250 assets with 100% semantic equivalence (+73.75% speedup at 250 assets).
+- **Experiment 10**: Exhaustive solver semantic fidelity (1024 discrete assignments evaluated with 100% SF on ILP and QUBO).
 - **Experiment 11**: Safety-gated experience memory with sandboxed monotonicity enforcement (0 unsafe rules admitted).
 *Outputs: [`patent_strengthening_results.json`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/patent_strengthening_results.json) and [`PATENT_STRENGTHENING_RESULTS.md`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/PATENT_STRENGTHENING_RESULTS.md).*
 
-### 7. Run Unvarnished Evidentiary Verification Report
+### 7. Generate High-Resolution Publication & Patent Diagrams (300 DPI)
+```bash
+python generate_diagram_images.py
+```
+*Generates 6 publication-ready images:*
+- `architecture_diagram.png` (Dark) & `architecture_diagram_white.png` (Patent White)
+- `process_flow_diagram.png` (Dark) & `patent_figure_2_process_flow_white.png` (Patent White with Reference Numerals 100–190)
+- `incremental_compilation_diagram.png` (Dark) & `patent_figure_3_incremental_white.png` (Patent White)
+
+### 8. Run Unvarnished Evidentiary Verification Report
 ```bash
 python run_detailed_verification_evidence.py
 ```
 *Outputs per-attack FL accuracy breakdown, Shannon Entropy privacy metrics, and side-by-side Decision Fidelity tables.*
 
-### 8. Launch Interactive Streamlit Dashboard
+### 9. Launch Interactive Streamlit Dashboard
 ```bash
 streamlit run streamlit_app.py
 ```
@@ -189,15 +198,28 @@ streamlit run streamlit_app.py
 
 ---
 
+## 🎯 Metric Nomenclature & Academic Definitions
+
+| Metric Symbol | Full Name | Formal Mathematical Definition | Verified Empirical Result |
+|---|---|---|:---:|
+| **CCR** | **Constraint Compliance Rate** | $\text{CCR} = \frac{\text{valid decisions with 0 forbidden actions}}{\text{total decisions evaluated}} \times 100$ | **100.00%** |
+| **SF** | **Semantic Fidelity** | $\text{SF} = \frac{\text{assignments where backend feasibility matches IR}}{\text{total discrete binary assignments}} \times 100$ | **100.00%** (ILP & QUBO) |
+| **CBDA** | **Cross-Backend Decision Agreement** | $\text{CBDA} = \frac{\text{incidents where ILP and QUBO select identical action vector}}{\text{total evaluated incidents}} \times 100$ | **100.00%** |
+| **7/7 Invariants** | **Unique Safety Invariants** | Evaluates the 7 canonical pre-solve checks + feasibility witness | **7/7 PASS** |
+
+---
+
 ## 📊 Evaluation & Benchmark Highlights
 
 | Metric Dimension | Empirical Result | Verification Standard |
 | :--- | :---: | :--- |
+| **Model Scale Accuracy** | **98.65%** | 1,000,000 empirical samples (0.9948 ROC-AUC) |
 | **Model Mean Accuracy** | **94.05%** | Youden's J-calibrated multi-client validation folds |
 | **Model Test Accuracy** | **94.25%** | 400-sample holdout test partition ($377/400$ correct) |
 | **Model Precision** | **98.82%** | Zero false-positive alert floods |
 | **Model ROC-AUC** | **0.9577** | Calibrated threshold separation |
-| **Decision Fidelity ($DF\%$)** | **100.00%** | Zero broken constraints; optimal action alignment |
+| **Constraint Compliance (CCR)** | **100.00%** | Zero forbidden actions executed |
+| **QUBO / ILP Semantic Fidelity (SF)** | **100.00%** | 1024/1024 discrete state assignments matching |
 | **Metadata Leakage Reduction** | **61.66% – 67.88%** | Shannon entropy & volume reduction post-FL |
 | **Forbidden Action Rate (Compiler)** | **0.0%** | Achieved zero forbidden actions across evaluated scenarios |
 | **Forbidden Action Rate (No SC-IR)** | **40.0%** | Soft penalty baseline fails under high threat utility |
