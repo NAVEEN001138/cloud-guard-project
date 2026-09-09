@@ -151,16 +151,70 @@ class SemanticValidator:
         An assignment is semantically valid if and only if all penalty terms evaluate to zero
         under optimal binary slack variable settings.
         """
-        # If qubo_model is provided, verify structural presence of variables
+        # If qubo_model is provided, verify structural presence of variables and evaluate actual polynomial
         if qubo_model is not None and qubo_var_lookup is not None:
             model_var_names = {v.name for v in qubo_model.variables}
             for (r, a), vname in qubo_var_lookup.items():
                 if vname not in model_var_names:
                     return False
-            # If the model has been intentionally corrupted (e.g. invalid objective or missing terms)
+            # If the model has been explicitly marked corrupted
             if hasattr(qubo_model, "is_corrupted") and qubo_model.is_corrupted:
                 return False
 
+            # Genuine polynomial Hamiltonian evaluation: evaluate qubo_model.objective.evaluate(...)
+            if hasattr(qubo_model, "objective") and hasattr(qubo_model.objective, "evaluate"):
+                full_asgn = {vname: assignment.get((r, a), 0) for (r, a), vname in qubo_var_lookup.items()}
+
+                # Reconstruct optimal binary slack variable settings
+                if hasattr(qubo_model, "slack_info") and qubo_model.slack_info:
+                    scale = getattr(qubo_model, "cost_scale", 1000)
+                    b_int = getattr(qubo_model, "budget_int", 0)
+                    cost_map = ir.budget_constraint.cost_map if ir.budget_constraint else {}
+                    c_tot = sum(cost_map.get((r, a), 0.0) * val for (r, a), val in assignment.items())
+                    c_int = int(round(c_tot * scale))
+
+                    if c_int <= b_int:
+                        rem = b_int - c_int
+                        for sname, sw, iw in sorted(qubo_model.slack_info, key=lambda x: x[2], reverse=True):
+                            if rem >= iw:
+                                full_asgn[sname] = 1
+                                rem -= iw
+                            else:
+                                full_asgn[sname] = 0
+                    else:
+                        for sname, sw, iw in qubo_model.slack_info:
+                            full_asgn[sname] = 0
+                elif hasattr(qubo_model, "slack_weights") and qubo_model.slack_weights:
+                    b_max = ir.budget_constraint.max_budget if ir.budget_constraint else 0.0
+                    cost_map = ir.budget_constraint.cost_map if ir.budget_constraint else {}
+                    c_tot = sum(cost_map.get((r, a), 0.0) * val for (r, a), val in assignment.items())
+
+                    if c_tot <= b_max + 1e-5:
+                        rem = b_max - c_tot
+                        for k, sw in sorted(enumerate(qubo_model.slack_weights), key=lambda x: x[1], reverse=True):
+                            if rem >= sw - 1e-6:
+                                full_asgn[f"slack_{k}"] = 1
+                                rem -= sw
+                            else:
+                                full_asgn[f"slack_{k}"] = 0
+                    else:
+                        for k in range(len(qubo_model.slack_weights)):
+                            full_asgn[f"slack_{k}"] = 0
+
+                try:
+                    energy = qubo_model.objective.evaluate(full_asgn)
+                    unpenalized_cost = sum(
+                        ir.objective_terms[(r, a)].coefficient * val
+                        for (r, a), val in assignment.items()
+                        if (r, a) in ir.objective_terms
+                    )
+                    penalty = abs(energy - unpenalized_cost)
+                    # A mathematically valid QUBO assignment has exactly zero penalty (within numerical tolerance)
+                    return bool(penalty < 1e-3)
+                except Exception:
+                    return False
+
+        # Fallback if no qubo_model provided: check SC-IR mathematical invariants directly
         # 1. Penalty term for invariance: sum_i (sum_a x_{i,a} - 1)^2 == 0
         for inv in ir.invariance_constraints:
             active_sum = sum(assignment.get((inv.resource_id, a), 0) for a in inv.actions)
@@ -174,9 +228,7 @@ class SemanticValidator:
             if v1 * v2 > 0:
                 return False
 
-        # 3. Budget Penalty with Binary Slack Representation:
-        # P_B = lambda_B * (sum c_i x_i + sum w_k z_k - B)^2
-        # A zero-penalty state exists if and only if Cost <= B and Cost is within representable slack range.
+        # 3. Hard Budget Constraint: sum cost * x <= max_budget
         if ir.budget_constraint and ir.budget_constraint.max_budget > 0:
             B = ir.budget_constraint.max_budget
             total_cost = sum(

@@ -1,7 +1,7 @@
 # 🛡️ Empirical Patent Strengthening Evaluation Report
 
 **Invention**: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response  
-**Evaluation Date**: `2026-09-10T00:22:39.952263`  
+**Evaluation Date**: `2026-09-10T00:54:25.900639`  
 **Test Platform**: Python `3.14.0` on `win32`  
 **Verification Status**: **100% PASS** Across All 5 Advanced Patent Experiments (7 to 11)
 
@@ -32,7 +32,7 @@ $$\mathcal{S}_t \to \mathcal{S}_{t+1} \to \Delta\mathcal{S} \to \text{Minimal Af
 | **Propagation Depth** | 0 | **2** | Multi-hop depth verified |
 | **Iterations to Fixed Point** | 1 | **3** | Converged deterministically ($R_{k+1} = R_k$) |
 | **Closure Status** | N/A | **`CONVERGED`** | Cycle safety guaranteed |
-| **Runtime Execution** | 0.005 ms | 0.073 ms | Sub-millisecond closure overhead |
+| **Runtime Execution** | 0.006 ms | 0.074 ms | Sub-millisecond closure overhead |
 
 > **Technical Result**: Disconnected local pruning leaves 1 dangling references and 1 stale conflict hyperedges, producing unsolvable or physically invalid optimization models. Fixed-point dependency closure eliminates 100% of dangling references deterministically.
 
@@ -61,16 +61,16 @@ $$\mathcal{S}_t \to \mathcal{S}_{t+1} \to \Delta\mathcal{S} \to \text{Minimal Af
 
 **Objective**: Measure latency reduction, subgraph reuse ratio, and mathematical equivalence during runtime infrastructure updates ($S_t \to S_{t+1}$).
 
-| Fleet Size (Assets) | Full Compile ($T_{\text{full}}$) | Incremental Compile ($T_{\text{inc}}$) | Affected Nodes | Reused Constraints | Node Recompute Ratio | Latency Reduction | Semantic Equivalence |
+| Fleet Size (Assets) | Full Compile ($T_{\text{full}}$) (Median ± Std) | Incremental Compile ($T_{\text{inc}}$) (Median ± Std) | Affected Nodes | Reused Constraints | Node Recompute Ratio | Latency Reduction | Semantic Equivalence |
 |---|---|---|---|---|---|---|---|
-| **10** | 1.12 ms | **1.11 ms** | 1 / 10 | 43 | 0.1000 | **+0.9%** | `100% IDENTICAL` |
-| **50** | 6.64 ms | **5.06 ms** | 1 / 50 | 233 | 0.0200 | **+23.8%** | `100% IDENTICAL` |
-| **100** | 17.46 ms | **10.72 ms** | 1 / 100 | 471 | 0.0100 | **+38.59%** | `100% IDENTICAL` |
-| **250** | 88.38 ms | **29.94 ms** | 1 / 250 | 1183 | 0.0040 | **+66.12%** | `100% IDENTICAL` |
+| **10** | 1.02 ± 0.13 ms | **0.99 ± 0.12 ms** | 1 / 10 | 43 | 0.1000 | **+3.03%** | `100% IDENTICAL` |
+| **50** | 6.64 ± 2.55 ms | **5.10 ± 0.32 ms** | 1 / 50 | 233 | 0.0200 | **+23.24%** | `100% IDENTICAL` |
+| **100** | 18.05 ± 4.17 ms | **8.84 ± 0.25 ms** | 1 / 100 | 471 | 0.0100 | **+51.01%** | `100% IDENTICAL` |
+| **250** | 168.84 ± 19.08 ms | **69.84 ± 11.22 ms** | 1 / 250 | 1183 | 0.0040 | **+58.63%** | `100% IDENTICAL` |
 
 > **Equivalence Proof**: In 100% of tested fleet scales (10 to 250 assets), $\text{FullCompile}(S_{t+1}) \equiv \text{IncrementalCompile}(\text{IR}_t, \Delta S)$ for both the resulting admissible decision domain, hard constraints, and mathematical semantic fingerprint.
 >
-> **Engineering Rationale for Small Scale ($N=10$)**: At very small problem sizes ($N=10$), incremental bookkeeping overhead costs slightly more than full recompilation (-9.44%). As fleet size increases ($N=50, 100, 250$), subgraph reuse dominates, reaching up to **+73.75% latency reduction** at 250 assets.
+> **Engineering Rationale**: At very small problem sizes ($N=10$), incremental bookkeeping overhead accounts for a minor differential (+3.03%). As fleet size increases ($N=50, 100, 250$), subgraph reuse dominates, achieving **+58.63% latency reduction** at 250 assets across 30 repeated trials.
 
 ---
 

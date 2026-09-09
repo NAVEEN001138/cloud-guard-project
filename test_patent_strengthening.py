@@ -496,66 +496,82 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         cap_records = [c for c in ir.hard_constraints if c.target_resource == "res_plc_01" and c.target_action == "isolate"]
         self.assertGreater(len(cap_records), 0)
 
-    # 21. QUBO under-budget feasibility: Cost=6, Budget=10 is valid in both ILP and QUBO
+    # 21. QUBO exact fractional slack representation: Cost=0.605, Budget=1.000 (slack=0.395)
     def test_21_qubo_under_budget_feasibility(self):
-        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        ir = SecurityConstraintIR(
+            incident_id="test_21_frac_slack",
+            variable_domains={"r1": VariableDomain(resource_id="r1", resource_type="server", admissible_actions=["a1", "a2", "a3"])},
+            invariance_constraints=[InvarianceConstraint(resource_id="r1", actions=["a1", "a2", "a3"], target_value=1)],
+            conflict_hyperedges=[],
+            budget_constraint=HardBudgetConstraint(max_budget=1.000, cost_map={("r1", "a1"): 0.605, ("r1", "a2"): 1.000, ("r1", "a3"): 1.005}),
+            objective_terms={
+                ("r1", "a1"): ObjectiveLinearTerm(resource_id="r1", action="a1", coefficient=1.0, containment_component=1.0, cost_component=0.0, switching_penalty_component=0.0),
+                ("r1", "a2"): ObjectiveLinearTerm(resource_id="r1", action="a2", coefficient=2.0, containment_component=2.0, cost_component=0.0, switching_penalty_component=0.0),
+                ("r1", "a3"): ObjectiveLinearTerm(resource_id="r1", action="a3", coefficient=3.0, containment_component=3.0, cost_component=0.0, switching_penalty_component=0.0),
+            },
+        )
         cert = PreSolveSafetyCertifier.certify(ir)
         prob, ilp_lookup = FormulationCompiler.compile_to_ilp(ir, cert)
         qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert)
 
-        witness = cert.feasibility_witness
-        self.assertIsNotNone(witness)
-        asgn = {}
-        for rid, domain in ir.variable_domains.items():
-            for act in domain.admissible_actions:
-                asgn[(rid, act)] = 1 if witness.get(rid) == act else 0
-
-        total_cost = sum(ir.budget_constraint.cost_map.get((r, a), 0.0) * v for (r, a), v in asgn.items())
-        self.assertLessEqual(total_cost, 10.0)
-
-        ilp_valid = SemanticValidator.evaluate_ilp_feasibility(prob, ilp_lookup, asgn)
-        qubo_valid = SemanticValidator.evaluate_qubo_feasibility(ir, asgn, qubo_model=qubo, qubo_var_lookup=qubo_lookup)
+        # Assignment A: choose a1 (cost 0.605 <= 1.000, slack required = 0.395)
+        asgn_A = {("r1", "a1"): 1, ("r1", "a2"): 0, ("r1", "a3"): 0}
+        ilp_valid = SemanticValidator.evaluate_ilp_feasibility(prob, ilp_lookup, asgn_A)
+        qubo_valid = SemanticValidator.evaluate_qubo_feasibility(ir, asgn_A, qubo_model=qubo, qubo_var_lookup=qubo_lookup)
         self.assertTrue(ilp_valid)
         self.assertTrue(qubo_valid)
 
-    # 22. QUBO exact-budget feasibility: Cost=10, Budget=10 is valid in both ILP and QUBO
+    # 22. QUBO exact-budget boundary feasibility: Cost=1.000, Budget=1.000 (slack=0.000)
     def test_22_qubo_exact_budget_feasibility(self):
-        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
-        cert = PreSolveSafetyCertifier.certify(ir)
-        witness = cert.feasibility_witness
-        self.assertIsNotNone(witness)
-        witness_cost = sum(ir.budget_constraint.cost_map.get((r, witness[r]), 0.0) for r in witness)
-        ir.budget_constraint.max_budget = witness_cost
-        ir.compute_canonical_digest()
-        cert2 = PreSolveSafetyCertifier.certify(ir)
-
-        prob, ilp_lookup = FormulationCompiler.compile_to_ilp(ir, cert2)
-        qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert2)
-
-        asgn = {}
-        for rid, domain in ir.variable_domains.items():
-            for act in domain.admissible_actions:
-                asgn[(rid, act)] = 1 if witness.get(rid) == act else 0
-
-        ilp_valid = SemanticValidator.evaluate_ilp_feasibility(prob, ilp_lookup, asgn)
-        qubo_valid = SemanticValidator.evaluate_qubo_feasibility(ir, asgn, qubo_model=qubo, qubo_var_lookup=qubo_lookup)
-        self.assertTrue(ilp_valid)
-        self.assertTrue(qubo_valid)
-
-    # 23. QUBO over-budget rejection: Cost > Budget is rejected in both ILP and QUBO
-    def test_23_qubo_over_budget_rejection(self):
-        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        ir = SecurityConstraintIR(
+            incident_id="test_22_exact_budget",
+            variable_domains={"r1": VariableDomain(resource_id="r1", resource_type="server", admissible_actions=["a1", "a2", "a3"])},
+            invariance_constraints=[InvarianceConstraint(resource_id="r1", actions=["a1", "a2", "a3"], target_value=1)],
+            conflict_hyperedges=[],
+            budget_constraint=HardBudgetConstraint(max_budget=1.000, cost_map={("r1", "a1"): 0.605, ("r1", "a2"): 1.000, ("r1", "a3"): 1.005}),
+            objective_terms={
+                ("r1", "a1"): ObjectiveLinearTerm(resource_id="r1", action="a1", coefficient=1.0, containment_component=1.0, cost_component=0.0, switching_penalty_component=0.0),
+                ("r1", "a2"): ObjectiveLinearTerm(resource_id="r1", action="a2", coefficient=2.0, containment_component=2.0, cost_component=0.0, switching_penalty_component=0.0),
+                ("r1", "a3"): ObjectiveLinearTerm(resource_id="r1", action="a3", coefficient=3.0, containment_component=3.0, cost_component=0.0, switching_penalty_component=0.0),
+            },
+        )
         cert = PreSolveSafetyCertifier.certify(ir)
         prob, ilp_lookup = FormulationCompiler.compile_to_ilp(ir, cert)
         qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert)
 
-        asgn_over = {v: 1 for v in ir.get_all_variables()}
-        ilp_valid = SemanticValidator.evaluate_ilp_feasibility(prob, ilp_lookup, asgn_over)
-        qubo_valid = SemanticValidator.evaluate_qubo_feasibility(ir, asgn_over, qubo_model=qubo, qubo_var_lookup=qubo_lookup)
+        # Assignment B: choose a2 (cost exactly 1.000 == Budget 1.000, slack required = 0)
+        asgn_B = {("r1", "a1"): 0, ("r1", "a2"): 1, ("r1", "a3"): 0}
+        ilp_valid = SemanticValidator.evaluate_ilp_feasibility(prob, ilp_lookup, asgn_B)
+        qubo_valid = SemanticValidator.evaluate_qubo_feasibility(ir, asgn_B, qubo_model=qubo, qubo_var_lookup=qubo_lookup)
+        self.assertTrue(ilp_valid)
+        self.assertTrue(qubo_valid)
+
+    # 23. QUBO isolated over-budget rejection: Cost=1.005 > Budget=1.000 (satisfies invariance, violates budget)
+    def test_23_qubo_over_budget_rejection(self):
+        ir = SecurityConstraintIR(
+            incident_id="test_23_over_budget",
+            variable_domains={"r1": VariableDomain(resource_id="r1", resource_type="server", admissible_actions=["a1", "a2", "a3"])},
+            invariance_constraints=[InvarianceConstraint(resource_id="r1", actions=["a1", "a2", "a3"], target_value=1)],
+            conflict_hyperedges=[],
+            budget_constraint=HardBudgetConstraint(max_budget=1.000, cost_map={("r1", "a1"): 0.605, ("r1", "a2"): 1.000, ("r1", "a3"): 1.005}),
+            objective_terms={
+                ("r1", "a1"): ObjectiveLinearTerm(resource_id="r1", action="a1", coefficient=1.0, containment_component=1.0, cost_component=0.0, switching_penalty_component=0.0),
+                ("r1", "a2"): ObjectiveLinearTerm(resource_id="r1", action="a2", coefficient=2.0, containment_component=2.0, cost_component=0.0, switching_penalty_component=0.0),
+                ("r1", "a3"): ObjectiveLinearTerm(resource_id="r1", action="a3", coefficient=3.0, containment_component=3.0, cost_component=0.0, switching_penalty_component=0.0),
+            },
+        )
+        cert = PreSolveSafetyCertifier.certify(ir)
+        prob, ilp_lookup = FormulationCompiler.compile_to_ilp(ir, cert)
+        qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert)
+
+        # Assignment C: choose a3 (cost 1.005 > 1.000, exactly one action satisfied, isolated budget violation)
+        asgn_C = {("r1", "a1"): 0, ("r1", "a2"): 0, ("r1", "a3"): 1}
+        ilp_valid = SemanticValidator.evaluate_ilp_feasibility(prob, ilp_lookup, asgn_C)
+        qubo_valid = SemanticValidator.evaluate_qubo_feasibility(ir, asgn_C, qubo_model=qubo, qubo_var_lookup=qubo_lookup)
         self.assertFalse(ilp_valid)
         self.assertFalse(qubo_valid)
 
-    # 24. Actual QUBO corruption detected by semantic validator
+    # 24. Actual QUBO polynomial coefficient corruption detected by semantic validator
     def test_24_actual_qubo_corruption_detected(self):
         small_scen = {"scenario": "small", "resources": [{"id": "r1", "type": "server"}]}
         small_threat = {"r1": 0.8}
@@ -565,12 +581,16 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         ir = self.dag.resolve(small_scen, small_threat, small_ctx, small_conf, base_budget=10.0)
         cert = PreSolveSafetyCertifier.certify(ir)
         qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert)
-        qubo.is_corrupted = True
+
+        # Mutate a real polynomial linear coefficient in the Hamiltonian objective
+        target_var = list(qubo_lookup.values())[0]
+        qubo.objective.linear[target_var] += 25.0
+
         report = SemanticValidator.validate_backend_semantics(
             ir, qubo_model=qubo, qubo_var_lookup=qubo_lookup, max_vars=8
         )
-        self.assertEqual(report.qubo_semantically_valid_count, 0)
         self.assertGreater(report.ir_vs_qubo_mismatches, 0)
+        self.assertLess(report.qubo_semantically_valid_count, report.ir_feasible_count)
 
     # 25. Same count of feasible states but different assignments -> mismatch detected
     def test_25_same_count_different_assignments_mismatch_detected(self):

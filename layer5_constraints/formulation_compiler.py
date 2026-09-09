@@ -192,6 +192,7 @@ class FormulationCompiler:
 
         linear_terms: Dict[str, float] = {}
         quadratic_terms: Dict[Tuple[str, str], float] = {}
+        constant: float = 0.0
 
         # 3. Base Objective Linear Terms from IR
         for (rid, act), term in sorted(ir.objective_terms.items()):
@@ -200,7 +201,7 @@ class FormulationCompiler:
                 linear_terms[vname] = term.coefficient
 
         # 4. Invariance Constraint Penalty: lambda_I * (sum_a x_{i,a} - 1)^2
-        # Expansion: -lambda_I * sum_a x_{i,a} + 2 * lambda_I * sum_{a < b} x_{i,a} * x_{i,b}
+        # Expansion: -lambda_I * sum_a x_{i,a} + 2 * lambda_I * sum_{a < b} x_{i,a} * x_{i,b} + lambda_I
         for inv in ir.invariance_constraints:
             active_vars = [
                 var_lookup[(inv.resource_id, a)]
@@ -215,6 +216,7 @@ class FormulationCompiler:
                     v1, v2 = active_vars[i], active_vars[j]
                     pair = (v1, v2) if v1 < v2 else (v2, v1)
                     quadratic_terms[pair] = quadratic_terms.get(pair, 0.0) + 2.0 * lambda_invariance
+            constant += lambda_invariance
 
         # 5. Conflict Hyperedge Constraint Penalty: lambda_C * x1 * x2
         for conf in ir.conflict_hyperedges:
@@ -226,42 +228,60 @@ class FormulationCompiler:
                 pair = (v1, v2) if v1 < v2 else (v2, v1)
                 quadratic_terms[pair] = quadratic_terms.get(pair, 0.0) + lambda_conflict
 
-        # 6. Budget Inequality Constraint Penalty with Binary Slack Variables:
-        # P_B = lambda_B * (sum c_i x_i + sum w_k z_k - B)^2
+        # 6. Budget Inequality Constraint Penalty with Exact Integer-Scaled Binary Slack Variables:
+        # P_B = lambda_B * (sum c_i x_i + sum s_k z_k - B)^2
+        # where scale = 1000, integer budget B_hat = round(B * scale),
+        # integer powers w_k in {1, 2, 4, ..., B_hat - sum}, and s_k = w_k / scale.
+        # Dominating penalty multiplier: lambda_B = max(2.0, M_obj) * scale^2.
+        # This guarantees:
+        #   - Every admissible fractional cost (e.g. 0.005, 0.025, 0.605) has EXACT binary representation (residual = 0).
+        #   - For any feasible state x with optimal slack z*, P_B = 0.0 (penalty-free Hamiltonian energy).
+        #   - For any over-budget state (cost > B), P_B >= M_obj, strictly dominating any objective gain.
         slack_weights = []
-        if ir.budget_constraint and ir.budget_constraint.max_budget > 0:
-            B = float(ir.budget_constraint.max_budget)
-            # Scaling factor for budget penalty to ensure dominating invariant enforcement
-            lambda_B = lambda_invariance / (B ** 2) if B > 0 else lambda_invariance
+        slack_info = []  # List of (var_name, float_weight, int_weight)
+        cost_scale = 1000
+        B_float = 0.0
+        B_int = 0
+        lambda_B = 0.0
 
-            # Generate binary power slack weights to span [0, B] with 0.5 resolution
-            delta = 0.5
-            total = 0.0
-            curr = delta
-            while total + curr < B:
-                slack_weights.append(curr)
+        if ir.budget_constraint and ir.budget_constraint.max_budget > 0:
+            B_float = float(ir.budget_constraint.max_budget)
+            B_int = int(round(B_float * cost_scale))
+
+            # Dominating penalty multiplier derivation
+            max_obj_gain = sum(abs(t.coefficient) for t in ir.objective_terms.values()) + 10.0
+            lambda_effective = max(2.0, max_obj_gain)
+            lambda_B = lambda_effective * (cost_scale ** 2)
+
+            # Generate binary powers to span [0, B_int] with zero residual error
+            weights = []
+            total = 0
+            curr = 1
+            while total + curr < B_int:
+                weights.append(curr)
                 total += curr
-                curr *= 2.0
-            if B - total > 1e-5:
-                slack_weights.append(round(B - total, 4))
+                curr *= 2
+            if B_int - total > 0:
+                weights.append(B_int - total)
 
             # Allocate binary slack variables
-            slack_names = []
-            for k, w in enumerate(slack_weights):
+            for k, iw in enumerate(weights):
                 s_name = f"slack_{k}"
+                fw = iw / cost_scale
                 qp.binary_var(s_name)
-                slack_names.append((s_name, w))
+                slack_weights.append(fw)
+                slack_info.append((s_name, fw, iw))
 
-            # Combined list of all terms in budget sum: (variable_name, coefficient)
+            # Combined list of all terms in budget sum: (variable_name, float_coefficient)
             budget_terms = [
                 (var_lookup[(rid, act)], float(ir.budget_constraint.cost_map.get((rid, act), 0.0)))
                 for (rid, act) in ir.get_all_variables()
                 if (rid, act) in var_lookup
-            ] + slack_names
+            ] + [(sname, fw) for sname, fw, _ in slack_info]
 
             # Linear terms expansion: lambda_B * (c_i^2 - 2 * B * c_i) * y_i
             for vname, coeff in budget_terms:
-                lin_delta = lambda_B * (coeff ** 2 - 2.0 * B * coeff)
+                lin_delta = lambda_B * (coeff ** 2 - 2.0 * B_float * coeff)
                 linear_terms[vname] = linear_terms.get(vname, 0.0) + lin_delta
 
             # Quadratic cross terms expansion: 2 * lambda_B * c_i * c_j * y_i * y_j
@@ -272,8 +292,16 @@ class FormulationCompiler:
                     pair = (v1, v2) if v1 < v2 else (v2, v1)
                     quadratic_terms[pair] = quadratic_terms.get(pair, 0.0) + 2.0 * lambda_B * c1 * c2
 
-        qp.minimize(linear=linear_terms, quadratic=quadratic_terms)
+            constant += lambda_B * (B_float ** 2)
+
+        qp.minimize(constant=constant, linear=linear_terms, quadratic=quadratic_terms)
         qp.slack_weights = slack_weights
+        qp.slack_info = slack_info
+        qp.cost_scale = cost_scale
+        qp.budget_int = B_int
+        qp.budget_max = B_float
+        qp.lambda_B = lambda_B
+        qp.lambda_invariance = lambda_invariance
 
         # Build Semantic Manifest
         manifest = SemanticManifest(

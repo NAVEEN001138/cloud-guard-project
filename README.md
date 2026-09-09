@@ -1,7 +1,7 @@
 # 🛡️ Cloud Guardian: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response
 
 > [!IMPORTANT]
-> **PROPRIETARY INTELLECTUAL PROPERTY — PATENT APPLICATION FILED / PENDING**  
+> **PROPRIETARY INTELLECTUAL PROPERTY — PATENT APPLICATION SPECIFICATION PREPARED / READY FOR FILING**  
 > **Jurisdiction**: Indian Patent Office (IPO) Complete Specification Form 2 / PCT Application  
 > **Applicant & Inventor**: Naveen Ravi | **Invention**: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response  
 > **Confidentiality Notice**: The contents, source algorithms, mathematical formulations, and empirical evaluation data in this repository constitute proprietary intellectual property. Unauthorized commercial reproduction, distribution, or public disclosure without explicit written consent is strictly prohibited under the Patents Act, 1970 and international patent treaties.
@@ -79,7 +79,7 @@ $$\mathcal{S}_t \to \mathcal{S}_{t+1} \to \Delta\mathcal{S} \to \text{Minimal Af
 ## 🌟 Key Architectural Innovations
 
 1. **Deterministic Fixed-Point Dependency Closure (`layer5_constraints/dependency_graph.py`)**:
-   Propagates cascading structural consequences along typed relationships (`REQUIRES`, `CONFLICTS_WITH`, `CONSUMES_RESOURCE`, `DERIVES_BOUND`, `MANDATES`, `PROTECTS_FAILSAFE`) with cycle termination guarantees and structured provenance tracing.
+   Iteratively propagates cascading structural removals across prerequisite and mandate dependencies (`REQUIRES`, `MANDATES`) followed by typed conflict, resource-bound, and failsafe regeneration (`CONFLICTS_WITH`, `CONSUMES_RESOURCE`, `DERIVES_BOUND`, `PROTECTS_FAILSAFE`) with cycle termination guarantees and structured provenance tracing.
 2. **Versioned Security Constraint IR (`layer5_constraints/constraint_ir.py`)**:
    Solver-independent intermediate representation tracking `ir_version`, `runtime_state_version`, and deterministic canonical byte serialization invariant to dictionary insertion order.
 3. **Certificate-Bound Formulation Compilation (`layer5_constraints/formulation_compiler.py`)**:
@@ -170,7 +170,7 @@ python run_patent_strengthening_benchmark.py
 *Generates empirical proof tables for Patent Experiments 7 through 11:*
 - **Experiment 7**: Multi-hop fixed-point closure eliminating dangling references and stale conflicts (1 -> 0 dangling references).
 - **Experiment 8**: Certificate binding attack suite demonstrating 0 false accepts across 6 tampering vectors.
-- **Experiment 9**: Incremental vs. full compilation scaling across 10, 50, 100, 250 assets with 100% semantic equivalence (+73.75% speedup at 250 assets).
+- **Experiment 9**: Incremental vs. full compilation scaling across 10, 50, 100, 250 assets with 100% semantic equivalence (+58.6% speedup at 250 assets over 30 repeated trials).
 - **Experiment 10**: Exhaustive solver semantic fidelity (1024 discrete assignments evaluated with 100% SF on ILP and QUBO).
 - **Experiment 11**: Safety-gated experience memory with sandboxed monotonicity enforcement (0 unsafe rules admitted).
 *Outputs: [`patent_strengthening_results.json`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/patent_strengthening_results.json) and [`PATENT_STRENGTHENING_RESULTS.md`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/PATENT_STRENGTHENING_RESULTS.md).*
@@ -203,9 +203,8 @@ streamlit run streamlit_app.py
 | Metric Symbol | Full Name | Formal Mathematical Definition | Verified Empirical Result |
 |---|---|---|:---:|
 | **CCR** | **Constraint Compliance Rate** | $\text{CCR} = \frac{\text{valid decisions with 0 forbidden actions}}{\text{total decisions evaluated}} \times 100$ | **100.00%** |
-| **SF** | **Semantic Fidelity** | $\text{SF} = \frac{\text{assignments where backend feasibility matches IR}}{\text{total discrete binary assignments}} \times 100$ | **100.00%** (ILP & QUBO) |
-| **CBDA** | **Cross-Backend Decision Agreement** | $\text{CBDA} = \frac{\text{incidents where ILP and QUBO select identical action vector}}{\text{total evaluated incidents}} \times 100$ | **100.00%** |
-| **7/7 Invariants** | **Unique Safety Invariants** | Evaluates the 7 canonical pre-solve checks + feasibility witness | **7/7 PASS** |
+| **SF** | **Semantic Fidelity** | $\text{SF} = \frac{\text{assignments where backend feasibility matches IR}}{\text{total discrete binary assignments}} \times 100$ | **100.00%** (1024/1024 assignments) |
+| **P-INV** | **Pre-Solve Invariants** | Deterministic 7-point safety checklist verification + joint feasibility witness | **7/7 PASS** |
 
 ---
 

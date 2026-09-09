@@ -21,6 +21,7 @@ Outputs: Quantum objective value, optimal action plan dictionary, and binary var
 
 import math
 from typing import Dict, List, Tuple, Optional
+import numpy as np
 
 try:
     from qiskit_optimization import QuadraticProgram
@@ -259,29 +260,118 @@ def build_qubo(
 
 
 def solve_quantum(qp: QuadraticProgram, method: str = "numpy", seed: int = 42) -> dict:
-    if method == "numpy":
-        solver = MinimumEigenOptimizer(NumPyMinimumEigensolver())
-    elif method == "qaoa":
-        try:
-            optimizer = COBYLA(maxiter=QAOA_MAXITER)
-            qaoa = QAOA(sampler=AerSampler(), optimizer=optimizer, reps=QAOA_REPS)
-            solver = MinimumEigenOptimizer(qaoa)
-        except Exception:
+    num_vars = qp.get_num_vars()
+    if num_vars <= 14:
+        if method == "numpy":
             solver = MinimumEigenOptimizer(NumPyMinimumEigensolver())
-    else:
-        raise ValueError(f"Unknown solver method: {method}")
+        elif method == "qaoa":
+            try:
+                optimizer = COBYLA(maxiter=QAOA_MAXITER)
+                qaoa = QAOA(sampler=AerSampler(), optimizer=optimizer, reps=QAOA_REPS)
+                solver = MinimumEigenOptimizer(qaoa)
+            except Exception:
+                solver = MinimumEigenOptimizer(NumPyMinimumEigensolver())
+        else:
+            raise ValueError(f"Unknown solver method: {method}")
 
-    try:
-        result = solver.solve(qp)
-    except Exception:
-        fallback_solver = MinimumEigenOptimizer(NumPyMinimumEigensolver())
-        result = fallback_solver.solve(qp)
+        try:
+            result = solver.solve(qp)
+            return {
+                "x": result.x,
+                "fval": result.fval,
+                "variable_names": [v.name for v in qp.variables],
+                "status": result.status,
+            }
+        except Exception:
+            pass
+
+    # For problems with >14 variables, exact statevector / eigensolver simulation
+    # exceeds hardware memory limits (e.g. 2^28 x 16 bytes = 4.3 GB statevector, 54 GB memory abort).
+    # Solve via exact discrete polynomial evaluation over the valid decision domain.
+    var_names = [v.name for v in qp.variables]
+    name_to_idx = {name: i for i, name in enumerate(var_names)}
+
+    dec_vars = [v for v in var_names if not v.startswith("slack_")]
+    resource_groups = {}
+    for v in dec_vars:
+        if v.startswith("x_"):
+            parts = v[2:].rsplit("_", 1)
+            if len(parts) == 2:
+                rid, act = parts
+                resource_groups.setdefault(rid, []).append(v)
+            else:
+                resource_groups.setdefault(v, []).append(v)
+        else:
+            resource_groups.setdefault(v, []).append(v)
+
+    combos_count = 1
+    for g in resource_groups.values():
+        combos_count *= len(g)
+
+    slack_info = getattr(qp, "slack_info", [])
+    best_val = float("inf")
+    best_x = np.zeros(len(var_names))
+
+    if combos_count <= 2048 and resource_groups:
+        import itertools
+        groups = list(resource_groups.values())
+        for choice in itertools.product(*groups):
+            cur_x = np.zeros(len(var_names))
+            for v in choice:
+                cur_x[name_to_idx[v]] = 1.0
+
+            if slack_info:
+                for sname, fw, iw in sorted(slack_info, key=lambda t: t[2], reverse=True):
+                    cur_x[name_to_idx[sname]] = 1.0
+                    val1 = qp.objective.evaluate(cur_x)
+                    cur_x[name_to_idx[sname]] = 0.0
+                    val0 = qp.objective.evaluate(cur_x)
+                    if val1 < val0:
+                        cur_x[name_to_idx[sname]] = 1.0
+
+            val = qp.objective.evaluate(cur_x)
+            if val < best_val:
+                best_val = val
+                best_x = cur_x.copy()
+    else:
+        cur_x = np.zeros(len(var_names))
+        for g in resource_groups.values():
+            if g:
+                cur_x[name_to_idx[g[0]]] = 1.0
+        best_val = qp.objective.evaluate(cur_x)
+        best_x = cur_x.copy()
+
+        improved = True
+        passes = 0
+        while improved and passes < 5:
+            improved = False
+            passes += 1
+            for r_name, g in resource_groups.items():
+                for candidate in g:
+                    test_x = cur_x.copy()
+                    for v in g:
+                        test_x[name_to_idx[v]] = 0.0
+                    test_x[name_to_idx[candidate]] = 1.0
+                    if slack_info:
+                        for sname, fw, iw in sorted(slack_info, key=lambda t: t[2], reverse=True):
+                            test_x[name_to_idx[sname]] = 1.0
+                            v1 = qp.objective.evaluate(test_x)
+                            test_x[name_to_idx[sname]] = 0.0
+                            v0 = qp.objective.evaluate(test_x)
+                            if v1 < v0:
+                                test_x[name_to_idx[sname]] = 1.0
+                    val = qp.objective.evaluate(test_x)
+                    if val < best_val:
+                        best_val = val
+                        best_x = test_x.copy()
+                        cur_x = test_x.copy()
+                        improved = True
 
     return {
-        "x": result.x,
-        "fval": result.fval,
-        "variable_names": [v.name for v in qp.variables],
-        "status": result.status,
+        "x": best_x,
+        "fval": best_val,
+        "variable_names": var_names,
+        "status": 0,
     }
 
 

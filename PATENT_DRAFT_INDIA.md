@@ -90,7 +90,7 @@ The prior art across automated cybersecurity incident response, mathematical com
 
 - **FIG. 1**: Illustrates the 9-Layer System Architecture Diagram showing end-to-end data flow from IoT Edge telemetry ingestion to constraint compilation, multi-solver optimization, and automated playbook orchestration (`patent_figure_1_architecture_white.png` / `architecture_diagram.png`).
 - **FIG. 2**: Illustrates the Patent Core Process Flow Diagram (`patent_figure_2_process_flow_white.png` / `process_flow_diagram.png`) detailing the causal transformation pipeline: Live Security State $S_t$ (100), Feasibility Evaluator (110), Decision-Domain Transformer (120), Fixed-Point Closure Engine $R^*$ (130), Constraint Topology & Bound Regenerator (140), Versioned SC-IR Generator (150), Pre-Solve Safety Certifier $C_t$ (160), Certificate-Bound Compiler Gate (170), PuLP ILP Backend (180A), Qiskit QUBO Backend (180B), Semantic Validator, and Infrastructure Actuator (190).
-- **FIG. 3**: Illustrates the Runtime Incremental Constraint Compilation & Subgraph Reuse Flow (`patent_figure_3_incremental_white.png` / `incremental_compilation_diagram.png`) detailing state mutation $\Delta S$, transitive BFS dependency propagation, clean constraint reuse vs. dirty constraint recomputation, and empirical evidence showing +73.75% latency reduction at 250 assets with 100.0% semantic fingerprint equivalence.
+- **FIG. 3**: Illustrates the Runtime Incremental Constraint Compilation & Subgraph Reuse Flow (`patent_figure_3_incremental_white.png` / `incremental_compilation_diagram.png`) detailing state mutation $\Delta S$, transitive BFS dependency propagation, clean constraint reuse vs. dirty constraint recomputation, and empirical evidence showing +58.6% latency reduction at 250 assets with 100.0% semantic fingerprint equivalence.
 
 ---
 
@@ -133,13 +133,13 @@ graph TD
         IR2["Security Constraint IR (Hard / Soft Partitioning & Semantic Fingerprint)"]
         IR3["Pre-Solve Safety Certifier (7 Unique Invariants + Feasibility Witness + Integrity Digest C_t)"]
         IR4["Certificate-Bound Formulation Compiler Gate (QUBO Slacks / ILP Topologies)"]
-        IR5["Incremental State-Delta Compiler (BFS Subgraph Reuse: +73.75% Speedup)"]
+        IR5["Incremental State-Delta Compiler (BFS Subgraph Reuse: +58.6% Speedup)"]
     end
 
     subgraph L6 ["Layer 6: Multi-Solver Decision Engine"]
         Q1["Qiskit QAOA Variational Circuits (Exact Binary Slack Budget Formulation)"]
         Q2["PuLP Classical ILP Solver (CBC)"]
-        Q3["Semantic Validator (SF = 100.0%, CBDA Equivalence)"]
+        Q3["Semantic Validator (SF = 100.0%, Zero Semantic Discrepancy)"]
     end
 
     subgraph L7 ["Layer 7: Utility Scorer"]
@@ -226,7 +226,7 @@ where:
 8. **Certificate-Bound Formulation Compiler Gate**: The formulation compiler refuses to compile an optimization model unless the certificate matches the exact IR version, runtime state version, certificate payload hash ($\text{Hash}(\text{Payload}) == \mathcal{C}_t.\text{integrity\_digest}$), and closure metadata hash ($\text{Hash}(\text{Closure}) == \mathcal{C}_t.\text{closure\_digest}$). Evaluated across 6 adversarial attack vectors, the compiler gate achieved **0 false accepts** and **1 legitimate compile**.
 9. **Incremental State-Delta Compilation**: For runtime state mutations ($\mathcal{S}_t \to \mathcal{S}_{t+1}$ with state delta $\Delta \mathcal{S}$), a BFS queue propagation algorithm traverses dependency edges touching $\Delta \mathcal{S}$ to discover the minimal affected dependency subgraph $G_{\text{affected}}$. Unaffected clean constraints are reused directly ($E_{\text{clean}}$), while only affected constraints and cross-resource conflicts intersecting $G_{\text{affected}}$ are recomputed:
    $$E'_{t+1} = \text{Reuse}(E_{\text{clean}}) \cup \text{Recompute}(E_{\text{affected}})$$
-   This achieves **+73.75% latency reduction at 250 assets** (scaling from -9.44% bookkeeping delta at 10 assets to 23.82 ms vs 90.74 ms at 250 assets) with **100.0% semantic fingerprint equivalence**:
+   This achieves **+58.6% latency reduction at 250 assets** (scaling from +3.0% at 10 assets to 69.85 ms vs 168.84 ms median compilation time at 250 assets over 30 evaluation trials) with **100.0% semantic fingerprint equivalence**:
    $$\text{Fingerprint}(\text{IR}_{\text{full}}) \equiv \text{Fingerprint}(\text{IR}_{\text{incremental}}).$$
 
 ### Layer 6: Multi-Solver Formulation & Exact QUBO Binary Slack Representation
@@ -235,10 +235,10 @@ The formulation compiler compiles the certified SC-IR into classical ILP and qua
    $$\min_{x} \sum_{i,a} C_{i,a} x_{i,a} + \lambda_{\text{switch}} \sum_i \mathbb{I}(x_{i,a} \neq x_{i,a_{\text{prev}}})$$
    $$\text{s.t.} \quad \sum_{a \in \mathcal{A}'_i} x_{i,a} = 1 \; \forall i, \quad x_{i,a} + x_{j,b} \le 1 \; \forall (i,a,j,b) \in \mathcal{E}'_t, \quad \sum_{i,a} c_{i,a} x_{i,a} \le B'_t$$
 2. **Qiskit QUBO Hamiltonian with Exact Binary Slack Expansion**:
-   To represent the budget inequality constraint $\sum c_i x_i \le B$ without incorrectly penalizing valid under-budget solutions (e.g., $Cost = 6 \le 10$), the QUBO compiler employs a discrete binary slack variable expansion:
-   $$\sum_{i,a} c_{i,a} x_{i,a} + \sum_{k=0}^{m-1} 2^k z_k = B$$
-   where $z_k \in \{0, 1\}$ are binary slack variables. The complete QUBO objective is:
-   $$H(x, z) = \sum_{i,a} C_{i,a} x_{i,a} + \lambda_{\text{unique}} \sum_i \left(\sum_{a \in \mathcal{A}'_i} x_{i,a} - 1\right)^2 + \lambda_{\text{conflict}} \sum_{(i,a,j,b) \in \mathcal{E}'_t} x_{i,a} x_{j,b} + \lambda_{\text{budget}} \left( \sum_{i,a} c_{i,a} x_{i,a} + \sum_{k=0}^{m-1} w_k z_k - B \right)^2$$
+   To represent the budget inequality constraint $\sum c_i x_i \le B$ without discretization error or incorrectly penalizing valid under-budget solutions (e.g., $Cost = 0.605 \le 1.0$), the QUBO compiler employs an integer-scaled discrete binary slack expansion with scale factor $S = 1000$:
+   $$\sum_{i,a} \hat{c}_{i,a} x_{i,a} + \sum_{k=0}^{m-1} w_k z_k = \hat{B}$$
+   where $\hat{c}_{i,a} = \lfloor S \cdot c_{i,a} \rceil$, $\hat{B} = \lfloor S \cdot B \rceil$, $z_k \in \{0, 1\}$ are binary slack variables, and binary weights $w_k$ are configured such that $\sum w_k z_k$ spans $[0, \hat{B}]$ exactly. The penalty multiplier $\lambda_{\text{budget}} \ge M_{\text{obj}} \cdot S^2$ guarantees that any budget violation strictly dominates any objective gain:
+   $$H(x, z) = \sum_{i,a} C_{i,a} x_{i,a} + \lambda_{\text{unique}} \sum_i \left(\sum_{a \in \mathcal{A}'_i} x_{i,a} - 1\right)^2 + \lambda_{\text{conflict}} \sum_{(i,a,j,b) \in \mathcal{E}'_t} x_{i,a} x_{j,b} + \lambda_{\text{budget}} \left( \sum_{i,a} \hat{c}_{i,a} x_{i,a} + \sum_{k=0}^{m-1} w_k z_k - \hat{B} \right)^2$$
    Under this formulation, any assignment where $\text{Cost} \le B$ attains a zero penalty via an optimal slack configuration, while $\text{Cost} > B$ incurs a strictly positive quadratic penalty.
 3. **Semantic Backend Validation**: An exhaustive truth-table evaluation across all 1024 discrete binary assignments ($2^{10}$) proved **100.0% Semantic Fidelity (SF)** for both PuLP ILP and Qiskit QUBO against Certified SC-IR, with **zero cross-backend mismatches** ($|\text{Feasible}_{\text{ILP}} \triangle \text{Feasible}_{\text{QUBO}}| = 0$).
 
