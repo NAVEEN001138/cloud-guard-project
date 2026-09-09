@@ -423,7 +423,10 @@ def run_all_experiments():
         p95_full = float(np.percentile(full_times_ms, 95))
         p95_inc = float(np.percentile(inc_times_ms, 95))
 
-        # Verify semantic equivalence
+        # Verify semantic equivalence via exact mathematical semantic fingerprint
+        fp_full = ir_full.semantic_fingerprint()
+        fp_inc = inc_res.updated_ir.semantic_fingerprint()
+        fingerprint_equiv = (fp_full == fp_inc)
         domain_equiv = (inc_res.updated_ir.active_variable_domain == ir_full.active_variable_domain)
         hard_equiv = (len(inc_res.updated_ir.hard_constraints) == len(ir_full.hard_constraints))
 
@@ -445,12 +448,13 @@ def run_all_experiments():
             "reused_constraints": len(inc_res.reused_constraints),
             "node_recompute_ratio": recompute_ratio,
             "latency_reduction_pct": latency_reduction_pct,
+            "semantic_fingerprint_equivalent": fingerprint_equiv,
             "domain_equivalent": domain_equiv,
             "hard_constraints_equivalent": hard_equiv,
         }
         exp9_rows.append(row_info)
 
-        print(f"  Assets: {n_assets:>3} | Full: {med_full:>6.2f} ± {std_full:.2f} ms | Inc: {med_inc:>6.2f} ± {std_inc:.2f} ms | Speedup: {latency_reduction_pct:>6.1f}% | Reused C: {len(inc_res.reused_constraints):>4} | Equiv: {domain_equiv}")
+        print(f"  Assets: {n_assets:>3} | Full: {med_full:>6.2f} ± {std_full:.2f} ms | Inc: {med_inc:>6.2f} ± {std_inc:.2f} ms | Speedup: {latency_reduction_pct:>6.1f}% | Reused C: {len(inc_res.reused_constraints):>4} | Fingerprint Equiv: {fingerprint_equiv}")
 
     all_results["experiments"]["experiment_9_incremental_vs_full_compilation"] = exp9_rows
 

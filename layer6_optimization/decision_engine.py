@@ -256,10 +256,53 @@ def build_qubo(
                     budget_linear[var] = action_cost(r["type"], k)
         qp.linear_constraint(linear=budget_linear, sense="<=", rhs=max_budget, name="hard_budget_limit")
 
+    qp.var_lookup = var_lookup
     return qp, var_lookup
 
 
-def solve_quantum(qp: QuadraticProgram, method: str = "numpy", seed: int = 42) -> dict:
+def compute_optimal_slack_bits(qp: QuadraticProgram, chosen_vars: List[str]) -> Dict[str, float]:
+    """
+    Computes exact optimal integer-scaled binary slack bits for a candidate assignment
+    using the exact greedy allocation helper, matching SemanticValidator and FormulationCompiler.
+    """
+    slack_info = getattr(qp, "slack_info", [])
+    if not slack_info:
+        return {}
+
+    cost_scale = getattr(qp, "cost_scale", 1000)
+    budget_int = getattr(qp, "budget_int", 0)
+    cost_map = getattr(qp, "cost_map", {})
+    var_lookup = getattr(qp, "var_lookup", {})
+    inv_lookup = {v: k for k, v in var_lookup.items()}
+
+    total_cost = 0.0
+    for v in chosen_vars:
+        if v in inv_lookup:
+            r, a = inv_lookup[v]
+            total_cost += cost_map.get((r, a), 0.0)
+
+    cost_int = int(round(total_cost * cost_scale))
+    residual = budget_int - cost_int
+    slack_bits = {}
+    if residual >= 0:
+        for sname, fw, iw in sorted(slack_info, key=lambda t: t[2], reverse=True):
+            if iw <= residual:
+                slack_bits[sname] = 1.0
+                residual -= iw
+            else:
+                slack_bits[sname] = 0.0
+    else:
+        for sname, fw, iw in slack_info:
+            slack_bits[sname] = 0.0
+    return slack_bits
+
+
+def solve_quantum(
+    qp: QuadraticProgram,
+    method: str = "numpy",
+    seed: int = 42,
+    var_lookup: Optional[Dict[Tuple[str, str], str]] = None,
+) -> dict:
     num_vars = qp.get_num_vars()
     if num_vars <= 14:
         if method == "numpy":
@@ -291,24 +334,27 @@ def solve_quantum(qp: QuadraticProgram, method: str = "numpy", seed: int = 42) -
     var_names = [v.name for v in qp.variables]
     name_to_idx = {name: i for i, name in enumerate(var_names)}
 
-    dec_vars = [v for v in var_names if not v.startswith("slack_")]
-    resource_groups = {}
-    for v in dec_vars:
-        if v.startswith("x_"):
-            parts = v[2:].rsplit("_", 1)
-            if len(parts) == 2:
-                rid, act = parts
+    lookup = var_lookup or getattr(qp, "var_lookup", None)
+    resource_groups: Dict[str, List[str]] = {}
+
+    if lookup:
+        for (rid, act), vname in sorted(lookup.items()):
+            if vname in name_to_idx:
+                resource_groups.setdefault(rid, []).append(vname)
+    else:
+        dec_vars = [v for v in var_names if not v.startswith("slack_")]
+        for v in dec_vars:
+            if v.startswith("x_"):
+                parts = v[2:].rsplit("_", 1)
+                rid = parts[0] if len(parts) == 2 else v
                 resource_groups.setdefault(rid, []).append(v)
             else:
                 resource_groups.setdefault(v, []).append(v)
-        else:
-            resource_groups.setdefault(v, []).append(v)
 
     combos_count = 1
     for g in resource_groups.values():
         combos_count *= len(g)
 
-    slack_info = getattr(qp, "slack_info", [])
     best_val = float("inf")
     best_x = np.zeros(len(var_names))
 
@@ -320,14 +366,10 @@ def solve_quantum(qp: QuadraticProgram, method: str = "numpy", seed: int = 42) -
             for v in choice:
                 cur_x[name_to_idx[v]] = 1.0
 
-            if slack_info:
-                for sname, fw, iw in sorted(slack_info, key=lambda t: t[2], reverse=True):
-                    cur_x[name_to_idx[sname]] = 1.0
-                    val1 = qp.objective.evaluate(cur_x)
-                    cur_x[name_to_idx[sname]] = 0.0
-                    val0 = qp.objective.evaluate(cur_x)
-                    if val1 < val0:
-                        cur_x[name_to_idx[sname]] = 1.0
+            slack_bits = compute_optimal_slack_bits(qp, list(choice))
+            for sname, sval in slack_bits.items():
+                if sname in name_to_idx:
+                    cur_x[name_to_idx[sname]] = sval
 
             val = qp.objective.evaluate(cur_x)
             if val < best_val:
@@ -338,6 +380,11 @@ def solve_quantum(qp: QuadraticProgram, method: str = "numpy", seed: int = 42) -
         for g in resource_groups.values():
             if g:
                 cur_x[name_to_idx[g[0]]] = 1.0
+        active_vars = [v for v in var_names if not v.startswith("slack_") and cur_x[name_to_idx[v]] == 1.0]
+        slack_bits = compute_optimal_slack_bits(qp, active_vars)
+        for sname, sval in slack_bits.items():
+            if sname in name_to_idx:
+                cur_x[name_to_idx[sname]] = sval
         best_val = qp.objective.evaluate(cur_x)
         best_x = cur_x.copy()
 
@@ -352,14 +399,11 @@ def solve_quantum(qp: QuadraticProgram, method: str = "numpy", seed: int = 42) -
                     for v in g:
                         test_x[name_to_idx[v]] = 0.0
                     test_x[name_to_idx[candidate]] = 1.0
-                    if slack_info:
-                        for sname, fw, iw in sorted(slack_info, key=lambda t: t[2], reverse=True):
-                            test_x[name_to_idx[sname]] = 1.0
-                            v1 = qp.objective.evaluate(test_x)
-                            test_x[name_to_idx[sname]] = 0.0
-                            v0 = qp.objective.evaluate(test_x)
-                            if v1 < v0:
-                                test_x[name_to_idx[sname]] = 1.0
+                    chosen = [v for v in var_names if not v.startswith("slack_") and test_x[name_to_idx[v]] == 1.0]
+                    s_bits = compute_optimal_slack_bits(qp, chosen)
+                    for sname, sval in s_bits.items():
+                        if sname in name_to_idx:
+                            test_x[name_to_idx[sname]] = sval
                     val = qp.objective.evaluate(test_x)
                     if val < best_val:
                         best_val = val

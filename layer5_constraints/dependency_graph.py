@@ -693,9 +693,10 @@ class ConstraintDependencyGraph:
                 provenance_rule_id="INVARIANCE_POSTULATE",
             ))
 
-        for idx, conf in enumerate(ir.conflict_hyperedges):
+        for conf in ir.conflict_hyperedges:
+            cid = f"HARD_CONFLICT_{conf.resource_1}_{conf.action_1}_{conf.resource_2}_{conf.action_2}"
             ir.hard_constraints.append(ConstraintRecord(
-                constraint_id=f"HARD_CONFLICT_{idx}",
+                constraint_id=cid,
                 target_resource=conf.resource_1,
                 target_action=f"{conf.action_1}+{conf.action_2}",
                 hardness="HARD",

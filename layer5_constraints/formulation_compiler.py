@@ -302,6 +302,8 @@ class FormulationCompiler:
         qp.budget_max = B_float
         qp.lambda_B = lambda_B
         qp.lambda_invariance = lambda_invariance
+        qp.var_lookup = var_lookup
+        qp.cost_map = ir.budget_constraint.cost_map.copy() if ir.budget_constraint else {}
 
         # Build Semantic Manifest
         manifest = SemanticManifest(
