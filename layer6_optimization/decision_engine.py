@@ -342,13 +342,24 @@ def solve_quantum(
             if vname in name_to_idx:
                 resource_groups.setdefault(rid, []).append(vname)
     else:
+        # Match variables against canonical actions without string-splitting on underscores
+        KNOWN_ACTIONS = [
+            "rotate_credentials", "snapshot_backup", "patch_vulnerability",
+            "kill_process", "block_ip", "rate_limit", "quarantine",
+            "isolate", "monitor",
+        ]
         dec_vars = [v for v in var_names if not v.startswith("slack_")]
         for v in dec_vars:
+            matched = False
             if v.startswith("x_"):
-                parts = v[2:].rsplit("_", 1)
-                rid = parts[0] if len(parts) == 2 else v
-                resource_groups.setdefault(rid, []).append(v)
-            else:
+                raw = v[2:]
+                for act in KNOWN_ACTIONS:
+                    if raw.endswith(f"_{act}"):
+                        rid = raw[:-len(act)-1]
+                        resource_groups.setdefault(rid, []).append(v)
+                        matched = True
+                        break
+            if not matched:
                 resource_groups.setdefault(v, []).append(v)
 
     combos_count = 1

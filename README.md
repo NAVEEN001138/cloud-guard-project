@@ -1,9 +1,9 @@
-# 🛡️ Cloud Guardian: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response
+# 🛡️ Cloud Guardian: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification for Automated Infrastructure Response
 
 > [!IMPORTANT]
 > **PROPRIETARY INTELLECTUAL PROPERTY — PATENT APPLICATION SPECIFICATION PREPARED / READY FOR FILING**  
 > **Jurisdiction**: Indian Patent Office (IPO) Complete Specification Form 2 / PCT Application  
-> **Applicant & Inventor**: Naveen Ravi | **Invention**: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response  
+> **Applicant & Inventor**: Naveen Ravi | **Invention**: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification for Automated Infrastructure Response  
 > **Confidentiality Notice**: The contents, source algorithms, mathematical formulations, and empirical evaluation data in this repository constitute proprietary intellectual property. Unauthorized commercial reproduction, distribution, or public disclosure without explicit written consent is strictly prohibited under the Patents Act, 1970 and international patent treaties.
 
 > **System Status**: Fully Verified (10/10 Verification Pass) | 34/34 Patent Unit Tests Pass | 100% Constraint Compliance Rate (CCR) | 100% Backend Semantic Fidelity (SF) | Pre-Solve Safety Certified | Certificate-Gated Compilation
@@ -170,7 +170,7 @@ python run_patent_strengthening_benchmark.py
 *Generates empirical proof tables for Patent Experiments 7 through 11:*
 - **Experiment 7**: Multi-hop fixed-point closure eliminating dangling references and stale conflicts (1 -> 0 dangling references).
 - **Experiment 8**: Certificate binding attack suite demonstrating 0 false accepts across 6 tampering vectors.
-- **Experiment 9**: Incremental vs. full compilation scaling across 10, 50, 100, 250 assets with 100% semantic equivalence (+58.6% speedup at 250 assets over 30 repeated trials).
+- **Experiment 9**: Incremental vs. full compilation scaling across 10, 50, 100, 250 assets with 100% semantic equivalence (+59.9% speedup at 250 assets over 30 repeated trials).
 - **Experiment 10**: Exhaustive solver semantic fidelity (1024 discrete assignments evaluated with 100% SF on ILP and QUBO).
 - **Experiment 11**: Safety-gated experience memory with sandboxed monotonicity enforcement (0 unsafe rules admitted).
 *Outputs: [`patent_strengthening_results.json`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/patent_strengthening_results.json) and [`PATENT_STRENGTHENING_RESULTS.md`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/PATENT_STRENGTHENING_RESULTS.md).*
@@ -224,7 +224,7 @@ streamlit run streamlit_app.py
 | **Forbidden Action Rate (No SC-IR)** | **40.0%** | Soft penalty baseline fails under high threat utility |
 
 > [!NOTE]
-> **Performance Metric Distinction**: The **94.05%** / **94.25%** metrics evaluate the edge federated threat-detection component (94.05% multi-client calibrated mean validation fold accuracy; 94.25% holdout test-set accuracy on a 400-sample test partition evaluated from the 2,000-sample dataset), whereas **Decision Fidelity (100.00%)** evaluates the constraint-respecting response selection under defined incident scenarios. The SHA-256 digest establishes cryptographic state provenance and audit identity, while deterministic pre-solve invariant checking enforces safety constraints.
+> **Performance Metric Distinction**: The **94.05%** / **94.25%** metrics evaluate the edge federated threat-detection component (94.05% multi-client calibrated mean validation fold accuracy; 94.25% holdout test-set accuracy on a 400-sample test partition evaluated from the 2,000-sample dataset), whereas **Constraint Compliance Rate (100.00%)** and **Semantic Fidelity (100.00%)** evaluate constraint-respecting and mathematically faithful response selection. The SHA-256 digest establishes cryptographic state provenance and audit identity, while deterministic pre-solve invariant checking enforces safety constraints.
 
 ---
 

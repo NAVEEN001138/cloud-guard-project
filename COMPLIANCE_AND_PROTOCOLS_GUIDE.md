@@ -87,7 +87,7 @@ The platform implements automated compliance auditing and statutory constraint s
 - **Architectural Safeguards Aligned with GDPR Principles**:
   1. **Article 5(1)(c) Data Minimization**: Network telemetry is processed locally; only gradient/parameter tensors are exposed globally.
   2. **Article 25 Data Protection by Design & Default**: Cryptographic validation and decentralized edge training embedded into the algorithmic core.
-  3. **Article 32 Security of Processing**: Model parameters and constraint IR payloads cryptographically signed and continuously verified for invariant compliance.
+  3. **Article 32 Security of Processing**: Model parameters and constraint IR payloads bound via cryptographic SHA-256 integrity digests and continuously verified for invariant compliance.
   4. **Article 44 General Principle for Transfers**: Architectural boundary prevention restricting raw telemetry from egressing edge boundaries.
 
 - **Exact Code Locations & Line Numbers**:
