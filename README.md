@@ -1,80 +1,95 @@
-# 🛡️ Cloud Guardian: Adaptive Runtime Security Constraint Compilation & Decision System
+# 🛡️ Cloud Guardian: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response
 
 > [!IMPORTANT]
 > **PROPRIETARY INTELLECTUAL PROPERTY — PATENT APPLICATION FILED / PENDING**  
 > **Jurisdiction**: Indian Patent Office (IPO) Complete Specification Form 2 / PCT Application  
-> **Applicant & Inventor**: Naveen Ravi | **Invention**: Adaptive Runtime Security Constraint Compilation and Decision System  
+> **Applicant & Inventor**: Naveen Ravi | **Invention**: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response  
 > **Confidentiality Notice**: The contents, source algorithms, mathematical formulations, and empirical evaluation data in this repository constitute proprietary intellectual property. Unauthorized commercial reproduction, distribution, or public disclosure without explicit written consent is strictly prohibited under the Patents Act, 1970 and international patent treaties.
 
-> **System Status**: Fully Verified (10/10 Verification Pass) | 100% Decision Fidelity ($DF\%$) | Pre-Solve Safety Certified | 9-Layer Architecture
+> **System Status**: Fully Verified (10/10 Verification Pass) | 20/20 Patent Unit Tests Pass | 100% Decision Fidelity ($DF\%$) | Pre-Solve Safety Certified | Certificate-Gated Compilation
 
 ---
 
-## 📌 Executive Overview
+## 📌 Executive Overview & Core Invention
 
-**Cloud Guardian** is a computer-implemented 9-layer autonomous cybersecurity decision and incident response platform designed for heterogeneous Cloud, Edge, and Cyber-Physical (SCADA/IoT) environments. It bridges the gap between machine learning threat detection and automated combinatorial incident response through a formal **Security Constraint Compiler Architecture**.
+**Cloud Guardian** is a computer-implemented autonomous cybersecurity decision and incident response platform designed for heterogeneous Cloud, Edge, and Cyber-Physical (SCADA/IoT) environments.
 
-Rather than relying on static rule heuristics or arbitrary scalar penalty offsets ($\pm 1000$ / $-500$), Cloud Guardian transforms live runtime security signals into an auditable, solver-independent **Security Constraint Intermediate Representation (SC-IR)**, verifies 7 deterministic safety invariants, and compiles the verified formulation directly into mathematical decision topologies (**Qiskit QUBO** or **PuLP ILP**).
+### Central Patent Contribution
+Live infrastructure state causes modification of the membership of the optimization decision domain, followed by fixed-point dependency-aware regeneration of constraint topology and operational bounds, generation of a solver-independent intermediate representation (SC-IR), deterministic certification of that reconstructed state, and certificate-gated generation of solver-specific models before infrastructure actuation:
+
+$$\mathcal{S}_t \to F(\mathcal{S}_t, \mathcal{A}) \to \mathcal{A}'_t \to \text{Fixed-Point Closure } R^* \to \mathcal{E}'_t \to \mathcal{B}'_t \to \text{SC-IR}_t \to \mathcal{C}_t \to \text{Certificate-Bound Compilation} \to \text{Solvers}$$
+
+For runtime state mutations:
+$$\mathcal{S}_t \to \mathcal{S}_{t+1} \to \Delta\mathcal{S} \to \text{Minimal Affected Subgraph} \to \text{Incremental Closure / } \Delta\text{IR} \to \mathcal{C}_{t+1} \to \text{Updated Solver Model}$$
 
 ```text
-                    SECURITY REALITY
-                           │
-                           ▼
-                 Context / Threat State
-                           │
-                           ▼
-             ┌───────────────────────────┐
-             │  Constraint Dependency    │
-             │  Graph (DAG)              │
-             └─────────────┬─────────────┘
-                           │
-                           ▼
-             ┌───────────────────────────┐
-             │  Security Constraint IR   │
-             │  (Hard / Soft Partition)  │
-             └─────────────┬─────────────┘
-                           │
-                           ▼
-             ┌───────────────────────────┐
-             │  Pre-Solve Invariant      │
-             │  Safety Verification      │
-             └─────────────┬─────────────┘
-                           │
-                           ▼
-             ┌───────────────────────────┐
-             │  Formulation Compiler     │
-             └─────────────┬─────────────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-            QUBO          ILP         CP-SAT
+                    LIVE INFRASTRUCTURE STATE S_t
+                                   │
+                                   ▼
+                   Action Feasibility F(S_t, A)
+                                   │
+                                   ▼
+                      Admissible Domain A'_t
+                                   │
+                                   ▼
+                   Fixed-Point Dependency Closure
+                     (Typed Edges: REQUIRES, CONFLICTS)
+                                   │
+                                   ▼
+                   Regenerated Conflict Topology E'_t
+                                   │
+                                   ▼
+                   Regenerated Operational Bounds B'_t
+                                   │
+                                   ▼
+                   Versioned Solver-Independent SC-IR
+                                   │
+                                   ▼
+                   Deterministic Safety Certification
+                                   │
+                                   ▼
+                   Certificate-Bound Compiler Gate
+                     (Integrity, Version & Status Match)
+                                   │
+                    ┌──────────────┴──────────────┐
+                    ▼                             ▼
+               PuLP ILP                      Qiskit QUBO
+                    │                             │
+                    └──────────────┬──────────────┘
+                                   │
+                                   ▼
+                    Solver Semantic Fidelity Check
+                                   │
+                                   ▼
+                       Infrastructure Actuation
 ```
 
 ---
 
-## 📊 System Architecture & Process Flow
+## 🏛️ Clear Boundary: Custom Core vs. Third-Party Backends
 
-<p align="center">
-  <img src="architecture_diagram.png" alt="Cloud Guardian 9-Layer Security Constraint Compiler Architecture" width="850">
-</p>
-
-<p align="center">
-  <img src="process_flow_diagram.png" alt="Runtime Security Constraint Compilation & Decision Pipeline" width="850">
-</p>
+| Architectural Tier | Component Description | Patent Scope |
+|---|---|---|
+| 🛡️ **CUSTOM CORE (★)** | **Runtime Security Constraint Compiler** (`layer5_constraints/`) | **PROPRIETARY NOVELTY**: Fixed-point closure, versioned SC-IR, pre-solve certifier, certificate-bound compiler gate, incremental/delta compiler, semantic validator, and safety-gated experience memory. |
+| 🧮 **Third-Party Backends** | **Classical & Quantum Solvers** (`PuLP`, `Qiskit`) | Standard mathematical execution engines (PuLP ILP, Qiskit QAOA / NumPy eigensolvers). Solvers themselves are not claimed as novel. |
+| 📡 **Standard Libraries** | **Machine Learning & Cryptography** (`PyTorch`, `hashlib`) | Standard libraries (PyTorch for localized edge inference; SHA-256 utilized strictly as a cryptographic integrity binding primitive, not claimed as novel in isolation). |
 
 ---
 
 ## 🌟 Key Architectural Innovations
 
-1. **Layer 2 (Federated Threat Detection)**: Trains localized neural network models across non-IID Edge-IIoTset data shards (`FedAvg`, `FedProx`, `FedNova`, `FedAdam`, `FedMedian`) with **ROC Youden's J Threshold Calibration**, achieving **94.05% Mean Normal Accuracy** (`0.9577 ROC-AUC`, `98.82% Precision`).
-2. **Layer 5 (Security Constraint Compiler Architecture — ★ Patent Core)**:
-   - **Constraint Dependency Graph (DAG)**: Propagates cascading rules ($\text{Hardware Capability} \to \text{Variable Pruning} \to \text{Conflict Pruning} \to \text{Budget Recalculation}$).
-   - **Security Constraint Intermediate Representation (SC-IR)**: Solver-independent representation with explicit **Hard vs. Soft constraint partitioning** (enforced as strict constraint boundaries in ILP and dominating quadratic penalty multipliers in QUBO, with illegal actions excised prior to formulation).
-   - **Pre-Solve Invariant Validator**: Deterministically checks 7 mathematical invariants before solver invocation, sealed with an auditable **SHA-256 state integrity digest**.
-   - **Formulation Compiler**: Compiles verified IR into incident-specific Qiskit `QuadraticProgram` or PuLP `LpProblem` models.
-3. **Layer 6 (Multi-Solver Decision Engine)**: Solves multi-objective response models via **Qiskit QAOA** or classical **PuLP ILP**, maintaining **100.0% Decision Fidelity ($DF\%$)**.
-4. **Layer 8 (Explainability & Role-Tailored Reports)**: Generates RBAC-tailored audit rationale (`SOC_ANALYST`, `CISO`, `AUDITOR`, `PUBLIC_LOG`) for transparent mitigation governance.
-5. **Layer 9 (System B Experience Memory with Validation Gate)**: Closes the feedback loop by synthesizing structural constraint rules from post-incident outcomes, with a **strict validation gate** preventing learned rules from mutating hard safety invariants.
+1. **Deterministic Fixed-Point Dependency Closure (`layer5_constraints/dependency_graph.py`)**:
+   Propagates cascading structural consequences along typed relationships (`REQUIRES`, `CONFLICTS_WITH`, `CONSUMES_RESOURCE`, `DERIVES_BOUND`, `MANDATES`, `PROTECTS_FAILSAFE`) with cycle termination guarantees and structured provenance tracing.
+2. **Versioned Security Constraint IR (`layer5_constraints/constraint_ir.py`)**:
+   Solver-independent intermediate representation tracking `ir_version`, `runtime_state_version`, and deterministic canonical byte serialization invariant to dictionary insertion order.
+3. **Certificate-Bound Formulation Compilation (`layer5_constraints/formulation_compiler.py`)**:
+   Strict cryptographic compiler gate technically rejecting uncertified, mutated, stale, or swapped certificates via explicit domain exceptions (`UncertifiedIRCompilationError`, `StaleCertificateError`, `IntegrityBindingError`).
+4. **Incremental / Delta Constraint Compiler (`layer5_constraints/incremental_compiler.py`)**:
+   Selectively recomputes dirty dependency subgraphs for $\Delta S = \text{Diff}(S_t, S_{t+1})$, achieving high latency reductions with guaranteed semantic equivalence $\text{FullCompile}(S_{t+1}) \equiv \text{IncrementalCompile}(\text{IR}_t, \Delta S)$.
+5. **Solver Semantic Fidelity Validation (`layer5_constraints/semantic_validator.py`)**:
+   Exhaustive truth-table verification evaluating discrete binary assignments $x \in \{0, 1\}^n$ against certified SC-IR, PuLP ILP, and Qiskit QUBO formulations.
+6. **Safety-Gated Experience Memory (`layer9_feedback/feedback_learner.py`)**:
+   Protects post-incident reinforcement learning via sandboxed pre-solve safety certification, guaranteeing zero unsafe rule admissions.
 
 ---
 
@@ -92,10 +107,12 @@ Layer 3 — Context Aggregation & SLA Tracking (layer3_context/context_aggregato
 Layer 4 — Confidence Evaluation & Action Gating (layer4_confidence/confidence_evaluator.py)
    ↓
 Layer 5 — Security Constraint Compiler Engine (layer5_constraints/ ★)
-           ├── constraint_ir.py          (Canonical SC-IR with Hard/Soft Partitioning)
-           ├── dependency_graph.py       (Staged Causal Chain Propagation DAG)
-           ├── safety_certifier.py       (7-Point Pre-Solve Invariant Validator)
-           └── formulation_compiler.py   (Incident-Specific QUBO & ILP Compiler)
+           ├── constraint_ir.py          (Canonical Versioned SC-IR & Manifest)
+           ├── dependency_graph.py       (Fixed-Point Dependency Closure DAG)
+           ├── safety_certifier.py       (Pre-Solve Invariant Verifier & Certificate)
+           ├── formulation_compiler.py   (Certificate-Bound QUBO & ILP Gate)
+           ├── incremental_compiler.py   (Delta Subgraph Compiler)
+           └── semantic_validator.py     (Exhaustive Solver Semantic Fidelity)
    ↓
 Layer 6 — Quantum & Classical Solvers (layer6_optimization/decision_engine.py, baseline_greedy.py)
    ↓
@@ -140,13 +157,31 @@ python run_data_scaling_trials.py
 ```
 *Executes throttled empirical scaling trials across $N \in [2k, 4k, 10k, 50k, 100k]$ samples, verifying 0.0% forbidden action violations, 8/8 invariant checks passed, and 100.00% Decision Fidelity across all data scales under CPU throttling. See [`EMPIRICAL_SCALING_TRIALS.md`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/EMPIRICAL_SCALING_TRIALS.md).*
 
-### 5. Run Unvarnished Evidentiary Verification Report
+### 5. Run Automated Patent Strengthening Test Suite (20 Tests)
+```bash
+python test_patent_strengthening.py
+```
+*Executes all 20 mandatory unit and integration tests covering deterministic fixed-point closure, cycle termination, multi-hop propagation, canonical digest stability, certificate tampering rejection, incremental recompilation equivalence, and safety-gated learning.*
+
+### 6. Run Advanced Patent Strengthening Benchmark Suite (Experiments 7 to 11)
+```bash
+python run_patent_strengthening_benchmark.py
+```
+*Generates empirical proof tables for Patent Experiments 7 through 11:*
+- **Experiment 7**: Multi-hop fixed-point closure eliminating dangling references and stale conflicts.
+- **Experiment 8**: Certificate binding attack suite demonstrating 0 false accepts across 6 tampering vectors.
+- **Experiment 9**: Incremental vs. full compilation scaling across 10, 50, 100, 250 assets with 100% semantic equivalence.
+- **Experiment 10**: Exhaustive solver semantic fidelity ($2^n$ state truth-table matching across ILP and QUBO).
+- **Experiment 11**: Safety-gated experience memory with sandboxed monotonicity enforcement (0 unsafe rules admitted).
+*Outputs: [`patent_strengthening_results.json`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/patent_strengthening_results.json) and [`PATENT_STRENGTHENING_RESULTS.md`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/PATENT_STRENGTHENING_RESULTS.md).*
+
+### 7. Run Unvarnished Evidentiary Verification Report
 ```bash
 python run_detailed_verification_evidence.py
 ```
 *Outputs per-attack FL accuracy breakdown, Shannon Entropy privacy metrics, and side-by-side Decision Fidelity tables.*
 
-### 6. Launch Interactive Streamlit Dashboard
+### 8. Launch Interactive Streamlit Dashboard
 ```bash
 streamlit run streamlit_app.py
 ```

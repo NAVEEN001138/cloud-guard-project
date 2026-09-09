@@ -22,7 +22,34 @@ from .constraint_ir import (
     ObjectiveLinearTerm,
     IRProvenanceRecord,
     TopologyMetadata,
+    SemanticManifest,
+    ConstraintRecord,
+    ConstraintHardness,
 )
-from .dependency_graph import ConstraintDependencyGraph
+from .dependency_graph import (
+    ConstraintDependencyGraph,
+    TypedDependencyEdge,
+    DependencyRelationType,
+    ClosureProvenance,
+    ClosureResult,
+    calculate_action_cost,
+    PHYSICAL_CAPABILITY_MAP,
+    DEFAULT_ACTION_CONFLICTS,
+)
 from .safety_certifier import PreSolveSafetyCertifier, ConstraintSafetyCertificate
-from .formulation_compiler import FormulationCompiler
+from .formulation_compiler import (
+    FormulationCompiler,
+    UncertifiedIRCompilationError,
+    StaleCertificateError,
+    IntegrityBindingError,
+    CompilationResult,
+)
+from .incremental_compiler import (
+    IncrementalConstraintCompiler,
+    RuntimeStateDelta,
+    IncrementalCompilationResult,
+)
+from .semantic_validator import (
+    SemanticValidator,
+    SemanticValidationReport,
+)

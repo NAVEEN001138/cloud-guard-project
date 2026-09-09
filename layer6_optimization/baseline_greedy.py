@@ -151,12 +151,16 @@ def solve_with_ilp(
         # Check if compiled SecurityConstraintIR is available
         if constraints and getattr(constraints, "constraint_ir", None):
             from layer5_constraints.formulation_compiler import FormulationCompiler
+            from layer5_constraints.safety_certifier import PreSolveSafetyCertifier
             ir = constraints.constraint_ir
             scenario_rids = {r["id"] for r in resources}
             if scenario_rids != set(ir.variable_domains.keys()):
                 ir = ir.filter_to_resources(scenario_rids)
+                cert = PreSolveSafetyCertifier.certify(ir)
+            else:
+                cert = constraints.safety_certificate or PreSolveSafetyCertifier.certify(ir)
 
-            prob, x_vars = FormulationCompiler.compile_to_ilp(ir)
+            prob, x_vars = FormulationCompiler.compile_to_ilp(ir, certificate=cert)
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
 
             plan = {}

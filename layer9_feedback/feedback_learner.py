@@ -25,10 +25,28 @@ Outputs: Updated utility weights, EMA metrics, and persistent feedback history (
 
 import json
 import os
+import copy
 from dataclasses import dataclass, asdict
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from config import FEEDBACK_DATA_PATH, FEEDBACK_LEARNING_RATE, UTILITY_WEIGHTS
+
+
+@dataclass
+class RuleAdmissionEvidence:
+    """Audit evidence produced when a candidate rule is tested through sandboxed safety certification."""
+    candidate_rule_id: str
+    source_incident: str
+    proposed_structural_delta: Dict[str, Any]
+    before_ir_version: int
+    sandbox_ir_version: int
+    validation_results: Dict[str, Any]
+    admitted: bool
+    reason: str
+    resulting_ir_version: Optional[int] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass
@@ -308,5 +326,159 @@ class FeedbackLearner:
             self.save_feedback()
             return candidate, reason
         return None, reason
+
+    def admit_candidate_rule_sandboxed(
+        self,
+        candidate_rule: Dict[str, Any],
+        baseline_ir: Optional[Any] = None,
+    ) -> RuleAdmissionEvidence:
+        """
+        Safety-Gated Experience Memory (Patent Core):
+          1. Clones/sandboxes the current structural state (IR_t).
+          2. Applies candidate delta.
+          3. Executes fixed-point dependency closure and regenerates bounds.
+          4. Certifies candidate IR via PreSolveSafetyCertifier.
+          5. Verifies safety monotonicity (no failsafe removal, no forbidden reintroduction).
+          6. Admits into persistent experience memory ONLY upon 100% successful certification.
+        """
+        from layer5_constraints.safety_certifier import PreSolveSafetyCertifier
+
+        rule_id = candidate_rule.get("rule_id", f"EXP_RULE_{len(self.learned_rules)+1}")
+        incident_id = candidate_rule.get("trigger_incident_id", "incident")
+        restrict_action = candidate_rule.get("restrict_action")
+        target_rt = candidate_rule.get("target_resource_type", "all")
+        before_v = baseline_ir.ir_version if baseline_ir else 1
+        sandbox_v = before_v + 1
+
+        # 1. Monotonicity check: cannot restrict failsafe baseline
+        if restrict_action in ("monitor", "increase_logging"):
+            return RuleAdmissionEvidence(
+                candidate_rule_id=rule_id,
+                source_incident=incident_id,
+                proposed_structural_delta=candidate_rule,
+                before_ir_version=before_v,
+                sandbox_ir_version=sandbox_v,
+                validation_results={"failsafe_preserved": False},
+                admitted=False,
+                reason=f"REJECTED: Safety monotonicity violation -- cannot restrict failsafe baseline action '{restrict_action}'",
+            )
+
+        # 2. Monotonicity check: cannot re-introduce forbidden actions on cyber-physical assets
+        if candidate_rule.get("allow_action") == "isolate" or candidate_rule.get("re_enable_action") == "isolate":
+            if target_rt in ("plc_controller", "medical_device", "all"):
+                return RuleAdmissionEvidence(
+                    candidate_rule_id=rule_id,
+                    source_incident=incident_id,
+                    proposed_structural_delta=candidate_rule,
+                    before_ir_version=before_v,
+                    sandbox_ir_version=sandbox_v,
+                    validation_results={"cyber_physical_invariant": False},
+                    admitted=False,
+                    reason="REJECTED: Safety monotonicity violation -- cannot re-introduce 'isolate' on cyber-physical controller",
+                )
+
+        # 3. Sandboxed IR Mutation & Pre-Solve Certification
+        if baseline_ir is not None:
+            sandbox_ir = copy.deepcopy(baseline_ir)
+            sandbox_ir.ir_version = sandbox_v
+
+            # Apply candidate restriction
+            if restrict_action:
+                for rid, dom in sandbox_ir.variable_domains.items():
+                    if target_rt in (dom.resource_type, "all", "*") or candidate_rule.get("target_resource_id") == rid:
+                        if restrict_action in dom.admissible_actions:
+                            dom.admissible_actions = [a for a in dom.admissible_actions if a != restrict_action]
+                            if restrict_action not in dom.pruned_actions:
+                                dom.pruned_actions.append(restrict_action)
+                                from layer5_constraints.constraint_ir import IRProvenanceRecord
+                                sandbox_ir.provenance_records.append(IRProvenanceRecord(
+                                    target_resource=rid,
+                                    target_action=restrict_action,
+                                    constraint_type="EXPERIENCE",
+                                    origin="EXPERIENCE_MEMORY",
+                                    rule_id=rule_id,
+                                    rationale=candidate_rule.get("rationale", "Restricted by candidate experience rule"),
+                                ))
+
+            # Check for empty decision domain
+            empty_domains = [rid for rid, dom in sandbox_ir.variable_domains.items() if len(dom.admissible_actions) == 0]
+            if empty_domains:
+                return RuleAdmissionEvidence(
+                    candidate_rule_id=rule_id,
+                    source_incident=incident_id,
+                    proposed_structural_delta=candidate_rule,
+                    before_ir_version=before_v,
+                    sandbox_ir_version=sandbox_v,
+                    validation_results={"non_empty_domain": False},
+                    admitted=False,
+                    reason=f"REJECTED: Rule produces empty feasible action domain for resources {empty_domains}",
+                )
+
+            # Update invariance constraints to match admissible actions
+            for inv in sandbox_ir.invariance_constraints:
+                dom = sandbox_ir.variable_domains.get(inv.resource_id)
+                if dom:
+                    inv.actions = list(dom.admissible_actions)
+
+            # Prune conflict hyperedges referencing removed variables
+            all_active = set(sandbox_ir.get_all_variables())
+            sandbox_ir.conflict_hyperedges = [
+                c for c in sandbox_ir.conflict_hyperedges
+                if (c.resource_1, c.action_1) in all_active and (c.resource_2, c.action_2) in all_active
+            ]
+
+            sandbox_ir.compute_canonical_digest()
+            cert = PreSolveSafetyCertifier.certify(sandbox_ir)
+
+            if not cert.is_valid():
+                violations = "; ".join(cert.forbidden_action_violations)
+                return RuleAdmissionEvidence(
+                    candidate_rule_id=rule_id,
+                    source_incident=incident_id,
+                    proposed_structural_delta=candidate_rule,
+                    before_ir_version=before_v,
+                    sandbox_ir_version=sandbox_v,
+                    validation_results=cert.verification_checks,
+                    admitted=False,
+                    reason=f"REJECTED: Pre-solve safety certification failed in sandbox: {violations}",
+                )
+
+            # All checks passed in sandbox! Admit rule
+            candidate_rule["validation_status"] = "APPROVED"
+            candidate_rule["validation_reason"] = "Passed formal sandboxed pre-solve safety certification"
+            self.learned_rules.append(candidate_rule)
+            self.save_feedback()
+
+            return RuleAdmissionEvidence(
+                candidate_rule_id=rule_id,
+                source_incident=incident_id,
+                proposed_structural_delta=candidate_rule,
+                before_ir_version=before_v,
+                sandbox_ir_version=sandbox_v,
+                validation_results=cert.verification_checks,
+                admitted=True,
+                reason="APPROVED: Rule certified in sandbox without violating safety invariants",
+                resulting_ir_version=sandbox_v,
+            )
+
+        # If no baseline IR provided, evaluate heuristic validation gate
+        is_valid, reason = self.validate_candidate_rule(candidate_rule)
+        candidate_rule["validation_status"] = "APPROVED" if is_valid else "REJECTED"
+        candidate_rule["validation_reason"] = reason
+        if is_valid:
+            self.learned_rules.append(candidate_rule)
+            self.save_feedback()
+
+        return RuleAdmissionEvidence(
+            candidate_rule_id=rule_id,
+            source_incident=incident_id,
+            proposed_structural_delta=candidate_rule,
+            before_ir_version=before_v,
+            sandbox_ir_version=sandbox_v,
+            validation_results={"heuristic_check": is_valid},
+            admitted=is_valid,
+            reason=reason,
+            resulting_ir_version=sandbox_v if is_valid else None,
+        )
 
 

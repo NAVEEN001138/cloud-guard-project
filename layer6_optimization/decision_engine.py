@@ -108,11 +108,15 @@ def build_qubo(
     # Check if compiled SecurityConstraintIR is available
     if constraints and getattr(constraints, "constraint_ir", None) and HAS_QISKIT_OPT:
         from layer5_constraints.formulation_compiler import FormulationCompiler
+        from layer5_constraints.safety_certifier import PreSolveSafetyCertifier
         ir = constraints.constraint_ir
         scenario_rids = {r["id"] for r in scenario["resources"]}
         if scenario_rids != set(ir.variable_domains.keys()):
             ir = ir.filter_to_resources(scenario_rids)
-        return FormulationCompiler.compile_to_qubo(ir)
+            cert = PreSolveSafetyCertifier.certify(ir)
+        else:
+            cert = constraints.safety_certificate or PreSolveSafetyCertifier.certify(ir)
+        return FormulationCompiler.compile_to_qubo(ir, certificate=cert)
 
     qp = QuadraticProgram("incident_response")
     var_lookup = {}

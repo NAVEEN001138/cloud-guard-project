@@ -1,0 +1,196 @@
+{
+  "benchmark_metadata": {
+    "title": "System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response",
+    "timestamp": "2026-09-09T23:11:25.784280",
+    "python_version": "3.14.0",
+    "platform": "win32"
+  },
+  "experiments": {
+    "experiment_7_dependency_closure": {
+      "experiment_name": "Experiment 7: Dependency Closure",
+      "scenario": "3-tier microservice multi-hop dependency chain (Web -> API -> DB)",
+      "initially_removed_variables": 1,
+      "local_pruning": {
+        "transitively_affected_entities": 0,
+        "dangling_dependencies": 1,
+        "stale_conflicts": 1,
+        "runtime_ms": 0.0068,
+        "solver_infeasibility_risk": "HIGH (Unsatisfied prerequisites active in model)"
+      },
+      "fixed_point_closure": {
+        "transitively_affected_entities": 2,
+        "total_removed_variables": 3,
+        "propagation_depth": 2,
+        "closure_iterations": 3,
+        "dangling_dependencies": 0,
+        "stale_conflicts": 0,
+        "runtime_ms": 0.0799,
+        "closure_status": "CONVERGED"
+      },
+      "technical_effect": "Eliminates 100% of dangling dependency references across multi-hop topological chains."
+    },
+    "experiment_8_certificate_binding_attacks": {
+      "experiment_name": "Experiment 8: Certificate Binding Attack Suite",
+      "total_attack_cases": 6,
+      "false_accepts": 0,
+      "legitimate_compile_successes": 1,
+      "attack_vector_results": [
+        {
+          "vector": "1. Unchanged IR + Valid Certificate",
+          "expected_outcome": "ACCEPT",
+          "actual_outcome": "ACCEPT",
+          "rejection_exception": "",
+          "pass": true
+        },
+        {
+          "vector": "2. Mutated Active Variable Domain",
+          "expected_outcome": "REJECT",
+          "actual_outcome": "REJECT",
+          "rejection_exception": "IntegrityBindingError",
+          "pass": true
+        },
+        {
+          "vector": "3. Stale Runtime State Version",
+          "expected_outcome": "REJECT",
+          "actual_outcome": "REJECT",
+          "rejection_exception": "StaleCertificateError",
+          "pass": true
+        },
+        {
+          "vector": "4. Swapped Certificate From Other IR",
+          "expected_outcome": "REJECT",
+          "actual_outcome": "REJECT",
+          "rejection_exception": "IntegrityBindingError",
+          "pass": true
+        },
+        {
+          "vector": "5. Failed Safety Certificate (Violations)",
+          "expected_outcome": "REJECT",
+          "actual_outcome": "REJECT",
+          "rejection_exception": "UncertifiedIRCompilationError",
+          "pass": true
+        },
+        {
+          "vector": "6. Modified Budget Bound After Certification",
+          "expected_outcome": "REJECT",
+          "actual_outcome": "REJECT",
+          "rejection_exception": "IntegrityBindingError",
+          "pass": true
+        }
+      ],
+      "target_property": "Zero False Accepts",
+      "pass_fail_verdict": "PASS"
+    },
+    "experiment_9_incremental_vs_full_compilation": [
+      {
+        "fleet_size_assets": 10,
+        "full_compile_ms": 0.902,
+        "incremental_compile_ms": 0.987,
+        "total_nodes": 10,
+        "affected_nodes": 1,
+        "recomputed_constraints": 4,
+        "reused_constraints": 43,
+        "node_recompute_ratio": 0.1,
+        "latency_reduction_pct": -9.44,
+        "domain_equivalent": true,
+        "hard_constraints_equivalent": true
+      },
+      {
+        "fleet_size_assets": 50,
+        "full_compile_ms": 5.515,
+        "incremental_compile_ms": 4.008,
+        "total_nodes": 50,
+        "affected_nodes": 1,
+        "recomputed_constraints": 4,
+        "reused_constraints": 233,
+        "node_recompute_ratio": 0.02,
+        "latency_reduction_pct": 27.33,
+        "domain_equivalent": true,
+        "hard_constraints_equivalent": true
+      },
+      {
+        "fleet_size_assets": 100,
+        "full_compile_ms": 14.395,
+        "incremental_compile_ms": 8.046,
+        "total_nodes": 100,
+        "affected_nodes": 1,
+        "recomputed_constraints": 4,
+        "reused_constraints": 471,
+        "node_recompute_ratio": 0.01,
+        "latency_reduction_pct": 44.1,
+        "domain_equivalent": true,
+        "hard_constraints_equivalent": true
+      },
+      {
+        "fleet_size_assets": 250,
+        "full_compile_ms": 90.742,
+        "incremental_compile_ms": 23.821,
+        "total_nodes": 250,
+        "affected_nodes": 1,
+        "recomputed_constraints": 4,
+        "reused_constraints": 1183,
+        "node_recompute_ratio": 0.004,
+        "latency_reduction_pct": 73.75,
+        "domain_equivalent": true,
+        "hard_constraints_equivalent": true
+      }
+    ],
+    "experiment_10_backend_semantic_fidelity": {
+      "experiment_name": "Experiment 10: Backend Semantic Fidelity",
+      "total_discrete_assignments_evaluated": 1024,
+      "certified_ir_feasible_states": 21,
+      "ilp_feasible_states": 21,
+      "qubo_semantically_valid_states": 21,
+      "ir_vs_ilp_mismatches": 0,
+      "ir_vs_qubo_mismatches": 0,
+      "ilp_vs_qubo_mismatches": 0,
+      "semantic_fidelity_ilp_pct": 100.0,
+      "semantic_fidelity_qubo_pct": 100.0,
+      "cross_backend_semantic_mismatch": 0,
+      "evaluation_mode": "EXHAUSTIVE_ENUMERATION",
+      "technical_takeaway": "ILP preserves certified IR semantics with 100% fidelity. QUBO maps physical prohibitions structurally while enforcing invariants via dominating quadratic penalty expansion."
+    },
+    "experiment_11_safety_gated_learning": {
+      "experiment_name": "Experiment 11: Safety-Gated Learning",
+      "total_rules_evaluated": 4,
+      "safe_rules_admitted": 1,
+      "unsafe_rules_admitted": 0,
+      "rule_admission_log": [
+        {
+          "rule_id": "RULE_SAFE_01",
+          "description": "Safe Narrowing: Restrict snapshot_backup on server due to historical storage bottleneck",
+          "expected": "ADMIT",
+          "actual": "ADMITTED",
+          "reason": "APPROVED: Rule certified in sandbox without violating safety invariants",
+          "pass": true
+        },
+        {
+          "rule_id": "RULE_UNSAFE_REINTRODUCE",
+          "description": "Forbidden Reintroduction: Re-enable automated isolation on PLC controller",
+          "expected": "REJECT",
+          "actual": "REJECTED",
+          "reason": "REJECTED: Safety monotonicity violation -- cannot re-introduce 'isolate' on cyber-physical controller",
+          "pass": true
+        },
+        {
+          "rule_id": "RULE_UNSAFE_FAILSAFE",
+          "description": "Failsafe Removal: Restrict surveillance baseline action 'monitor'",
+          "expected": "REJECT",
+          "actual": "REJECTED",
+          "reason": "REJECTED: Safety monotonicity violation -- cannot restrict failsafe baseline action 'monitor'",
+          "pass": true
+        },
+        {
+          "rule_id": "RULE_UNSAFE_EMPTY_DOMAIN",
+          "description": "Empty Domain Creation: Restrict all remaining actions on healthcare DB",
+          "expected": "REJECT",
+          "actual": "REJECTED",
+          "reason": "REJECTED: Rule produces empty feasible action domain for resources ['db_01']",
+          "pass": true
+        }
+      ],
+      "target_property": "Zero Unsafe Rules Admitted",
+      "verdict": "PASS"
+    }
+  }
+}

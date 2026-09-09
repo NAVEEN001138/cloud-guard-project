@@ -1,6 +1,6 @@
 """
 =============================================================================
-LAYER 5: PRE-SOLVE CONSTRAINT SAFETY CERTIFIER
+LAYER 5: PRE-SOLVE CONSTRAINT SAFETY CERTIFIER & INTEGRITY BINDER
 Module: safety_certifier.py
 -----------------------------------------------------------------------------
 Problem Solved:
@@ -8,10 +8,14 @@ Problem Solved:
   Mathematically certifies that the compiled SecurityConstraintIR contains:
     1. Zero forbidden actions in the decision variable domain.
     2. Guaranteed feasibility (non-empty search space with min-cost <= budget).
-    3. Conflict consistency (no contradictory mandatory assignments).
-    4. 100% Provenance completeness for all pruned or mandated elements.
+    3. Exactly-one invariance constraints on all active assets.
+    4. Conflict hyperedge consistency (no self-contradictory requirements).
+    5. Operational budget consistency.
+    6. Policy and statutory mandate satisfaction (HIPAA 45 CFR § 164.312, etc.).
+    7. 100% Provenance completeness for all pruned or mandated elements.
 
-  Emits a tamper-evident, SHA-256 signed Pre-Solve Safety Certificate.
+  Emits a versioned, tamper-evident Pre-Solve Safety Certificate cryptographically
+  binding the certified SC-IR state to formulation compilers.
 =============================================================================
 """
 
@@ -41,8 +45,37 @@ class ConstraintSafetyCertificate:
     integrity_digest: str = ""  # Tamper-evident cryptographic SHA-256 integrity fingerprint
     signature: str = ""         # Backwards-compatible alias for integrity_digest
 
+    # Versioning and Binding Fields
+    ir_version: int = 1
+    runtime_state_version: int = 1
+    closure_digest: str = ""
+
+    @property
+    def ir_digest(self) -> str:
+        """Alias for ir_sha256 / canonical digest."""
+        return self.ir_sha256
+
+    @property
+    def certification_status(self) -> str:
+        """Alias for status."""
+        return self.status
+
+    @property
+    def certified_at(self) -> float:
+        """Alias for timestamp."""
+        return self.timestamp
+
+    @property
+    def invariant_results(self) -> Dict[str, bool]:
+        """Alias for verification_checks."""
+        return self.verification_checks
+
     def is_valid(self) -> bool:
-        return self.status == "CERTIFIED" and len(self.forbidden_action_violations) == 0 and all(self.verification_checks.values())
+        return (
+            self.status == "CERTIFIED"
+            and len(self.forbidden_action_violations) == 0
+            and all(self.verification_checks.values())
+        )
 
 
 class PreSolveSafetyCertifier:
@@ -134,6 +167,15 @@ class PreSolveSafetyCertifier:
                     violations.append(f"PROVENANCE GAP: Pruned action '{pruned}' on '{rid}' lacks provenance rule")
         checks["7_provenance_audit_completeness"] = prov_ok
 
+        # Compute canonical digest of IR if not already present
+        ir_digest = ir.canonical_digest or ir.compute_canonical_digest()
+
+        # Compute closure digest
+        closure_digest = ""
+        if ir.dependency_closure_metadata:
+            closure_dict = ir.dependency_closure_metadata.to_dict()
+            closure_digest = hashlib.sha256(json.dumps(closure_dict, sort_keys=True).encode("utf-8")).hexdigest()
+
         # Certification Determination
         all_passed = all(checks.values()) and len(violations) == 0
         status = "CERTIFIED" if all_passed else "VIOLATION_DETECTED"
@@ -141,13 +183,16 @@ class PreSolveSafetyCertifier:
         cert_id = f"CERT_{ir.incident_id}_{int(cert_time)}"
 
         # Tamper-evident cryptographic state fingerprint sealing the verified IR state
-        cert_payload = f"{cert_id}:{ir.sha256_hash}:{status}:{json.dumps(checks, sort_keys=True)}"
+        cert_payload = (
+            f"{cert_id}:{ir_digest}:{ir.ir_version}:{ir.runtime_state_version}:"
+            f"{status}:{json.dumps(checks, sort_keys=True)}:{closure_digest}"
+        )
         integrity_hash = hashlib.sha256(cert_payload.encode("utf-8")).hexdigest()
 
         return ConstraintSafetyCertificate(
             certificate_id=cert_id,
             incident_id=ir.incident_id,
-            ir_sha256=ir.sha256_hash or ir.compute_sha256(),
+            ir_sha256=ir_digest,
             timestamp=cert_time,
             status=status,
             forbidden_action_violations=violations,
@@ -158,4 +203,7 @@ class PreSolveSafetyCertifier:
             total_conflicts_verified=len(ir.conflict_hyperedges),
             integrity_digest=integrity_hash,
             signature=integrity_hash,
+            ir_version=ir.ir_version,
+            runtime_state_version=ir.runtime_state_version,
+            closure_digest=closure_digest,
         )

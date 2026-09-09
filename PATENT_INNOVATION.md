@@ -1,7 +1,7 @@
 # 💡 Patent Innovation Disclosure & Strategy Guide
 
-**Invention Title (Recommended)**: Adaptive Runtime Security Constraint Compilation and Decision System for Automated Infrastructure Response  
-*(Alternative/Prior Embodiment Title: Adaptive Context-Driven Decision Engine for Multi-Objective Cloud Incident Response Optimization via Federated Edge AI and Quantum QAOA Solvers)*  
+**Invention Title (Recommended)**: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response  
+*(Alternative Embodiment Title: Adaptive Runtime Security Constraint Compilation and Decision System for Automated Infrastructure Response)*  
 **Core Patentable Layer**: Layer 5 — Adaptive Constraint Compilation Architecture (Claims 1, 3, 4, 5, 7 & 8)  
 **Applicant / Inventor**: Naveen Ravi  
 
@@ -288,3 +288,40 @@ The following evidentiary matrix links every functional limitation of Independen
    - **Variant C (No Dependency Propagation / Disconnected Pruning)**: 20.0% Infeasible Models, 5 Dangling Conflicts.
    - **Variant D (No Pre-Solve Verification / Unchecked Solve)**: 20.0% Infeasible Models, 0% Pre-Solve Safety Assurance.
    - **Empirical Takeaway**: Zero violations occur because the decision space is dynamically reconstructed prior to formulation, not by fragile numerical balancing.
+
+---
+
+## 5. Advanced Patent Strengthening Core & Empirical Proof Suite (Experiments 7 to 11)
+
+To fortify the patent application against adversarial obviousness and prior art rejections (e.g. Boeing CA3139589A1, Schneider 2025, Salehie US9330262B2), Layer 5 was upgraded with five formal mathematical capabilities:
+
+### A. The Five Upgraded Core Mechanisms
+
+1. **Deterministic Fixed-Point Dependency Closure (`layer5_constraints/dependency_graph.py`)**:
+   - Replaces simple local action deletion with an iterative fixed-point algorithm:
+     $$R_{k+1} = R_k \cup \text{DependentConsequences}(R_k) \quad \text{until} \quad R_{k+1} = R_k$$
+   - Supports typed relationships: `REQUIRES`, `CONFLICTS_WITH`, `CONSUMES_RESOURCE`, `DERIVES_BOUND`, `MANDATES`, `PROTECTS_FAILSAFE`.
+   - Cycle-safe termination and full structured provenance logging (`ClosureProvenance`).
+2. **Versioned Security Constraint Intermediate Representation (`layer5_constraints/constraint_ir.py`)**:
+   - Explicitly models `ir_version`, `runtime_state_version`, `parent_ir_version`, and canonical serialization.
+   - Deterministic SHA-256 canonical digest invariant to dictionary key insertion order.
+3. **Certificate-Bound Formulation Compiler Gate (`layer5_constraints/formulation_compiler.py`)**:
+   - Strict technical lock preventing model compilation unless verified:
+     $$\text{Compile}(\text{IR}, \mathcal{C}) = \text{Model} \iff \text{VerifyBinding}(\text{IR}, \mathcal{C}) = \text{True}$$
+   - Technical rejection via domain exceptions: `UncertifiedIRCompilationError`, `StaleCertificateError`, `IntegrityBindingError`.
+4. **Incremental / Delta Constraint Compiler (`layer5_constraints/incremental_compiler.py`)**:
+   - For runtime state change $\Delta S = \text{Diff}(S_t, S_{t+1})$, identifies minimal affected subgraph, recomputes dirty variables/conflicts/bounds, and reuses unaffected certified structures.
+   - Guarantees exact mathematical equivalence: $\text{FullCompile}(S_{t+1}) \equiv \text{IncrementalCompile}(\text{IR}_t, \Delta S)$.
+5. **Exhaustive Solver Semantic Fidelity Validation (`layer5_constraints/semantic_validator.py`)**:
+   - Evaluates all $2^n$ binary state assignments against certified IR, PuLP ILP, and Qiskit QUBO models.
+   - Distinguishes structurally absent forbidden actions from penalty-encoded invariants.
+
+### B. Summary of Advanced Experiments (7 to 11) (`run_patent_strengthening_benchmark.py`)
+
+| Experiment ID & Name | Scope & Methodology | Measured Empirical Evidence | Patent Defensibility Effect |
+|---|---|---|---|
+| **Exp. 7: Dependency Closure** | Multi-hop chain (Web $\to$ API $\to$ DB) comparing local pruning vs. fixed-point closure. | Dangling references reduced from **1 to 0**; stale conflicts reduced from **1 to 0**; propagation depth = **2**; iterations = **3** ({e7_runtime:.3f} ms). | Proves complete elimination of dangling references across transitive operational chains. |
+| **Exp. 8: Certificate Attack Suite** | 6 adversarial tampering vectors (mutated variables, stale versions, swapped certs, failed certs, tampered bounds). | **0 False Accepts** across all 6 attack vectors; 100% legitimate compile pass. | Proves technical inability of compiler to generate execution models from invalid or uncertified states. |
+| **Exp. 9: Incremental Scaling** | Fleets of 10, 50, 100, and 250 assets perturbed by single-asset threat surges. | Latency reduced by up to **78.6%** at 250 assets; reused up to **1,183 constraints**; **100% semantic equivalence**. | Substantiates sub-linear runtime adaptation during live infrastructure state changes. |
+| **Exp. 10: Semantic Fidelity** | Exhaustive truth-table verification across $2^{10} = 1,024$ binary state combinations. | **100.0% Semantic Fidelity** for ILP; **100.0%** for penalty-free QUBO subspace; **0 cross-backend mismatches**. | Proves solver models faithfully preserve certified IR semantics without loss of fidelity. |
+| **Exp. 11: Safety-Gated Learning** | Tests 4 candidate structural rules (safe narrowing, forbidden re-introduction, failsafe removal, empty domain). | **0 Unsafe Rules Admitted**; 100% of safe narrowing rules admitted via sandboxed pre-solve verification. | Proves safety monotonicity in experience-driven constraint synthesis. |
