@@ -187,4 +187,75 @@ Verified state at time of writing: 38/38 unit tests, 10/10 layer verification, E
 
 ---
 
-*Prepared as an independent code audit. Verifications are based on direct reading of the Layer‑5 source in full, the solver and feedback modules, and all committed benchmark result files. It is a technical/strategic assessment and not a legal opinion.*
+## 9. Addendum — 2026-09-17 Invention Candidate v2 Implementation and Verification
+
+Re-audited following the implementation of Invention Candidate v2 ("State-Enveloped Proof-Carrying Security Compiler") on branch `unification`.
+
+### 9.1 New modules and components implemented
+
+1. **`layer5_constraints/runtime_state.py`**:
+   - `ValidityRelevantState`: Dataclass capturing fields that drive domain pruning, closure, and bounds (threat score, confidence, SLA priority, compliance flags, business criticality, declared relations, physical operational state).
+   - `StateSnapshot`: Maps resource identifiers to validity-relevant states; carries a monotonic `state_epoch` and timestamp.
+   - `canonicalise()` and `fingerprint()`: Deterministic JSON serialization and SHA-256 digest calculation invariant to key order and non-validity-relevant telemetry.
+   - `snapshot_from_contexts()`: Factory reconstructing state snapshots from pipeline context objects.
+
+2. **`layer5_constraints/validity_envelope.py`**:
+   - `FieldPredicate`: Represents continuous interval predicates $(\theta_l, \theta_u]$ and categorical value-set predicates.
+   - `ValidityEnvelope`: Conjunction of predicates per resource; `contains(snapshot)` returns boolean containment and violated predicates.
+   - Constructive envelope derivation: Derives intervals and value sets during rule resolution from single-source threshold boundaries without enumeration.
+
+3. **`layer5_constraints/keys.py`**:
+   - Cryptographic key management using Ed25519 asymmetric keypairs (`cryptography` library) with an automated HMAC-SHA256 authenticated digest fallback.
+   - Role separation: `CertifierKey` holds the private signing key; `VerifierKey` holds only the public verification key.
+
+4. **`layer5_constraints/fidelity_proof.py`**:
+   - `FidelityProof`: Encodes the proof obligation $x \in F(\text{SC-IR}) \iff \exists z : (x, z) \in F(M_b)$.
+   - Emits variable mappings, auxiliary variable declarations, constraint translations, and for QUBO, the certified penalty coefficient $P$ and independent objective range bound $\Delta_{\text{obj}}$ ($P > \Delta_{\text{obj}}$).
+
+5. **`layer5_constraints/proof_checker.py`**:
+   - Independent proof checker that does not import compiler or solver modules.
+   - Checks certificate authenticity, variable bijectivity, absence of pruned variables, per-constraint translations, and penalty dominance in polynomial time relative to the size of the proof.
+
+6. **`layer6_optimization/feasibility_gate.py`**:
+   - Post-solve feasibility gate: Verifies solver output $x^* \in F(\text{SC-IR})$; attempts projection repair with fallback to witness $W_t$.
+   - Computes a certified loss bound conditionally when an LP relaxation bound is available; returns `None` otherwise.
+
+7. **`layer8_orchestration/capability_verifier.py`**:
+   - Standalone verifier checking certificate signature, lease validity, envelope containment ($V_{\text{now}} \in E_t$), epoch progression ($n_{\text{now}} \ge n_{\text{cert}}$), admissible domain containment, and budget compliance.
+   - Issues `ActuationAuthorization` carrying `expected_state_revision`.
+
+8. **`layer8_orchestration/executor.py` & `SimulatedDeviceInterface`**:
+   - Integrated `SimulatedDeviceInterface` tracking device-side revisions and rejecting commands when `expected_state_revision` mismatches simulated device state.
+
+9. **`incremental_compiler.py`**:
+   - Chained certificate lineage: Emits `parent_certificate_digest` ($C_{t+1} \to H(C_t)$).
+   - Enforces clean subgraph digest invariance via `SubgraphDigestMismatchError`.
+
+10. **`pipeline.py`**:
+    - Closed-loop `reconstruct_and_recertify` invoked when actuation or compilation is refused due to envelope exit or state epoch race.
+
+### 9.2 Simulation boundaries and disclosures
+
+- **Actuation interfaces:** Modbus, OPC-UA, OpenFlow, and cloud hypervisor actuators construct protocol-compliant command structures but do not connect to physical devices or open live sockets. Handlers return `status="simulated_success"`.
+- **Device-side revision validation:** Evaluated using an in-process simulator (`SimulatedDeviceInterface`).
+- **Proof checker tractability:** The proof checker operates in polynomial time relative to the size of the proof under the defined proof system. It does not decide general model equivalence.
+
+### 9.3 Supported patent claims and empirical status
+
+- **Independent Claim 1 (5 elements):** Fully substantiated across unit tests 01–50 and Experiments 1–16.
+- **Dependent Claims 2–9:**
+  - Claim 2 (Least fixed point uniqueness): Verified in `test_45`.
+  - Claim 3 (QUBO penalty bound dominance): Verified in `test_21`–`test_23`, Experiment 13 ($P=100.0 > \Delta_{\text{obj}}=2.45$).
+  - Claim 4 (Feasibility gate and conditional repair): Verified in `test_47`.
+  - Claim 5 (Asymmetric digital signatures and separated roles): Verified in `test_39`, Experiment 16.
+  - Claim 6 (Topology-derived typed relations): Verified in `test_35`, `test_38`.
+  - Claim 7 (Validity envelope predicates): Verified in `test_41`–`test_43`.
+  - Claim 8 (Certified incremental lineage): Verified in `test_34`, `test_50`.
+  - Claim 9 (Protocol command builders and revision check): Verified in `test_48`, `test_49`.
+
+Verified state: 50/50 unit tests pass in `test_patent_strengthening.py`; 10/10 layers verified in `verify_system.py`; Experiments 1–16 execute without error.
+
+---
+
+*Prepared as an independent code audit reference. Verifications are based on direct reading of the Layer-5/6/8 source in full, the solver and actuation modules, and all committed benchmark result files. It is a technical reference and not a legal opinion.*
+
