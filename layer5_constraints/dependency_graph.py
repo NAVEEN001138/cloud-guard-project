@@ -60,6 +60,8 @@ from layer5_constraints.policy_thresholds import (
     PLC_MODE_RUN,
     PLC_MODE_MAINTENANCE,
     get_effective_plc_mode,
+    PHYSICAL_CAPABILITY_MAP,
+    DEFAULT_ACTION_CONFLICTS,
 )
 
 
@@ -135,24 +137,8 @@ class ClosureResult:
         return hashlib.sha256(json.dumps(self.to_dict(), sort_keys=True).encode("utf-8")).hexdigest()
 
 
-# Known conflict pairs (within or across resource categories)
-DEFAULT_ACTION_CONFLICTS = [
-    ("isolate", "monitor", "Contradictory containment state: full disconnection vs active surveillance"),
-    ("isolate", "increase_logging", "Contradictory state: isolated host cannot push live syslog streams"),
-    ("disable_user", "rotate_credentials", "Redundant credential operation: disabled account needs no immediate rotation"),
-]
-
-# Physical capability map
-PHYSICAL_CAPABILITY_MAP: Dict[str, List[str]] = {
-    "server": ["isolate", "rotate_credentials", "block_ip", "disable_user", "snapshot_backup", "monitor", "increase_logging"],
-    "ec2_instance": ["isolate", "rotate_credentials", "block_ip", "disable_user", "snapshot_backup", "monitor", "increase_logging"],
-    "rds_database": ["rotate_credentials", "block_ip", "snapshot_backup", "monitor", "increase_logging"],
-    "plc_controller": ["isolate", "rotate_credentials", "monitor", "increase_logging"],
-    "camera_sensor": ["block_ip", "monitor", "increase_logging"],
-    "iam_role": ["disable_user", "rotate_credentials", "monitor", "increase_logging"],
-    "network_gateway": ["block_ip", "isolate", "monitor", "increase_logging"],
-    "medical_device": ["monitor", "increase_logging", "rotate_credentials"],
-}
+# DEFAULT_ACTION_CONFLICTS and PHYSICAL_CAPABILITY_MAP are defined in policy_thresholds.py
+# (Single source of truth for DECISION_POLICY_MANIFEST) and imported above.
 
 
 def calculate_action_cost(resource_type: str, action: str, cost_weights=COST_WEIGHTS) -> float:

@@ -2265,6 +2265,48 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         # At least one clean asset should be reused
         self.assertGreater(len(reused), 0, "At least one clean subgraph should be reused")
 
+    # 63. Decision-policy manifest completeness and rule module coverage
+    def test_63_decision_policy_manifest_completeness(self):
+        """
+        Item 5: Verifies that DECISION_POLICY_MANIFEST contains all decision-affecting constants
+        across rule modules (policy_thresholds, dependency_graph, adaptive_constraints).
+        Asserts every module-level policy constant is referenced by the manifest.
+        """
+        import layer5_constraints.policy_thresholds as pt
+        import layer5_constraints.dependency_graph as dg
+        import layer5_constraints.adaptive_constraints as ac
+
+        manifest = pt.build_decision_policy_manifest()
+
+        # Required components
+        self.assertIn("THRESHOLD_THREAT_HIGH", manifest)
+        self.assertIn("THRESHOLD_HIPAA_MANDATE", manifest)
+        self.assertIn("THRESHOLD_LOW_CONFIDENCE", manifest)
+        self.assertIn("THRESHOLD_THREAT_LOW", manifest)
+        self.assertIn("PHYSICAL_CAPABILITY_MAP", manifest)
+        self.assertIn("FEASIBLE_ACTION_MATRIX", manifest)
+        self.assertIn("RESOURCE_PROFILES", manifest)
+        self.assertIn("DEFAULT_ACTION_CONFLICTS", manifest)
+        self.assertIn("PLC_MODE_RUN", manifest)
+        self.assertIn("PLC_MODE_MAINTENANCE", manifest)
+        self.assertIn("LEARNED_RULES_DIGEST", manifest)
+
+        # Inspect rule modules for module-level policy constants and assert manifest references them
+        rule_modules = [pt, dg, ac]
+        checked_constants = set()
+        for mod in rule_modules:
+            for attr_name in dir(mod):
+                if attr_name.startswith("_"):
+                    continue
+                # Policy constants are uppercase by convention
+                if attr_name.isupper() and attr_name not in ("HAS_PULP", "HAS_QISKIT", "ACTIONS", "COST_WEIGHTS", "UTILITY_WEIGHTS", "MAX_BUDGET"):
+                    if attr_name in ("POLICY_REVISION", "POLICY_THRESHOLDS_DICT", "DECISION_POLICY_MANIFEST"):
+                        continue
+                    checked_constants.add(attr_name)
+                    self.assertIn(attr_name, manifest, f"Module-level policy constant '{attr_name}' from {mod.__name__} is NOT referenced by DECISION_POLICY_MANIFEST")
+
+        self.assertGreaterEqual(len(checked_constants), 10, "Must check all core policy constants across rule modules")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

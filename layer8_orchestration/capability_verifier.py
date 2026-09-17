@@ -128,11 +128,12 @@ class ActuationCapabilityVerifier:
             )
 
         # 3. Policy Revision Verification against verifier's own deployed POLICY_REVISION
-        from layer5_constraints.policy_thresholds import POLICY_REVISION as DEPLOYED_POLICY_REVISION
-        if manifest.policy_revision != DEPLOYED_POLICY_REVISION:
+        import layer5_constraints.policy_thresholds as pt
+        deployed_policy_revision = pt.POLICY_REVISION
+        if manifest.policy_revision != deployed_policy_revision:
             raise ActuationVerificationError(
                 f"Actuation refused: Policy revision mismatch. Manifest has '{manifest.policy_revision}', "
-                f"deployed system requires '{DEPLOYED_POLICY_REVISION}'."
+                f"deployed system requires '{deployed_policy_revision}'."
             )
 
         # 4. Lease Policy Check (Max age seconds)

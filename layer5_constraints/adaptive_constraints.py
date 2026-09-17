@@ -46,6 +46,9 @@ from layer5_constraints.policy_thresholds import (
     OFF_HOURS_DOWNTIME_FACTOR,
     CONFIDENCE_ADAPTATION_THRESHOLD,
     CONFIDENCE_PENALTY_CONTAINMENT,
+    FEASIBLE_ACTION_MATRIX,
+    ResourceProfile,
+    RESOURCE_PROFILES,
 )
 from layer5_constraints.safety_certifier import PreSolveSafetyCertifier, ConstraintSafetyCertificate
 from layer5_constraints.formulation_compiler import FormulationCompiler
@@ -64,42 +67,8 @@ class ConstraintProvenance:
     justification: str      # Human-readable legal/technical justification string
 
 
-# -----------------------------------------------------------------------------
-# Feasible Action Matrix: Supported actions per resource category
-# -----------------------------------------------------------------------------
-FEASIBLE_ACTION_MATRIX: Dict[str, List[str]] = {
-    "server": ["isolate", "rotate_credentials", "block_ip", "disable_user", "snapshot_backup", "monitor", "increase_logging"],
-    "ec2_instance": ["isolate", "rotate_credentials", "block_ip", "disable_user", "snapshot_backup", "monitor", "increase_logging"],
-    "rds_database": ["rotate_credentials", "block_ip", "snapshot_backup", "monitor", "increase_logging"],
-    "plc_controller": ["isolate", "rotate_credentials", "monitor", "increase_logging"],
-    "camera_sensor": ["block_ip", "monitor", "increase_logging"],
-    "iam_role": ["disable_user", "rotate_credentials", "monitor", "increase_logging"],
-    "network_gateway": ["block_ip", "isolate", "monitor", "increase_logging"],
-    "medical_device": ["monitor", "increase_logging", "rotate_credentials"],
-}
-
-# -----------------------------------------------------------------------------
-# Resource C-I-A Importance Profiles (Scale 1 to 5)
-# -----------------------------------------------------------------------------
-@dataclass
-class ResourceProfile:
-    resource_type: str
-    confidentiality: int  # 1 to 5
-    integrity: int        # 1 to 5
-    availability: int     # 1 to 5
-    auto_isolate_allowed: bool
-
-
-RESOURCE_PROFILES: Dict[str, ResourceProfile] = {
-    "rds_database": ResourceProfile("rds_database", confidentiality=5, integrity=5, availability=4, auto_isolate_allowed=False),
-    "plc_controller": ResourceProfile("plc_controller", confidentiality=2, integrity=5, availability=5, auto_isolate_allowed=False),
-    "camera_sensor": ResourceProfile("camera_sensor", confidentiality=2, integrity=3, availability=5, auto_isolate_allowed=True),
-    "medical_device": ResourceProfile("medical_device", confidentiality=4, integrity=5, availability=5, auto_isolate_allowed=False),
-    "server": ResourceProfile("server", confidentiality=4, integrity=4, availability=3, auto_isolate_allowed=True),
-    "ec2_instance": ResourceProfile("ec2_instance", confidentiality=4, integrity=4, availability=3, auto_isolate_allowed=True),
-    "iam_role": ResourceProfile("iam_role", confidentiality=5, integrity=4, availability=2, auto_isolate_allowed=True),
-    "network_gateway": ResourceProfile("network_gateway", confidentiality=3, integrity=4, availability=5, auto_isolate_allowed=True),
-}
+# FEASIBLE_ACTION_MATRIX, ResourceProfile, RESOURCE_PROFILES are imported from policy_thresholds.py
+# (Single source of truth for DECISION_POLICY_MANIFEST)
 
 
 @dataclass
@@ -274,7 +243,7 @@ def generate_adaptive_constraints(
     )
 
     # Execute Pre-Solve Formal Safety Certification
-    cert = PreSolveSafetyCertifier.certify(sc_ir)
+    cert = PreSolveSafetyCertifier.certify(sc_ir, learned_rules=learned_rules)
 
     # Threat-adaptive budget scaling is owned solely by the compiler's bound
     # regeneration stage; reading it back keeps the outer container and the

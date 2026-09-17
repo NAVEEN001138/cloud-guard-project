@@ -330,6 +330,7 @@ class PreSolveSafetyCertifier:
         parent_certificate: Optional["ConstraintSafetyCertificate"] = None,
         parent_certificate_digest: Optional[str] = None,
         incremental_equivalence_check: Optional[Dict[str, Any]] = None,
+        learned_rules: Optional[List[dict]] = None,
     ) -> ConstraintSafetyCertificate:
         """
         Executes deterministic pre-solve invariant verification across 7 mandatory constraint invariants.
@@ -461,9 +462,9 @@ class PreSolveSafetyCertifier:
         asset_scope = sorted(list(ir.variable_domains.keys()))
         state_schema_id = getattr(ir, "state_schema_id", "cg-state-v1")
         state_epoch = int(getattr(ir, "state_epoch", 1))
-        from layer5_constraints.policy_thresholds import POLICY_REVISION
+        from layer5_constraints.policy_thresholds import compute_policy_revision
         from layer5_constraints.keys import get_certifier_key
-        policy_revision = POLICY_REVISION
+        policy_revision = compute_policy_revision(learned_rules=learned_rules)
         lease_policy = 300
         certifier_id = "certifier-node-primary"
 
