@@ -41,3 +41,6 @@ patentlens_*.md
 .keys/
 *.key
 *.pem
+
+# Confidential Patent Agent Consultation Materials (privileged work product)
+PATENT_AGENT_BRIEFING.md

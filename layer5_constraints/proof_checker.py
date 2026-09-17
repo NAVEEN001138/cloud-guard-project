@@ -14,7 +14,6 @@ Proof Complexity Guarantee:
 Feasibility Semantics:
   ILP:  x in F(IR) <=> exists z: (x, z) satisfies all backend hard constraints.
   QUBO: x in F(IR) <=> exists z: P_hard(x, z) == 0, where P_hard is the reconstructed penalty polynomial.
-  Never write "feasible set of the QUBO" unqualified.
 
 Verification Scope:
   1. Certificate binding & digital signature verification.
