@@ -6,7 +6,7 @@
 > **Applicant & Inventor**: Naveen Ravi | **Invention**: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification for Automated Infrastructure Response  
 > **Confidentiality Notice**: The contents, source algorithms, mathematical formulations, and empirical evaluation data in this repository constitute proprietary intellectual property. Unauthorized commercial reproduction, distribution, or public disclosure without explicit written consent is strictly prohibited under the Patents Act, 1970 and international patent treaties.
 
-> **System Status**: Fully Verified (10/10 Verification Pass) | 34/34 Patent Unit Tests Pass | 100% Constraint Compliance Rate (CCR) | 100% Backend Semantic Fidelity (SF) | Pre-Solve Safety Certified | Certificate-Gated Compilation
+> **System Status**: Fully Verified (10/10 Verification Pass) | 38/38 Patent Unit Tests Pass | 100% Constraint Compliance Rate (CCR) | 100% Backend Semantic Fidelity (SF) | Pre-Solve Safety Certified | Certificate-Gated Compilation
 
 ---
 
@@ -149,7 +149,7 @@ python run_constraint_compiler_benchmark.py
 3. **Causal Chain DAG Propagation**: Cascading capability pruning $\to$ conflict pruning $\to$ budget bounds.
 4. **System B Experience Memory**: Candidate rule admission with strict safety invariant validation gate.
 5. **Dimension 2 Context Sweep**: Single asset (Cloud API Gateway) across 4 progressive operational contexts.
-6. **The Killer Ablation Study**: Full architecture vs. Parameter-only weights, Disconnected pruning, and Unverified solve.
+6. **The Killer Ablation Study**: Full architecture vs. three *executed* degraded variants — parameter-only soft penalties (with a λ calibration sweep), closure disabled, and certificate gate bypassed. No ablation value is hard-coded.
 
 ### 4. Run Multi-Scale Empirical Scaling Trials (2,000 to 1,000,000 Samples)
 ```bash
@@ -157,11 +157,11 @@ python run_data_scaling_trials.py
 ```
 *Executes throttled empirical scaling trials across $N \in [2k, 4k, 10k, 50k, 100k, 1M]$ samples, verifying 0.0% forbidden action violations, 7/7 unique safety invariant checks passed, and 100.00% Constraint Compliance Rate (CCR) across all data scales under CPU throttling. See [`EMPIRICAL_SCALING_TRIALS.md`](EMPIRICAL_SCALING_TRIALS.md).*
 
-### 5. Run Automated Patent Strengthening Test Suite (34 Tests)
+### 5. Run Automated Patent Strengthening Test Suite (38 Tests)
 ```bash
 python test_patent_strengthening.py
 ```
-*Executes all 34 unit and integration tests covering deterministic fixed-point closure, cycle termination, multi-hop propagation, canonical digest stability, certificate tampering rejection, exact binary slack QUBO budget inequality, feasibility witness generation, 3-hop incremental dependency propagation, and exact semantic fingerprint matching.*
+*Executes all 38 unit and integration tests covering deterministic fixed-point closure, cycle termination, multi-hop propagation, canonical digest stability, certificate tampering rejection, exact binary slack QUBO budget inequality, feasibility witness generation, 3-hop incremental dependency propagation, exact semantic fingerprint matching, single-owner budget regeneration, the pre-actuation certified-domain gate, and typed topology dependency semantics.*
 
 ### 6. Run Advanced Patent Strengthening Benchmark Suite (Experiments 7 to 11)
 ```bash
@@ -221,7 +221,7 @@ streamlit run streamlit_app.py
 | **QUBO / ILP Semantic Fidelity (SF)** | **100.00%** | 1024/1024 discrete state assignments matching |
 | **Metadata Leakage Reduction** | **61.66% – 67.88%** | Shannon entropy & volume reduction post-FL |
 | **Forbidden Action Rate (Compiler)** | **0.0%** | Achieved zero forbidden actions across evaluated scenarios |
-| **Forbidden Action Rate (No SC-IR)** | **40.0%** | Soft penalty baseline fails under high threat utility |
+| **Forbidden Action Rate (Parameter-Only, No Policy Encoding)** | **40.0%** | Executed baseline with all actions live and λ=0; a soft penalty restores compliance only above a configuration-specific threshold λ* that scales with threat weighting (calibration-dependent, uncertified) |
 
 > [!NOTE]
 > **Performance Metric Distinction**: The **94.05%** / **94.25%** metrics evaluate the edge federated threat-detection component (94.05% multi-client calibrated mean validation fold accuracy; 94.25% holdout test-set accuracy on a 400-sample test partition evaluated from the 2,000-sample dataset), whereas **Constraint Compliance Rate (100.00%)** and **Semantic Fidelity (100.00%)** evaluate constraint-respecting and mathematically faithful response selection. The SHA-256 digest establishes cryptographic state provenance and audit identity, while deterministic pre-solve invariant checking enforces safety constraints.

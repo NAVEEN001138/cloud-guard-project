@@ -154,4 +154,37 @@ A 7 is a genuinely good score: it means "file it, but with a patent agent and wi
 
 ---
 
+## 8. Addendum — 2026‑09‑17 re‑verification
+
+Re‑audited against the working tree after the Problem 6 / Problem 9 commit (`07e9e74`) and the corrective changes that followed it. Each item below was reproduced by running code, not by reading it.
+
+### 8.1 Findings from §4 now resolved
+
+| §4 finding | Status | Evidence |
+|---|---|---|
+| Fixed‑point closure does little in the default path | **Resolved** | `extract_scenario_dependencies()` feeds declared `requires_isolation_with` / `credential_provider` relations into `resolve()`; `test_35` and the `scada_industrial_cascade` scenario exercise a 2‑hop cascade (depth 2, `CONVERGED`) with no explicit edges passed. |
+| Hardware nexus only in `explainability.py` | **Partially resolved** | `executor.py` now routes by asset class to Modbus, OPC‑UA, OpenFlow and cloud‑API command builders. These construct correct protocol payloads (including a valid IAM key‑rotation and session‑revocation sequence) but open no socket and return `simulated_success`; the module header states this scope explicitly. Treat as protocol‑specific interface prototypes, not live actuation. |
+
+### 8.2 Defects found and fixed in this pass
+
+1. **Budget scaled twice.** `adaptive_constraints.py` and `dependency_graph.py` each applied the threat multiplier; base 5.0 → 6.5 → 8.45 while the outer container reported 6.5. The compiler is now the single owner of bound regeneration and the outer value is derived from the IR (`test_36`).
+2. **No verification at the actuation boundary.** The certificate gated compilation only. `validate_plan_against_certified_ir()` in Layer 8 now re‑establishes the certificate binding and rejects any plan action outside the certified admissible domain or budget before a command is emitted; `pipeline.py` uses it on the default path (`test_37`).
+3. **Over‑broad dependency inference.** A bare `depends_on` generated both `isolate` and `rotate_credentials` prerequisites. Both are now opt‑in typed relations; `depends_on` alone derives none (`test_38`).
+4. **Ablation Variants B–D were string constants.** All three are now executed. The 40 % figure reproduces exactly — but only at λ = 0 (no policy encoding). At the repository's configured λ = 5 the soft‑penalty baseline is fully compliant; the compliance threshold λ* scales ≈ 0.33·*w* with threat‑utility weighting. The claimed mechanism ("penalties overwhelmed under high threat") was false as written; the defensible claim is *calibration‑dependence vs. structural invariance*. Variant C's "20 % infeasibility" did not reproduce and was withdrawn in favour of the measurable 2/2 dangling prerequisites.
+5. AWS `UpdateAccessKey` lacked the required `AccessKeyId`; `PasswordResetRequired` was described as revoking live sessions. Both corrected. OpenFlow `metadata` (64‑bit OXM) no longer carries a string.
+
+### 8.3 Effect on §6
+
+| Dimension | §6 | Now | Basis |
+|---|:---:|:---:|---|
+| Enablement / claim support | 9 | **9.5** | Actuation path substantiated per asset class; actuation‑boundary gate closes the certificate loop. |
+| Inventive step | 6 | **6.5** | Multi‑hop closure exercised on the default path from declared, semantically justified relations. |
+| Subject‑matter eligibility | 6.5 | **7** | Hardware‑anchored claim set is now concrete enough to lead with; still simulated I/O. |
+| Empirical rigor / honesty | 6 | **7** | Ablation is executed and the narrative corrected; ML‑metric concerns (§4 item 4) unchanged. |
+| Overall | ≈ 7 | **≈ 7.3** | Unchanged blockers: no professional prior‑art search; ML evaluation methodology. |
+
+Verified state at time of writing: 38/38 unit tests, 10/10 layer verification, Experiments 1–11 executing.
+
+---
+
 *Prepared as an independent code audit. Verifications are based on direct reading of the Layer‑5 source in full, the solver and feedback modules, and all committed benchmark result files. It is a technical/strategic assessment and not a legal opinion.*

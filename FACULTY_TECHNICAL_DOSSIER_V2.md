@@ -575,18 +575,13 @@ Do not quote 2,978 parameters as universal unless \(D=9\) is independently verif
 
 The repository contains an ablation benchmark.
 
-The Full Architecture path is actually executed.
+All four variants are now executed; no ablation value is a configured constant.
 
-However, several degraded variants currently use configured summary values rather than fully executing separate degraded implementations.
+- **Parameter-only baseline (Variant B)**: re-solves the same objective with every action left as a live variable and policy encoded only as an additive penalty λ. With λ = 0 it selects forbidden actions on 40.0% of assets; compliance is restored once λ ≥ λ* = 0.25 in the benchmark configuration, and λ* scales approximately linearly with threat-utility weighting (≈ 0.33·w). The defensible finding is therefore *calibration-dependence*, not blanket failure.
+- **Closure disabled (Variant C)**: on a three-tier `requires_isolation_with` chain, 2 of 2 dependent `isolate` variables survive with a removed prerequisite (Variant A: 0). The earlier "20% infeasible" figure did not reproduce and has been withdrawn.
+- **Gate bypassed (Variant D)**: 0 of 4 tampering vectors detected (Variant A: 4 of 4).
 
-Therefore values such as:
-
-- 40% forbidden rate for parameter-only baseline;
-- 20% infeasible rate for no-dependency variant;
-
-should be treated as **illustrative internal controls**, not primary patent evidence.
-
-Do not attribute the 40% number to MARISMA or another prior-art system.
+Do not attribute the 40% number to MARISMA or another prior-art system; it is the λ = 0 case of this harness's own baseline.
 
 The strongest current patent evidence is Experiments 7–11.
 
