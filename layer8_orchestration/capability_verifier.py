@@ -95,6 +95,18 @@ class ActuationCapabilityVerifier:
         if certificate is None:
             raise ActuationVerificationError("Actuation refused: Missing safety certificate.")
 
+        # 0. Certificate Status and Invariant Verification
+        if certificate.status != "CERTIFIED":
+            raise ActuationVerificationError(
+                f"Actuation refused: Certificate status is '{certificate.status}', expected 'CERTIFIED'."
+            )
+        checks = getattr(certificate, "verification_checks", {})
+        if not checks or not all(checks.values()):
+            failed_checks = [k for k, v in checks.items() if not v]
+            raise ActuationVerificationError(
+                f"Actuation refused: Certificate safety invariants failed or incomplete: {failed_checks}."
+            )
+
         # 1. Manifest Presence and Integrity
         manifest = getattr(certificate, "execution_manifest", None)
         if manifest is None:
@@ -172,17 +184,21 @@ class ActuationCapabilityVerifier:
                     f"Admissible actions: {sorted(admissible)}."
                 )
 
-        # 8. Budget Ceiling Check (from authenticated manifest ONLY)
-        if manifest.effective_budget and manifest.effective_budget > 0:
-            plan_cost = 0.0
-            for rid, action in plan.items():
-                if action in NON_DOMAIN_ACTIONS:
-                    continue
-                cost = manifest.cost_map.get((rid, action))
-                if cost is None:
-                    cost = manifest.cost_map.get(f"{rid}:{action}", 0.0)
-                plan_cost += float(cost)
+        # 8. Budget Ceiling and Cost Completeness Check (from authenticated manifest ONLY)
+        plan_cost = 0.0
+        for rid, action in plan.items():
+            if action in NON_DOMAIN_ACTIONS:
+                continue
+            cost = manifest.cost_map.get((rid, action))
+            if cost is None:
+                cost = manifest.cost_map.get(f"{rid}:{action}")
+            if cost is None:
+                raise ActuationVerificationError(
+                    f"Actuation refused: Missing cost for action ('{rid}', '{action}') in certified manifest."
+                )
+            plan_cost += float(cost)
 
+        if manifest.effective_budget and manifest.effective_budget > 0:
             if plan_cost > manifest.effective_budget + 1e-5:
                 raise ActuationBudgetExceededError(
                     f"Actuation refused: Plan cost {plan_cost:.3f} exceeds certified budget {manifest.effective_budget:.3f}."
