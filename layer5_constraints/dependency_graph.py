@@ -379,6 +379,61 @@ class ConstraintDependencyGraph:
 
         return active_vars, active_conflicts, closure_result
 
+    @classmethod
+    def extract_scenario_dependencies(cls, scenario: dict) -> List[TypedDependencyEdge]:
+        """
+        Extracts or derives real cross-resource and operational dependency relations
+        from scenario topology metadata and resource relationship definitions.
+        Grounds the multi-hop fixed-point dependency closure in the default execution path.
+        """
+        edges: List[TypedDependencyEdge] = []
+        if not scenario:
+            return edges
+
+        # 1. Direct scenario-level explicit dependency declarations
+        if "dependencies" in scenario and isinstance(scenario["dependencies"], list):
+            for dep in scenario["dependencies"]:
+                if isinstance(dep, TypedDependencyEdge):
+                    edges.append(dep)
+                elif isinstance(dep, dict):
+                    edges.append(TypedDependencyEdge(
+                        source_entity=dep["source"],
+                        target_entity=dep["target"],
+                        relation_type=dep.get("relation_type", DependencyRelationType.REQUIRES),
+                        rule_id=dep.get("rule_id", "SCENARIO_DEP"),
+                        description=dep.get("description", "Explicit scenario dependency relation"),
+                    ))
+
+        # 2. Resource-level 'depends_on' hierarchy (parent/upstream service links)
+        resources = scenario.get("resources", [])
+        for r in resources:
+            rid = r.get("id")
+            if not rid:
+                continue
+            parents = r.get("depends_on", [])
+            if isinstance(parents, str):
+                parents = [parents]
+
+            for parent_id in parents:
+                # Containment dependency: isolating child requires coordinated isolation with parent
+                edges.append(TypedDependencyEdge(
+                    source_entity=f"{rid}:isolate",
+                    target_entity=f"{parent_id}:isolate",
+                    relation_type=DependencyRelationType.REQUIRES,
+                    rule_id=f"DEP_CONTAIN_{rid}_ON_{parent_id}",
+                    description=f"Automated network isolation of subordinate '{rid}' requires coordinated upstream isolation of '{parent_id}'",
+                ))
+                # Credential dependency: rotating client credentials requires upstream key provider rotation
+                edges.append(TypedDependencyEdge(
+                    source_entity=f"{rid}:rotate_credentials",
+                    target_entity=f"{parent_id}:rotate_credentials",
+                    relation_type=DependencyRelationType.REQUIRES,
+                    rule_id=f"DEP_CREDS_{rid}_ON_{parent_id}",
+                    description=f"Credential rotation of '{rid}' requires upstream identity/vault provider '{parent_id}'",
+                ))
+
+        return edges
+
     def resolve(
         self,
         scenario: dict,
@@ -549,6 +604,16 @@ class ConstraintDependencyGraph:
         # =========================================================================
         dependency_edges = list(explicit_dependencies or [])
 
+        # Wire scenario-level dependencies when explicit_dependencies is not provided
+        # or supplement explicit dependencies with declared scenario topology
+        scenario_deps = self.extract_scenario_dependencies(scenario)
+        existing_edge_keys = {(e.source_entity, e.target_entity, e.relation_type) for e in dependency_edges}
+        for s_edge in scenario_deps:
+            edge_key = (s_edge.source_entity, s_edge.target_entity, s_edge.relation_type)
+            if edge_key not in existing_edge_keys:
+                dependency_edges.append(s_edge)
+                existing_edge_keys.add(edge_key)
+
         # Default failsafe protections
         for r in resources:
             rid = r["id"]
@@ -620,6 +685,22 @@ class ConstraintDependencyGraph:
                 actions=list(admissible),
                 target_value=1,
             ))
+
+        # Record provenance for all variables pruned transitively during fixed-point closure
+        existing_prov = {(p.target_resource, p.target_action) for p in ir.provenance_records}
+        for trace_item in closure_result.causal_trace:
+            if trace_item.operation == "REMOVE_VARIABLE" and ":" in trace_item.entity:
+                res_id, act_name = trace_item.entity.split(":", 1)
+                if (res_id, act_name) not in existing_prov:
+                    ir.provenance_records.append(IRProvenanceRecord(
+                        target_resource=res_id,
+                        target_action=act_name,
+                        constraint_type="PRUNED",
+                        origin="DEPENDENCY_CLOSURE",
+                        rule_id="TRANSITIVE_DEPENDENCY_PRUNED",
+                        rationale=trace_item.reason,
+                    ))
+                    existing_prov.add((res_id, act_name))
 
         # =========================================================================
         # STAGE 7: Conflict Hyperedges

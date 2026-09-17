@@ -779,6 +779,65 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         )
         self.assertEqual(full_ir.semantic_fingerprint(), inc_res.updated_ir.semantic_fingerprint())
 
+    # 35. Scenario-driven multi-hop closure in default resolve pipeline
+    def test_35_scenario_driven_multi_hop_closure_in_default_resolve(self):
+        multi_tier_scenario = {
+            "scenario": "multi_tier_closure_test",
+            "resources": [
+                {"id": "tier1_plc", "type": "plc_controller"},
+                {"id": "tier2_app", "type": "server", "depends_on": ["tier1_plc"]},
+                {"id": "tier3_web", "type": "server", "depends_on": ["tier2_app"]},
+            ],
+        }
+        threats = {"tier1_plc": 0.85, "tier2_app": 0.85, "tier3_web": 0.85}
+        ctxs = {
+            "tier1_plc": create_test_context("tier1_plc", "plc_controller", threat=0.85, sla="CRITICAL", hipaa=False),
+            "tier2_app": create_test_context("tier2_app", "server", threat=0.85, sla="HIGH", hipaa=False),
+            "tier3_web": create_test_context("tier3_web", "server", threat=0.85, sla="HIGH", hipaa=False),
+        }
+        confs = {
+            "tier1_plc": create_test_confidence("tier1_plc", 0.95),
+            "tier2_app": create_test_confidence("tier2_app", 0.95),
+            "tier3_web": create_test_confidence("tier3_web", 0.95),
+        }
+
+        dag = ConstraintDependencyGraph(incident_id="test_closure_incident")
+        # Default resolve: NO explicit_dependencies passed!
+        ir = dag.resolve(multi_tier_scenario, threats, ctxs, confs)
+
+        # 1. Tier 1 PLC: isolate pruned by physical safety rule
+        self.assertNotIn("isolate", ir.variable_domains["tier1_plc"].admissible_actions)
+        self.assertIn("isolate", ir.variable_domains["tier1_plc"].pruned_actions)
+
+        # 2. Tier 2 App: isolate transitively pruned via fixed-point closure (Hop 1)
+        self.assertNotIn("isolate", ir.variable_domains["tier2_app"].admissible_actions)
+        self.assertIn("isolate", ir.variable_domains["tier2_app"].pruned_actions)
+
+        # 3. Tier 3 Web: isolate transitively pruned via fixed-point closure (Hop 2)
+        self.assertNotIn("isolate", ir.variable_domains["tier3_web"].admissible_actions)
+        self.assertIn("isolate", ir.variable_domains["tier3_web"].pruned_actions)
+
+        # 4. Propagation depth must reflect multi-hop cascade
+        closure = ir.dependency_closure_metadata
+        self.assertIsNotNone(closure)
+        self.assertGreaterEqual(closure.propagation_depth, 2)
+        self.assertEqual(closure.closure_status, "CONVERGED")
+
+        # 5. Causal trace must contain UNSATISFIED_PREREQUISITE transitive records
+        transitive_prunes = [p for p in closure.causal_trace if "UNSATISFIED_PREREQUISITE" in p.reason]
+        self.assertGreaterEqual(len(transitive_prunes), 2)
+        pruned_entities = {p.entity for p in transitive_prunes}
+        self.assertIn("tier2_app:isolate", pruned_entities)
+        self.assertIn("tier3_web:isolate", pruned_entities)
+
+        # 6. Failsafe baselines must remain preserved
+        self.assertIn("monitor", ir.variable_domains["tier2_app"].admissible_actions)
+        self.assertIn("monitor", ir.variable_domains["tier3_web"].admissible_actions)
+
+        # 7. Certificate verification succeeds
+        cert = PreSolveSafetyCertifier.certify(ir)
+        self.assertTrue(cert.is_valid())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

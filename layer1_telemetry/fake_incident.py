@@ -212,9 +212,50 @@ SCENARIOS = {
             },
         ],
     },
+    "scada_industrial_cascade": {
+        "scenario": "Cyber-Physical SCADA & Multi-Tier Infrastructure Response Cascade",
+        "resources": [
+            {
+                "id": "scada-plc-01",
+                "name": "Siemens S7-1500 PLC Controller",
+                "type": "plc_controller",
+                "raw_signal": {
+                    "failed_logins": 3.0,
+                    "unusual_outbound_bytes": 12_000.0,
+                    "privilege_escalation_attempts": 2.0,
+                },
+            },
+            {
+                "id": "scada-gw-02",
+                "name": "Industrial Edge Field Gateway",
+                "type": "network_gateway",
+                "depends_on": ["scada-plc-01"],
+                "raw_signal": {
+                    "failed_logins": 18.0,
+                    "unusual_outbound_bytes": 150_000.0,
+                    "privilege_escalation_attempts": 1.0,
+                },
+            },
+            {
+                "id": "scada-app-03",
+                "name": "Supervisory SCADA HMI Host",
+                "type": "server",
+                "depends_on": ["scada-gw-02"],
+                "raw_signal": {
+                    "failed_logins": 25.0,
+                    "unusual_outbound_bytes": 450_000.0,
+                    "privilege_escalation_attempts": 3.0,
+                },
+            },
+        ],
+    },
 }
 
 SCENARIO_PROFILES = {
+    "scada_industrial_cascade": {
+        "title": "⚡ Cyber-Physical SCADA Multi-Hop Cascade Demo",
+        "description": "Demonstrates multi-hop fixed-point dependency closure and Modbus/OpenFlow hardware actuation: PLC isolation safety rule cascades transitively to edge gateway and HMI server.",
+    },
     "multi_tier_demo": {
         "title": "★ Multi-Tier Threat Verification Demo",
         "description": "Side-by-side demonstration comparing automated response decisions across High Threat (Isolate), Medium Threat (Rotate Credentials), and Low Threat (Monitor) assets.",

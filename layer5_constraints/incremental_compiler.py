@@ -148,10 +148,17 @@ class IncrementalConstraintCompiler:
         primary_dirty.update(delta.changed_resource_state.keys())
         primary_dirty.intersection_update(all_rids)
 
-        # 2. Transitive BFS Propagation along explicit dependency edges
+        # 2. Transitive BFS Propagation along explicit and scenario dependency edges
         dirty_assets = set(primary_dirty)
         dirty_edges = []
-        edges = explicit_dependencies or []
+        edges = list(explicit_dependencies or [])
+        scenario_deps = ConstraintDependencyGraph.extract_scenario_dependencies(scenario)
+        existing_edge_keys = {(e.source_entity, e.target_entity, e.relation_type) for e in edges}
+        for s_edge in scenario_deps:
+            edge_key = (s_edge.source_entity, s_edge.target_entity, s_edge.relation_type)
+            if edge_key not in existing_edge_keys:
+                edges.append(s_edge)
+                existing_edge_keys.add(edge_key)
         queue = list(primary_dirty)
 
         while queue:
