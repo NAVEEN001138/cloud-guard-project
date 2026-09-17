@@ -22,11 +22,32 @@ Problem Solved:
 import hmac
 import hashlib
 import os
+import logging
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Set
 
+logger = logging.getLogger(__name__)
 
 from layer5_constraints.policy_thresholds import POLICY_REVISION
+
+# Cryptographic configuration
+ALLOW_HMAC_FALLBACK: bool = os.environ.get("ALLOW_HMAC_FALLBACK", "false").lower() in ("true", "1")
+
+
+class CryptographicConfigurationError(RuntimeError):
+    """Raised when an unapproved or unavailable cryptographic mechanism is configured."""
+    pass
+
+
+def get_approved_auth_mechanisms() -> Set[str]:
+    """
+    Returns the set of approved signature authentication mechanisms.
+    Default: {"ed25519"}. HMAC is permitted only if ALLOW_HMAC_FALLBACK is True.
+    """
+    approved = {"ed25519"}
+    if ALLOW_HMAC_FALLBACK:
+        approved.add("hmac-sha256")
+    return approved
 
 
 try:
@@ -54,18 +75,26 @@ class CertifierKey:
 
     @property
     def mechanism(self) -> str:
-        return "ed25519" if self._private_key is not None else "hmac-sha256"
+        if self._private_key is not None:
+            return "ed25519"
+        elif ALLOW_HMAC_FALLBACK and self._hmac_secret is not None:
+            return "hmac-sha256"
+        raise CryptographicConfigurationError(
+            "No approved signing mechanism available (cryptography library missing and ALLOW_HMAC_FALLBACK not enabled)."
+        )
 
     def sign(self, payload: bytes) -> Tuple[str, str]:
         if self._private_key is not None:
             raw_sig = self._private_key.sign(payload)
             return raw_sig.hex(), "ed25519"
-        elif self._hmac_secret is not None:
+        elif ALLOW_HMAC_FALLBACK and self._hmac_secret is not None:
+            logger.warning("Certifying with degraded HMAC-SHA256 fallback mechanism")
             sig = hmac.new(self._hmac_secret, payload, hashlib.sha256).hexdigest()
             return sig, "hmac-sha256"
         else:
-            digest = hashlib.sha256(payload).hexdigest()
-            return digest, "digest-only"
+            raise CryptographicConfigurationError(
+                "Cannot sign certificate: Ed25519 key unavailable and ALLOW_HMAC_FALLBACK is not enabled."
+            )
 
     def get_public_verifier(self) -> 'VerifierKey':
         if self._private_key is not None:
@@ -84,9 +113,19 @@ class VerifierKey:
 
     @property
     def mechanism(self) -> str:
-        return "ed25519" if self._public_key is not None else "hmac-sha256"
+        if self._public_key is not None:
+            return "ed25519"
+        elif ALLOW_HMAC_FALLBACK and self._hmac_secret is not None:
+            return "hmac-sha256"
+        return "unconfigured"
 
     def verify(self, payload: bytes, signature_hex: str, auth_mechanism: str) -> bool:
+        if not signature_hex:
+            return False
+        approved = get_approved_auth_mechanisms()
+        if auth_mechanism not in approved:
+            return False
+
         if auth_mechanism == "ed25519":
             if self._public_key is None:
                 return False
@@ -97,12 +136,10 @@ class VerifierKey:
             except Exception:
                 return False
         elif auth_mechanism == "hmac-sha256":
-            if self._hmac_secret is None:
+            if not ALLOW_HMAC_FALLBACK or self._hmac_secret is None:
                 return False
+            logger.warning("Verifying certificate signature using degraded HMAC-SHA256 fallback")
             expected = hmac.new(self._hmac_secret, payload, hashlib.sha256).hexdigest()
-            return hmac.compare_digest(expected, signature_hex)
-        elif auth_mechanism == "digest-only":
-            expected = hashlib.sha256(payload).hexdigest()
             return hmac.compare_digest(expected, signature_hex)
         return False
 
@@ -144,6 +181,11 @@ def init_keys() -> Tuple[CertifierKey, VerifierKey]:
         _GLOBAL_CERTIFIER_KEY = CertifierKey(private_key=priv)
         _GLOBAL_VERIFIER_KEY = VerifierKey(public_key=pub)
     else:
+        if not ALLOW_HMAC_FALLBACK:
+            raise CryptographicConfigurationError(
+                "The 'cryptography' library is unavailable and ALLOW_HMAC_FALLBACK is not enabled. "
+                "System refuses to silently downgrade to insecure mechanisms."
+            )
         if HMAC_SECRET_PATH.exists():
             with open(HMAC_SECRET_PATH, "rb") as f:
                 secret = f.read()

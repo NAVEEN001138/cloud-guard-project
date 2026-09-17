@@ -113,6 +113,7 @@ class ConstraintSafetyCertificate:
 
     # State-Envelope Certificate Payload & Signature (Phase 3)
     auth_mechanism: str = "ed25519"
+    cert_format_version: str = "2.0"
     asset_scope: List[str] = field(default_factory=list)
     policy_revision: str = ""
     state_schema_id: str = "cg-state-v1"
@@ -133,7 +134,8 @@ class ConstraintSafetyCertificate:
     def compute_canonical_payload(self) -> bytes:
         """
         Recomputes the canonical payload bytes committed under the certificate signature.
-        Includes H(manifest) AND the manifest itself in the signed canonical payload.
+        Includes H(manifest) AND the manifest itself, plus auth_mechanism and cert_format_version,
+        in the signed canonical payload.
         """
         manifest_dict = self.execution_manifest.to_dict() if self.execution_manifest else {}
         manifest_digest = self.manifest_digest or (self.execution_manifest.compute_digest() if self.execution_manifest else "")
@@ -161,16 +163,23 @@ class ConstraintSafetyCertificate:
             "verification_checks": self.verification_checks,
             "manifest_digest": manifest_digest,
             "execution_manifest": manifest_dict,
+            "auth_mechanism": self.auth_mechanism,
+            "cert_format_version": self.cert_format_version,
         }
         return json.dumps(payload_obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
     def verify_signature(self, verifier_key: Optional[Any] = None) -> bool:
         """
         Verifies the cryptographic signature of the certificate using the public VerifierKey.
+        Empty or missing signature returns False. Never True.
+        Rejects unapproved auth mechanisms before touching signature.
         """
         if not self.signature:
-            return True
-        from layer5_constraints.keys import get_verifier_key
+            return False
+        from layer5_constraints.keys import get_verifier_key, get_approved_auth_mechanisms
+        approved = get_approved_auth_mechanisms()
+        if self.auth_mechanism not in approved:
+            return False
         vk = verifier_key or get_verifier_key()
         payload_bytes = self.compute_canonical_payload()
         return vk.verify(payload_bytes, self.signature, self.auth_mechanism)
@@ -518,15 +527,17 @@ class PreSolveSafetyCertifier:
             incremental_equivalence_check=incremental_equivalence_check,
         )
 
+        certifier_key = get_certifier_key()
+        cert.auth_mechanism = certifier_key.mechanism
+        cert.cert_format_version = "2.0"
+
         canonical_payload_bytes = cert.compute_canonical_payload()
         integrity_hash = hashlib.sha256(canonical_payload_bytes).hexdigest()
 
-        certifier_key = get_certifier_key()
         sig_hex, auth_mech = certifier_key.sign(canonical_payload_bytes)
 
         cert.integrity_digest = integrity_hash
         cert.signature = sig_hex
-        cert.auth_mechanism = auth_mech
         cert.canonical_payload_bytes = canonical_payload_bytes
 
         return cert
