@@ -527,12 +527,20 @@ class IncrementalConstraintCompiler:
         new_ir.compute_canonical_digest()
 
         # Phase 7: Incremental Equivalence Check (first-class artefact)
-        # IncrementalCompile(IR_t, ΔS) ≡ FullCompile(S_{t+1}) mathematical semantic equality
+        # Digest-gated reuse: unchanged subgraphs reused only after canonical digest verification.
+        # No full-compilation oracle is executed on the clean incremental path.
+        new_ir.compute_all_subgraph_digests()
+        reused_subgraph_digests = {
+            rid: new_ir.subgraph_digests[rid]
+            for rid in clean_assets
+            if rid in new_ir.subgraph_digests
+        }
         semantic_fp = new_ir.semantic_fingerprint()
         equivalence_check = {
-            "verified": True,
+            "method": "digest_gated_reuse",
+            "reused_subgraph_digests": reused_subgraph_digests,
+            "recomputed": sorted(list(dirty_assets)),
             "semantic_fingerprint": semantic_fp,
-            "baseline_full_match": True,
             "timestamp": time.time(),
         }
 

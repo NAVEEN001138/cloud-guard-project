@@ -57,6 +57,8 @@ from layer5_constraints.policy_thresholds import (
     DEFAULT_THREAT_SCORE,
     DEFAULT_BUSINESS_IMPACT_NORMAL,
     DEFAULT_BUSINESS_IMPACT_LOW,
+    PLC_MODE_RUN,
+    PLC_MODE_MAINTENANCE,
 )
 
 
@@ -144,7 +146,7 @@ PHYSICAL_CAPABILITY_MAP: Dict[str, List[str]] = {
     "server": ["isolate", "rotate_credentials", "block_ip", "disable_user", "snapshot_backup", "monitor", "increase_logging"],
     "ec2_instance": ["isolate", "rotate_credentials", "block_ip", "disable_user", "snapshot_backup", "monitor", "increase_logging"],
     "rds_database": ["rotate_credentials", "block_ip", "snapshot_backup", "monitor", "increase_logging"],
-    "plc_controller": ["rotate_credentials", "monitor", "increase_logging"],
+    "plc_controller": ["isolate", "rotate_credentials", "monitor", "increase_logging"],
     "camera_sensor": ["block_ip", "monitor", "increase_logging"],
     "iam_role": ["disable_user", "rotate_credentials", "monitor", "increase_logging"],
     "network_gateway": ["block_ip", "isolate", "monitor", "increase_logging"],
@@ -629,8 +631,37 @@ class ConstraintDependencyGraph:
                         rationale=f"SLA CRITICAL forbids automated network isolation when threat < {THRESHOLD_THREAT_LOW:.2f}",
                     ))
 
-            # Cyber-Physical Industrial Safety Profile (PLC and Medical Devices never automated isolation)
-            if rtype in ("plc_controller", "medical_device"):
+            # Cyber-Physical Industrial Safety Profile
+            # PLC mode policy: RUN prunes 'isolate'; MAINTENANCE admits 'isolate'.
+            # Medical devices: never automated isolation regardless of mode.
+            phys = r.get("physical_state", {})
+            plc_mode = phys.get("mode") if isinstance(phys, dict) else None
+
+            if rtype == "plc_controller":
+                if plc_mode == PLC_MODE_MAINTENANCE:
+                    # MAINTENANCE mode: PLC admits 'isolate' — skip safety pruning
+                    ir.provenance_records.append(IRProvenanceRecord(
+                        target_resource=rid,
+                        target_action="isolate",
+                        constraint_type="ADMITTED",
+                        origin="PHYSICAL_STATE_MODE",
+                        rule_id="PLC_MODE_MAINTENANCE_ADMITS_ISOLATE",
+                        rationale=f"PLC in MAINTENANCE mode admits automated isolation",
+                    ))
+                else:
+                    # RUN mode (default): PLC prunes 'isolate'
+                    var_tuple = (rid, "isolate")
+                    if var_tuple not in initial_removed_set:
+                        initial_removed_set.add(var_tuple)
+                        ir.provenance_records.append(IRProvenanceRecord(
+                            target_resource=rid,
+                            target_action="isolate",
+                            constraint_type="PRUNED",
+                            origin="PHYSICAL_SAFETY_PROFILE",
+                            rule_id=f"SAFETY_PROFILE_{rtype.upper()}",
+                            rationale=f"PLC in {plc_mode or PLC_MODE_RUN} mode prohibits automated isolation",
+                        ))
+            elif rtype == "medical_device":
                 var_tuple = (rid, "isolate")
                 if var_tuple not in initial_removed_set:
                     initial_removed_set.add(var_tuple)

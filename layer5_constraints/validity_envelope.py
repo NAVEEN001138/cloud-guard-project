@@ -101,6 +101,29 @@ class FieldPredicate:
             d["allowed_values"] = sorted([str(x) for x in (self.allowed_values or [])])
         return d
 
+_UNRESOLVABLE = object()  # Sentinel for unresolvable dotted paths
+
+
+def _resolve_dotted_path(obj: Any, path: str) -> Any:
+    """
+    Resolves a dotted field path (e.g. 'physical_state.mode') against an object.
+    Walks attribute lookups and dict key lookups recursively.
+    Returns the resolved value, or _UNRESOLVABLE if the path cannot be resolved.
+    """
+    parts = path.split(".")
+    current = obj
+    for part in parts:
+        if current is None or current is _UNRESOLVABLE:
+            return _UNRESOLVABLE
+        # Try attribute first, then dict key
+        if hasattr(current, part):
+            current = getattr(current, part)
+        elif isinstance(current, dict) and part in current:
+            current = current[part]
+        else:
+            return _UNRESOLVABLE
+    return current
+
 
 @dataclass
 class ValidityEnvelope:
@@ -153,9 +176,7 @@ class ValidityEnvelope:
                 continue
             rstate = resources[rid]
             for pred in preds:
-                val = getattr(rstate, pred.field_path, None)
-                if val is None and hasattr(rstate, "physical_state") and isinstance(rstate.physical_state, dict):
-                    val = rstate.physical_state.get(pred.field_path)
+                val = _resolve_dotted_path(rstate, pred.field_path)
                 if not pred.contains(val):
                     violations.append(
                         f"Resource '{rid}' field '{pred.field_path}' value '{val}' violates predicate "

@@ -1542,7 +1542,9 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         self.assertTrue(cert_2.verify_signature())
         self.assertTrue(cert_2.verify_lineage(cert_1))
         self.assertIsNotNone(cert_2.incremental_equivalence_check)
-        self.assertTrue(cert_2.incremental_equivalence_check["verified"])
+        self.assertEqual(cert_2.incremental_equivalence_check["method"], "digest_gated_reuse")
+        self.assertIn("reused_subgraph_digests", cert_2.incremental_equivalence_check)
+        self.assertIn("recomputed", cert_2.incremental_equivalence_check)
 
         # 3. Incremental compile 2: Delta on res_b -> C_3 (parent: C_2)
         threats_t3 = dict(threats_t2)
@@ -1966,10 +1968,304 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         auth_restored = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
         self.assertTrue(auth_restored.is_authorized)
 
+    # 57. PLC mode RUN -> MAINTENANCE: envelope REJECT (physical_state.mode value_set violation)
+    def test_57_plc_mode_run_to_maintenance_envelope_reject(self):
+        """
+        Adversarial vector 10: PLC mode transitions from RUN to MAINTENANCE.
+        Telemetry is identical; only physical_state.mode changes.
+        Envelope must REJECT because the certified mode was RUN.
+        """
+        from layer8_orchestration.capability_verifier import (
+            ActuationCapabilityVerifier,
+            ActuationEnvelopeViolationError,
+        )
+        from layer5_constraints.safety_certifier import PreSolveSafetyCertifier
+
+        scen = {
+            "scenario": "plc_mode_test",
+            "resources": [
+                {"id": "plc1", "type": "plc_controller", "physical_state": {"mode": "RUN"}},
+                {"id": "srv1", "type": "server"},
+            ],
+        }
+        threat = {"plc1": 0.85, "srv1": 0.85}
+        ctx = {
+            "plc1": create_test_context("plc1", "plc_controller", threat=0.85, sla="CRITICAL"),
+            "srv1": create_test_context("srv1", "server", threat=0.85, sla="HIGH"),
+        }
+        conf = {"plc1": create_test_confidence("plc1"), "srv1": create_test_confidence("srv1")}
+
+        snap_run = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+        dag = ConstraintDependencyGraph(incident_id="plc_mode_test")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap_run)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        envelope = ir.validity_envelope
+        self.assertIsNotNone(envelope)
+
+        # Verify RUN mode is inside envelope
+        is_inside, _ = envelope.contains(snap_run)
+        self.assertTrue(is_inside)
+
+        # PLC isolate is pruned in RUN mode
+        self.assertNotIn("isolate", ir.variable_domains["plc1"].admissible_actions)
+
+        # Transition to MAINTENANCE mode: change physical_state.mode only
+        scen_maint = copy.deepcopy(scen)
+        scen_maint["resources"][0]["physical_state"]["mode"] = "MAINTENANCE"
+        snap_maint = snapshot_from_contexts(ctx, conf, scen_maint, epoch=1, threat_scores=threat)
+
+        # Envelope must REJECT because physical_state.mode changed from RUN to MAINTENANCE
+        is_inside_m, violations_m = envelope.contains(snap_maint)
+        self.assertFalse(is_inside_m, "Envelope should reject PLC mode change from RUN to MAINTENANCE")
+        self.assertTrue(any("physical_state.mode" in v for v in violations_m))
+
+        # Actuation verifier must reject with envelope violation
+        plan = {"plc1": "monitor", "srv1": "isolate"}
+        with self.assertRaises(ActuationEnvelopeViolationError):
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap_maint)
+
+    # 58. Irrelevant telemetry change inside envelope -> ACCEPT (certificate reused)
+    def test_58_irrelevant_telemetry_inside_envelope_accept(self):
+        """
+        Adversarial vector 11: Only non-validity-relevant telemetry changes
+        (e.g., minor threat fluctuation within the same interval).
+        Envelope must ACCEPT, proving certificate can be reused.
+        """
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier
+        from layer5_constraints.safety_certifier import PreSolveSafetyCertifier
+
+        scen = {
+            "scenario": "envelope_accept_test",
+            "resources": [
+                {"id": "s1", "type": "server"},
+                {"id": "s2", "type": "server"},
+            ],
+        }
+        # Both in HIGH tier (> 0.70)
+        threat = {"s1": 0.85, "s2": 0.80}
+        ctx = {
+            "s1": create_test_context("s1", "server", threat=0.85, sla="HIGH"),
+            "s2": create_test_context("s2", "server", threat=0.80, sla="HIGH"),
+        }
+        conf = {"s1": create_test_confidence("s1"), "s2": create_test_confidence("s2")}
+
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+        dag = ConstraintDependencyGraph(incident_id="envelope_accept_test")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        envelope = ir.validity_envelope
+
+        # Baseline inside
+        is_inside, _ = envelope.contains(snap)
+        self.assertTrue(is_inside)
+
+        # Fluctuate threat scores WITHIN same intervals: 0.85->0.78, 0.80->0.72 (both still >0.70)
+        threat_f = {"s1": 0.78, "s2": 0.72}
+        ctx_f = {
+            "s1": create_test_context("s1", "server", threat=0.78, sla="HIGH"),
+            "s2": create_test_context("s2", "server", threat=0.72, sla="HIGH"),
+        }
+        snap_f = snapshot_from_contexts(ctx_f, conf, scen, epoch=1, threat_scores=threat_f)
+
+        # Envelope still contains the fluctuated snapshot
+        is_inside_f, violations_f = envelope.contains(snap_f)
+        self.assertTrue(is_inside_f, f"Should accept inside-envelope fluctuation, violations: {violations_f}")
+        self.assertEqual(len(violations_f), 0)
+
+        # Certificate can be reused for actuation
+        plan = {"s1": "isolate", "s2": "block_ip"}
+        auth = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap_f)
+        self.assertTrue(auth.is_authorized)
+
+    # 59. PLC MAINTENANCE mode admits 'isolate' as admissible action
+    def test_59_plc_maintenance_mode_admits_isolate(self):
+        """
+        Verifies that PLC in MAINTENANCE mode admits 'isolate' as an admissible action,
+        unlike the default RUN mode which prunes it.
+        """
+        scen_run = {
+            "scenario": "plc_mode_compare",
+            "resources": [
+                {"id": "plc1", "type": "plc_controller", "physical_state": {"mode": "RUN"}},
+            ],
+        }
+        scen_maint = {
+            "scenario": "plc_mode_compare",
+            "resources": [
+                {"id": "plc1", "type": "plc_controller", "physical_state": {"mode": "MAINTENANCE"}},
+            ],
+        }
+        threat = {"plc1": 0.85}
+        ctx = {"plc1": create_test_context("plc1", "plc_controller", threat=0.85, sla="CRITICAL")}
+        conf = {"plc1": create_test_confidence("plc1")}
+
+        dag = ConstraintDependencyGraph(incident_id="plc_mode_compare")
+
+        # RUN mode: isolate is pruned
+        ir_run = dag.resolve(scen_run, threat, ctx, conf, base_budget=10.0)
+        self.assertNotIn("isolate", ir_run.variable_domains["plc1"].admissible_actions)
+        self.assertIn("isolate", ir_run.variable_domains["plc1"].pruned_actions)
+
+        # MAINTENANCE mode: isolate is admitted
+        ir_maint = dag.resolve(scen_maint, threat, ctx, conf, base_budget=10.0)
+        self.assertIn("isolate", ir_maint.variable_domains["plc1"].admissible_actions)
+        self.assertNotIn("isolate", ir_maint.variable_domains["plc1"].pruned_actions)
+
+        # Provenance record for MAINTENANCE admission exists
+        maint_prov = [p for p in ir_maint.provenance_records
+                      if p.target_resource == "plc1" and p.rule_id == "PLC_MODE_MAINTENANCE_ADMITS_ISOLATE"]
+        self.assertGreater(len(maint_prov), 0, "MAINTENANCE mode admission provenance must be recorded")
+
+    # 60. Dotted-path resolver correctly resolves nested physical_state fields
+    def test_60_dotted_path_resolver_physical_state(self):
+        """
+        Verifies that the dotted-path resolver in ValidityEnvelope.contains()
+        correctly resolves 'physical_state.mode' and rejects changes.
+        """
+        from layer5_constraints.validity_envelope import _resolve_dotted_path, _UNRESOLVABLE
+
+        rstate = ValidityRelevantState(
+            resource_id="plc1",
+            resource_type="plc_controller",
+            threat_score=0.85,
+            overall_confidence=0.92,
+            sla_priority="CRITICAL",
+            physical_state={"mode": "RUN", "safety_relay": "CLOSED"},
+        )
+
+        # Resolve dotted paths
+        self.assertEqual(_resolve_dotted_path(rstate, "threat_score"), 0.85)
+        self.assertEqual(_resolve_dotted_path(rstate, "physical_state.mode"), "RUN")
+        self.assertEqual(_resolve_dotted_path(rstate, "physical_state.safety_relay"), "CLOSED")
+
+        # Unresolvable paths return sentinel
+        self.assertIs(_resolve_dotted_path(rstate, "physical_state.nonexistent"), _UNRESOLVABLE)
+        self.assertIs(_resolve_dotted_path(rstate, "nonexistent_field"), _UNRESOLVABLE)
+        self.assertIs(_resolve_dotted_path(rstate, "physical_state.mode.deep"), _UNRESOLVABLE)
+
+    # 61. SCADA cascade test: PLC physical_state.mode in scenario
+    def test_61_scada_cascade_physical_state_mode(self):
+        """
+        End-to-end SCADA cascade test: PLC in RUN mode with downstream gateway.
+        Verifies that physical_state.mode is properly surfaced in envelope predicates
+        and that mode transition invalidates the certificate.
+        """
+        from layer5_constraints.safety_certifier import PreSolveSafetyCertifier
+
+        scen = {
+            "scenario": "scada_industrial_cascade",
+            "resources": [
+                {"id": "scada-plc-01", "type": "plc_controller",
+                 "physical_state": {"mode": "RUN"},
+                 "requires_isolation_with": []},
+                {"id": "scada-gw-01", "type": "network_gateway",
+                 "requires_isolation_with": ["scada-plc-01"]},
+            ],
+        }
+        threat = {"scada-plc-01": 0.85, "scada-gw-01": 0.85}
+        ctx = {
+            "scada-plc-01": create_test_context("scada-plc-01", "plc_controller", threat=0.85, sla="CRITICAL"),
+            "scada-gw-01": create_test_context("scada-gw-01", "network_gateway", threat=0.85, sla="CRITICAL"),
+        }
+        conf = {
+            "scada-plc-01": create_test_confidence("scada-plc-01"),
+            "scada-gw-01": create_test_confidence("scada-gw-01"),
+        }
+
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+        dag = ConstraintDependencyGraph(incident_id="scada_industrial_cascade")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        envelope = ir.validity_envelope
+
+        # PLC in RUN: isolate is pruned
+        self.assertNotIn("isolate", ir.variable_domains["scada-plc-01"].admissible_actions)
+
+        # Envelope predicate for physical_state.mode must exist
+        plc_preds = envelope.predicates.get("scada-plc-01", [])
+        mode_preds = [p for p in plc_preds if p.field_path == "physical_state.mode"]
+        self.assertGreater(len(mode_preds), 0, "Envelope must contain physical_state.mode predicate for PLC")
+        self.assertEqual(mode_preds[0].allowed_values, {"RUN"})
+
+        # Snapshot with same mode is inside envelope
+        is_inside, _ = envelope.contains(snap)
+        self.assertTrue(is_inside)
+
+        # Change mode to MAINTENANCE -> outside envelope
+        scen_m = copy.deepcopy(scen)
+        scen_m["resources"][0]["physical_state"]["mode"] = "MAINTENANCE"
+        snap_m = snapshot_from_contexts(ctx, conf, scen_m, epoch=1, threat_scores=threat)
+        is_inside_m, viol = envelope.contains(snap_m)
+        self.assertFalse(is_inside_m)
+        self.assertTrue(any("physical_state.mode" in v for v in viol))
+
+    # 62. Incremental compilation emits digest_gated_reuse schema
+    def test_62_incremental_compilation_digest_gated_reuse_schema(self):
+        """
+        Adversarial vector: Verify incremental compilation on the clean path
+        emits the digest_gated_reuse equivalence schema with explicit reused
+        subgraph digests and recomputed asset list.
+        """
+        from layer5_constraints.safety_certifier import PreSolveSafetyCertifier
+
+        scen = {
+            "scenario": "digest_reuse_test",
+            "resources": [
+                {"id": "a1", "type": "server"},
+                {"id": "a2", "type": "server"},
+                {"id": "a3", "type": "network_gateway"},
+            ],
+        }
+        threat = {"a1": 0.85, "a2": 0.75, "a3": 0.80}
+        ctx = {
+            "a1": create_test_context("a1", "server", threat=0.85, sla="HIGH"),
+            "a2": create_test_context("a2", "server", threat=0.75, sla="HIGH"),
+            "a3": create_test_context("a3", "network_gateway", threat=0.80, sla="HIGH"),
+        }
+        conf = {
+            "a1": create_test_confidence("a1"),
+            "a2": create_test_confidence("a2"),
+            "a3": create_test_confidence("a3"),
+        }
+
+        dag = ConstraintDependencyGraph(incident_id="digest_reuse_test")
+        ir1 = dag.resolve(scen, threat, ctx, conf, base_budget=20.0, ir_version=1)
+        cert1 = PreSolveSafetyCertifier.certify(ir1)
+
+        # Incremental: only a1 changes
+        delta = RuntimeStateDelta(
+            changed_assets=["a1"],
+            changed_threat_state={"a1": 0.88},
+        )
+        threat2 = dict(threat)
+        threat2["a1"] = 0.88
+        result = IncrementalConstraintCompiler.compile_delta(
+            previous_ir=ir1,
+            delta=delta,
+            scenario=scen,
+            all_contexts=ctx,
+            all_confidences=conf,
+            all_threat_scores=threat2,
+            base_budget=20.0,
+            parent_certificate=cert1,
+        )
+
+        self.assertFalse(result.fallback_to_full_recompile)
+        eq_check = result.incremental_equivalence_check
+        self.assertIsNotNone(eq_check)
+        self.assertEqual(eq_check["method"], "digest_gated_reuse")
+        self.assertIn("reused_subgraph_digests", eq_check)
+        self.assertIn("recomputed", eq_check)
+        self.assertIn("semantic_fingerprint", eq_check)
+
+        # Clean assets should have reused subgraph digests
+        reused = eq_check["reused_subgraph_digests"]
+        recomputed = eq_check["recomputed"]
+        self.assertIn("a1", recomputed, "Dirty asset a1 must be in recomputed list")
+        # At least one clean asset should be reused
+        self.assertGreater(len(reused), 0, "At least one clean subgraph should be reused")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
-
-
 

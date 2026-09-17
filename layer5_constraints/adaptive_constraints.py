@@ -71,7 +71,7 @@ FEASIBLE_ACTION_MATRIX: Dict[str, List[str]] = {
     "server": ["isolate", "rotate_credentials", "block_ip", "disable_user", "snapshot_backup", "monitor", "increase_logging"],
     "ec2_instance": ["isolate", "rotate_credentials", "block_ip", "disable_user", "snapshot_backup", "monitor", "increase_logging"],
     "rds_database": ["rotate_credentials", "block_ip", "snapshot_backup", "monitor", "increase_logging"],
-    "plc_controller": ["rotate_credentials", "monitor", "increase_logging"],
+    "plc_controller": ["isolate", "rotate_credentials", "monitor", "increase_logging"],
     "camera_sensor": ["block_ip", "monitor", "increase_logging"],
     "iam_role": ["disable_user", "rotate_credentials", "monitor", "increase_logging"],
     "network_gateway": ["block_ip", "isolate", "monitor", "increase_logging"],

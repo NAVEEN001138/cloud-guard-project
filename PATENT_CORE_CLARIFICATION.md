@@ -191,7 +191,7 @@ For exact solvers, removing a variable and fixing it to zero yield the identical
 >
 > **7.** The method of claim 1, wherein the security-decision invariance envelope comprises continuous interval predicates over threat scores and confidence values, and discrete value-set predicates over physical operational states and statutory compliance applicability flags.
 >
-> **8.** The method of claim 1, further comprising generating an incremental lineage of state-envelope certificates in response to telemetry mutations, wherein each successor certificate commits a digest of its immediate predecessor certificate, and wherein unchanged subgraphs are reused only upon verifying invariance of their canonical digests.
+> **8.** The method of claim 1, further comprising generating an incremental lineage of state-envelope certificates in response to telemetry mutations, wherein each successor certificate commits a digest of its immediate predecessor certificate, wherein unchanged subgraphs are reused only upon verifying invariance of their canonical digests against the certified predecessor, and wherein the incremental equivalence attestation records the method as digest-gated reuse together with the set of reused subgraph digests and the set of recomputed assets.
 >
 > **9.** The method of claim 1, wherein dispatching control commands comprises constructing protocol-specific control payloads for at least one of an industrial controller register interface, an industrial OPC-UA method interface, an OpenFlow network-switch forwarding-table interface, or a cloud control-plane interface, and wherein command execution is rejected when the expected state revision does not match the current device revision.
 
