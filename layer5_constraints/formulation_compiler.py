@@ -172,9 +172,12 @@ class FormulationCompiler:
                     "The validity envelope was altered after certification."
                 )
 
-        # Check current_snapshot against validity envelope if provided
-        if current_snapshot is not None:
-            envelope = getattr(certificate, "validity_envelope", None) or getattr(ir, "validity_envelope", None)
+        # Check current_snapshot against validity envelope (Fail closed on state)
+        envelope = getattr(certificate, "validity_envelope", None) or getattr(ir, "validity_envelope", None)
+        has_envelope = (envelope is not None) or bool(getattr(certificate, "envelope_digest", ""))
+        if has_envelope:
+            if current_snapshot is None:
+                raise StateEnvelopeViolationError("current runtime state unavailable")
             if envelope is not None:
                 ok, violations = envelope.contains(current_snapshot)
                 if not ok:

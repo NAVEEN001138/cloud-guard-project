@@ -115,6 +115,7 @@ class OptimizationConstraints:
     previous_plan: Dict[str, str] = field(default_factory=dict)
     constraint_ir: Optional[SecurityConstraintIR] = None
     safety_certificate: Optional[ConstraintSafetyCertificate] = None
+    state_snapshot: Optional[Any] = None
 
 
 def generate_adaptive_constraints(
@@ -292,5 +293,6 @@ def generate_adaptive_constraints(
         previous_plan=previous_plan or {},
         constraint_ir=sc_ir,
         safety_certificate=cert,
+        state_snapshot=getattr(sc_ir, "state_snapshot", None),
     )
 

@@ -144,17 +144,21 @@ class ActuationCapabilityVerifier:
                 f"Actuation refused: Certificate lease expired ({now - cert_time:.1f}s > {lease_policy}s allowed)."
             )
 
-        # 5. Validity Envelope Check
+        # 5. Validity Envelope Check (Fail closed on state)
         envelope = manifest.envelope or getattr(certificate, "validity_envelope", None)
         envelope_valid = True
-        if current_snapshot is not None and envelope is not None:
-            is_inside, violations = envelope.contains(current_snapshot)
-            if not is_inside:
-                envelope_valid = False
-                raise ActuationEnvelopeViolationError(
-                    f"Actuation refused: Runtime state drifted outside certified validity envelope. "
-                    f"Violations: {'; '.join(violations)}"
-                )
+        has_envelope = (envelope is not None) or bool(getattr(certificate, "envelope_digest", ""))
+        if has_envelope:
+            if current_snapshot is None:
+                raise ActuationVerificationError("current runtime state unavailable")
+            if envelope is not None:
+                is_inside, violations = envelope.contains(current_snapshot)
+                if not is_inside:
+                    envelope_valid = False
+                    raise ActuationEnvelopeViolationError(
+                        f"Actuation refused: Runtime state drifted outside certified validity envelope. "
+                        f"Violations: {'; '.join(violations)}"
+                    )
 
         # 6. State Epoch Monotonicity Check
         epoch_valid = True

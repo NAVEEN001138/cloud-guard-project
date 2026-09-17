@@ -169,6 +169,7 @@ class SecurityConstraintIR:
     state_schema_id: str = "cg-state-v1"
     state_epoch: int = 1
     validity_envelope: Optional[Any] = None
+    state_snapshot: Optional[Any] = None
 
     # Subgraph Canonical Digests for Certified Incremental Lineage (Phase 7)
     subgraph_digests: Dict[str, str] = field(default_factory=dict)
@@ -428,6 +429,11 @@ class SecurityConstraintIR:
             c for c in self.soft_constraints if c.target_resource in resource_ids
         ]
         sub_ir.regenerated_bounds = self.regenerated_bounds.copy()
+        sub_ir.state_fingerprint = self.state_fingerprint
+        sub_ir.state_schema_id = self.state_schema_id
+        sub_ir.state_epoch = self.state_epoch
+        sub_ir.validity_envelope = self.validity_envelope
+        sub_ir.state_snapshot = self.state_snapshot
         sub_ir.compute_canonical_digest()
         return sub_ir
 

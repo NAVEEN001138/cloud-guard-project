@@ -85,7 +85,8 @@ def build_qubo(
             cert = PreSolveSafetyCertifier.certify(ir)
         else:
             cert = constraints.safety_certificate or PreSolveSafetyCertifier.certify(ir)
-        comp_res = FormulationCompiler.compile_to_qubo(ir, certificate=cert)
+        snap = getattr(ir, "state_snapshot", None) or getattr(constraints, "state_snapshot", None)
+        comp_res = FormulationCompiler.compile_to_qubo(ir, certificate=cert, current_snapshot=snap)
         qp, var_lookup = comp_res
         qp.fidelity_proof = getattr(comp_res, "fidelity_proof", None)
         qp.proof = getattr(comp_res, "proof", None)

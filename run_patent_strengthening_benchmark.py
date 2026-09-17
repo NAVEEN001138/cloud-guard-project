@@ -303,7 +303,7 @@ def run_all_experiments():
                 if ir_test.budget_constraint:
                     ir_test.budget_constraint.max_budget += 50.0
 
-            FormulationCompiler.compile_to_ilp(ir_test, certificate=cert_test)
+            FormulationCompiler.compile_to_ilp(ir_test, certificate=cert_test, current_snapshot=getattr(ir_test, "state_snapshot", None))
             accepted = True
         except (UncertifiedIRCompilationError, StaleCertificateError, IntegrityBindingError) as e:
             accepted = False
@@ -498,8 +498,8 @@ def run_all_experiments():
     ir_10 = dag_10.resolve(small_scen, small_scores, small_ctx, small_conf, base_budget=10.0)
     cert_10 = PreSolveSafetyCertifier.certify(ir_10)
 
-    prob_10, x_vars_10, manifest_10 = FormulationCompiler.compile_to_ilp(ir_10, certificate=cert_10, return_manifest=True)
-    qubo_10, q_vars_10 = FormulationCompiler.compile_to_qubo(ir_10, certificate=cert_10)
+    prob_10, x_vars_10, manifest_10 = FormulationCompiler.compile_to_ilp(ir_10, certificate=cert_10, return_manifest=True, current_snapshot=getattr(ir_10, "state_snapshot", None))
+    qubo_10, q_vars_10 = FormulationCompiler.compile_to_qubo(ir_10, certificate=cert_10, current_snapshot=getattr(ir_10, "state_snapshot", None))
 
     sem_rep = SemanticValidator.validate_backend_semantics(
         ir=ir_10,
@@ -671,7 +671,7 @@ def run_all_experiments():
         ir_12.conflict_hyperedges.append(ConflictHyperedge("s1", "isolate", "p1", "monitor", "test_conflict", "rule_test"))
     cert_12 = PreSolveSafetyCertifier.certify(ir_12)
 
-    comp_ilp_12 = FormulationCompiler.compile_to_ilp(ir_12, certificate=cert_12)
+    comp_ilp_12 = FormulationCompiler.compile_to_ilp(ir_12, certificate=cert_12, current_snapshot=getattr(ir_12, "state_snapshot", None))
     prob_base_12, x_vars_12 = comp_ilp_12
     proof_12 = comp_ilp_12.fidelity_proof
 
@@ -797,7 +797,7 @@ def run_all_experiments():
                 ilp_feasible = False
 
     # 3. Verify (W_t, z) in F(M_QUBO) with explicit slack construction
-    comp_qubo_12 = FormulationCompiler.compile_to_qubo(ir_12, certificate=cert_12)
+    comp_qubo_12 = FormulationCompiler.compile_to_qubo(ir_12, certificate=cert_12, current_snapshot=getattr(ir_12, "state_snapshot", None))
     qp_12, q_vars_12 = comp_qubo_12
     chosen_var_names = [q_vars_12[(r, a)] for r, a in w_assignment.items() if (r, a) in q_vars_12]
 
@@ -1173,7 +1173,7 @@ def run_all_experiments():
         rejected = False
         exc_type = ""
         try:
-            FormulationCompiler.verify_binding(target_ir, attack_cert)
+            FormulationCompiler.verify_binding(target_ir, attack_cert, current_snapshot=getattr(target_ir, "state_snapshot", None))
         except (IntegrityBindingError, StaleCertificateError, UncertifiedIRCompilationError) as e:
             rejected = True
             exc_type = type(e).__name__
@@ -1531,7 +1531,7 @@ def run_scada_evaluation() -> Dict[str, Any]:
     dag = ConstraintDependencyGraph("scada_cascade_bench")
     ir = dag.resolve(scen, threats, contexts, confidences, base_budget=20.0, state_snapshot=snap)
     cert = PreSolveSafetyCertifier.certify(ir)
-    comp_qubo = FormulationCompiler.compile_to_qubo(ir, certificate=cert)
+    comp_qubo = FormulationCompiler.compile_to_qubo(ir, certificate=cert, current_snapshot=snap)
     qp, qvars = comp_qubo
     proof = comp_qubo.fidelity_proof
 

@@ -228,7 +228,7 @@ def run_no_certification_variant():
             cert = None
 
         try:
-            FormulationCompiler.verify_binding(ir, cert)
+            FormulationCompiler.verify_binding(ir, cert, current_snapshot=getattr(ir, "state_snapshot", None))
         except Exception:
             detected_with_gate += 1
 
@@ -307,7 +307,7 @@ def run_benchmark():
         cert = PreSolveSafetyCertifier.certify(ir)
 
         # Solve compiled ILP formulation
-        ilp_prob, x_vars = FormulationCompiler.compile_to_ilp(ir, certificate=cert)
+        ilp_prob, x_vars = FormulationCompiler.compile_to_ilp(ir, certificate=cert, current_snapshot=getattr(ir, "state_snapshot", None))
         ilp_prob.solve(pulp.PULP_CBC_CMD(msg=False))
         sol = FormulationCompiler.extract_solution_from_ilp(ilp_prob, ir, x_vars)
         chosen_act = sol.get(rid, "none")
@@ -490,7 +490,7 @@ def run_benchmark():
         dag_inst = ConstraintDependencyGraph(incident_id=f"dim2_{int(c['threat']*100)}")
         ir_inst = dag_inst.resolve(gw_scen, scores, ctx_map, conf_map, base_budget=10.0)
         cert_inst = PreSolveSafetyCertifier.certify(ir_inst)
-        ilp_p, x_vars_p = FormulationCompiler.compile_to_ilp(ir_inst, certificate=cert_inst)
+        ilp_p, x_vars_p = FormulationCompiler.compile_to_ilp(ir_inst, certificate=cert_inst, current_snapshot=getattr(ir_inst, "state_snapshot", None))
         ilp_p.solve(pulp.PULP_CBC_CMD(msg=False))
         sol_inst = FormulationCompiler.extract_solution_from_ilp(ilp_p, ir_inst, x_vars_p)
         plan_act = sol_inst.get("api-gw-01", "none")
@@ -551,7 +551,7 @@ def run_benchmark():
         ir_a = dag_a.resolve(scen, scores, ctx_map, conf_map, base_budget=10.0)
         cert_a = PreSolveSafetyCertifier.certify(ir_a)
 
-        prob_a, x_vars_a = FormulationCompiler.compile_to_ilp(ir_a, certificate=cert_a)
+        prob_a, x_vars_a = FormulationCompiler.compile_to_ilp(ir_a, certificate=cert_a, current_snapshot=getattr(ir_a, "state_snapshot", None))
         prob_a.solve(pulp.PULP_CBC_CMD(msg=False))
         sol_a = FormulationCompiler.extract_solution_from_ilp(prob_a, ir_a, x_vars_a)
         chosen = sol_a.get(rid, "")

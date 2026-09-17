@@ -205,7 +205,10 @@ except Exception as e:
 print("\n[ LAYER 8 ]  Response Orchestration & Execution")
 try:
     from layer8_orchestration.executor import execute_plan, execute_strategy
-    logs = execute_plan(plan_ilp)
+    ir = constraints.constraint_ir
+    cert = constraints.safety_certificate
+    snap = getattr(ir, "state_snapshot", None) or getattr(constraints, "state_snapshot", None)
+    logs = execute_plan(plan_ilp, sc_ir=ir, certificate=cert, current_snapshot=snap)
     assert len(logs) == len(plan_ilp)
     assert all(log["status"] == "simulated_success" for log in logs)
     print(f"  Actions executed   : {len(logs)}")

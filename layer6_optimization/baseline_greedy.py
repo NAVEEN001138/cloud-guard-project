@@ -160,7 +160,8 @@ def solve_with_ilp(
             else:
                 cert = constraints.safety_certificate or PreSolveSafetyCertifier.certify(ir)
 
-            comp_res = FormulationCompiler.compile_to_ilp(ir, certificate=cert)
+            snap = getattr(ir, "state_snapshot", None) or getattr(constraints, "state_snapshot", None)
+            comp_res = FormulationCompiler.compile_to_ilp(ir, certificate=cert, current_snapshot=snap)
             prob, x_vars = comp_res
             proof = getattr(comp_res, "fidelity_proof", None) or getattr(comp_res, "proof", None)
             if proof is not None:

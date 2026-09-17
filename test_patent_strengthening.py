@@ -304,12 +304,12 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         self.assertTrue(cert.is_valid())
 
         if HAS_PULP:
-            prob, x_vars = FormulationCompiler.compile_to_ilp(ir, certificate=cert)
+            prob, x_vars = FormulationCompiler.compile_to_ilp(ir, certificate=cert, current_snapshot=ir.state_snapshot)
             self.assertIsNotNone(prob)
             self.assertGreater(len(x_vars), 0)
 
         if HAS_QISKIT:
-            qp, lookup = FormulationCompiler.compile_to_qubo(ir, certificate=cert)
+            qp, lookup = FormulationCompiler.compile_to_qubo(ir, certificate=cert, current_snapshot=ir.state_snapshot)
             self.assertIsNotNone(qp)
             self.assertGreater(len(lookup), 0)
 
@@ -323,7 +323,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         ir.variable_domains[first_rid].admissible_actions.append("tampered_action")
 
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.compile_to_ilp(ir, certificate=cert)
+            FormulationCompiler.compile_to_ilp(ir, certificate=cert, current_snapshot=ir.state_snapshot)
 
     # 11. Stale certificate is rejected
     def test_11_stale_certificate_rejected(self):
@@ -335,7 +335,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         ir.compute_canonical_digest()
 
         with self.assertRaises(StaleCertificateError):
-            FormulationCompiler.compile_to_ilp(ir, certificate=cert)
+            FormulationCompiler.compile_to_ilp(ir, certificate=cert, current_snapshot=ir.state_snapshot)
 
     # 12. Swapped certificate is rejected
     def test_12_swapped_certificate_rejected(self):
@@ -352,13 +352,13 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
 
         # Attempt to compile IR_A using certificate from IR_B
         with self.assertRaises((IntegrityBindingError, StaleCertificateError)):
-            FormulationCompiler.compile_to_ilp(ir_A, certificate=cert_B)
+            FormulationCompiler.compile_to_ilp(ir_A, certificate=cert_B, current_snapshot=ir_A.state_snapshot)
 
     # 13. Uncertified IR is rejected
     def test_13_uncertified_ir_rejected(self):
         ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences)
         with self.assertRaises(UncertifiedIRCompilationError):
-            FormulationCompiler.compile_to_ilp(ir, certificate=None)
+            FormulationCompiler.compile_to_ilp(ir, certificate=None, current_snapshot=ir.state_snapshot)
 
     # 14. Incremental compile equals full compile semantically
     def test_14_incremental_compile_equals_full_compile_semantically(self):
@@ -427,7 +427,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences)
         cert = PreSolveSafetyCertifier.certify(ir)
 
-        prob, x_vars, manifest = FormulationCompiler.compile_to_ilp(ir, certificate=cert, return_manifest=True)
+        prob, x_vars, manifest = FormulationCompiler.compile_to_ilp(ir, certificate=cert, return_manifest=True, current_snapshot=ir.state_snapshot)
         self.assertEqual(manifest.source_certificate_id, cert.certificate_id)
         self.assertEqual(manifest.source_ir_version, ir.ir_version)
         self.assertEqual(manifest.backend_type, "ILP_PULP")
@@ -444,7 +444,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         ir = self.dag.resolve(small_scen, small_threat, small_ctx, small_conf)
         cert = PreSolveSafetyCertifier.certify(ir)
 
-        prob, x_vars, manifest = FormulationCompiler.compile_to_ilp(ir, certificate=cert, return_manifest=True)
+        prob, x_vars, manifest = FormulationCompiler.compile_to_ilp(ir, certificate=cert, return_manifest=True, current_snapshot=ir.state_snapshot)
 
         # Artificially corrupt ILP by dropping all constraints
         corrupted_prob = copy.deepcopy(prob)
@@ -609,7 +609,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
 
         ir = self.dag.resolve(small_scen, small_threat, small_ctx, small_conf, base_budget=10.0)
         cert = PreSolveSafetyCertifier.certify(ir)
-        qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert)
+        qubo, qubo_lookup = FormulationCompiler.compile_to_qubo(ir, cert, current_snapshot=ir.state_snapshot)
 
         # Mutate a real polynomial linear coefficient in the Hamiltonian objective
         target_var = list(qubo_lookup.values())[0]
@@ -692,7 +692,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         cert = PreSolveSafetyCertifier.certify(ir)
         cert.integrity_digest = "0" * 64
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.compile_to_ilp(ir, cert)
+            FormulationCompiler.compile_to_ilp(ir, cert, current_snapshot=ir.state_snapshot)
 
     # 30. Tampered closure metadata rejected
     def test_30_tampered_closure_metadata_rejected(self):
@@ -701,7 +701,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         if ir.dependency_closure_metadata:
             ir.dependency_closure_metadata.removed_variables.append(("fake_res", "fake_act"))
             with self.assertRaises(IntegrityBindingError):
-                FormulationCompiler.compile_to_ilp(ir, cert)
+                FormulationCompiler.compile_to_ilp(ir, cert, current_snapshot=ir.state_snapshot)
 
     # 31. Three-hop incremental dependency propagation (A -> B -> C)
     def test_31_three_hop_incremental_dependency_propagation(self):
@@ -921,20 +921,20 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
 
         # A plan drawn from the certified domain passes the gate
         admissible = {"plc1": "monitor", "srv1": "monitor"}
-        report = validate_plan_against_certified_ir(admissible, ir, cert)
+        report = validate_plan_against_certified_ir(admissible, ir, cert, current_snapshot=ir.state_snapshot)
         self.assertEqual(report["validated_actions"], 2)
 
         # A plan that drifted outside the certified domain is refused
         with self.assertRaises(InadmissibleActionError):
-            validate_plan_against_certified_ir({"plc1": "isolate"}, ir, cert)
+            validate_plan_against_certified_ir({"plc1": "isolate"}, ir, cert, current_snapshot=ir.state_snapshot)
 
         # ...and no actuation command is emitted for it
         with self.assertRaises(InadmissibleActionError):
-            execute_plan({"plc1": "isolate"}, sc_ir=ir, certificate=cert)
+            execute_plan({"plc1": "isolate"}, sc_ir=ir, certificate=cert, current_snapshot=ir.state_snapshot)
 
         # An unknown resource has no certified domain and is refused
         with self.assertRaises(InadmissibleActionError):
-            validate_plan_against_certified_ir({"unknown_res": "monitor"}, ir, cert)
+            validate_plan_against_certified_ir({"unknown_res": "monitor"}, ir, cert, current_snapshot=ir.state_snapshot)
 
     # 38. A bare 'depends_on' derives no action-level prerequisite on its own
     def test_38_generic_dependency_does_not_imply_action_prerequisite(self):
@@ -975,9 +975,9 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         cert.feasibility_witness = tampered_witness
 
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.verify_binding(ir, cert)
+            FormulationCompiler.verify_binding(ir, cert, current_snapshot=ir.state_snapshot)
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.compile_to_ilp(ir, cert)
+            FormulationCompiler.compile_to_ilp(ir, cert, current_snapshot=ir.state_snapshot)
 
     # 40. Runtime-state fingerprint invariance to non-validity fields and sensitivity to validity fields
     def test_40_runtime_state_fingerprint_invariance_and_sensitivity(self):
@@ -1188,7 +1188,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         self.assertEqual(cert.policy_revision, POLICY_REVISION)
 
         # Compilation succeeds under valid signature
-        prob, ilp_lookup = FormulationCompiler.compile_to_ilp(ir, cert)
+        prob, ilp_lookup = FormulationCompiler.compile_to_ilp(ir, cert, current_snapshot=ir.state_snapshot)
         self.assertIsNotNone(prob)
 
     # 44. Tampered payload fields (IR digest, closure, witness, envelope, asset_scope, policy_revision, epoch) rejected
@@ -1200,43 +1200,43 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         c1 = copy.deepcopy(cert)
         c1.ir_sha256 = "f" * 64
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.verify_binding(ir, c1)
+            FormulationCompiler.verify_binding(ir, c1, current_snapshot=ir.state_snapshot)
 
         # 2. Tampered closure digest
         c2 = copy.deepcopy(cert)
         c2.closure_digest = "e" * 64
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.verify_binding(ir, c2)
+            FormulationCompiler.verify_binding(ir, c2, current_snapshot=ir.state_snapshot)
 
         # 3. Tampered witness digest
         c3 = copy.deepcopy(cert)
         c3.witness_digest = "d" * 64
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.verify_binding(ir, c3)
+            FormulationCompiler.verify_binding(ir, c3, current_snapshot=ir.state_snapshot)
 
         # 4. Tampered envelope digest
         c4 = copy.deepcopy(cert)
         c4.envelope_digest = "c" * 64
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.verify_binding(ir, c4)
+            FormulationCompiler.verify_binding(ir, c4, current_snapshot=ir.state_snapshot)
 
         # 5. Tampered asset scope
         c5 = copy.deepcopy(cert)
         c5.asset_scope = ["rogue_resource_99"]
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.verify_binding(ir, c5)
+            FormulationCompiler.verify_binding(ir, c5, current_snapshot=ir.state_snapshot)
 
         # 6. Tampered policy revision
         c6 = copy.deepcopy(cert)
         c6.policy_revision = "stale_policy_hash"
         with self.assertRaises((IntegrityBindingError, StaleCertificateError)):
-            FormulationCompiler.verify_binding(ir, c6)
+            FormulationCompiler.verify_binding(ir, c6, current_snapshot=ir.state_snapshot)
 
         # 7. Tampered epoch
         c7 = copy.deepcopy(cert)
         c7.state_epoch = 999
         with self.assertRaises((IntegrityBindingError, StaleCertificateError)):
-            FormulationCompiler.verify_binding(ir, c7)
+            FormulationCompiler.verify_binding(ir, c7, current_snapshot=ir.state_snapshot)
 
     # 45. Signature from unauthorized key is rejected
     def test_45_certificate_unauthorized_key_signature_rejected(self):
@@ -1258,7 +1258,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         c_rogue.auth_mechanism = mech
 
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.verify_binding(ir, c_rogue)
+            FormulationCompiler.verify_binding(ir, c_rogue, current_snapshot=ir.state_snapshot)
 
     # 46. Replay of certificate against different asset scope or expired lease rejected
     def test_46_certificate_replay_different_scope_or_incident_rejected(self):
@@ -1271,13 +1271,13 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
             resource_id="extra_res_01", resource_type="server", admissible_actions=["monitor"]
         )
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.verify_binding(ir_diff_scope, cert)
+            FormulationCompiler.verify_binding(ir_diff_scope, cert, current_snapshot=ir_diff_scope.state_snapshot)
 
         # 2. Expired lease
         c_expired = copy.deepcopy(cert)
         c_expired.timestamp -= 600.0  # Expired > 300s lease
         with self.assertRaises(StaleCertificateError):
-            FormulationCompiler.verify_binding(ir, c_expired)
+            FormulationCompiler.verify_binding(ir, c_expired, current_snapshot=ir.state_snapshot)
 
     # 47. Independent Proof Checker agrees with Enumeration Oracle on small instances
     def test_47_proof_checker_agrees_with_enumeration(self):
@@ -1303,8 +1303,8 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         cert = PreSolveSafetyCertifier.certify(ir)
 
         # Compile both backends
-        comp_ilp = FormulationCompiler.compile_to_ilp(ir, certificate=cert)
-        comp_qubo = FormulationCompiler.compile_to_qubo(ir, certificate=cert)
+        comp_ilp = FormulationCompiler.compile_to_ilp(ir, certificate=cert, current_snapshot=ir.state_snapshot)
+        comp_qubo = FormulationCompiler.compile_to_qubo(ir, certificate=cert, current_snapshot=ir.state_snapshot)
 
         prob, x_vars = comp_ilp
         qp, q_vars = comp_qubo
@@ -1581,7 +1581,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         self.assertFalse(broken_c3.verify_lineage(cert_2))
         self.assertFalse(ConstraintSafetyCertificate.verify_lineage_chain([cert_1, cert_2, broken_c3]))
         with self.assertRaises(IntegrityBindingError):
-            FormulationCompiler.verify_binding(ir_3, broken_c3)
+            FormulationCompiler.verify_binding(ir_3, broken_c3, current_snapshot=ir_3.state_snapshot)
 
         # 5b. Broken intermediate parent certificate in chain
         tampered_c2 = copy.deepcopy(cert_2)
@@ -1689,7 +1689,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         from layer5_constraints.proof_checker import IndependentProofChecker, FidelityProofError
         ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
         cert = PreSolveSafetyCertifier.certify(ir)
-        comp_qubo = FormulationCompiler.compile_to_qubo(ir, certificate=cert)
+        comp_qubo = FormulationCompiler.compile_to_qubo(ir, certificate=cert, current_snapshot=ir.state_snapshot)
         qp, _ = comp_qubo
         proof = comp_qubo.fidelity_proof
 

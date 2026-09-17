@@ -497,6 +497,7 @@ class ConstraintDependencyGraph:
             creation_timestamp=time.time(),
         )
         if state_snapshot is not None:
+            ir.state_snapshot = state_snapshot
             ir.state_fingerprint = state_snapshot.fingerprint()
             ir.state_schema_id = getattr(state_snapshot, "schema_id", "cg-state-v1")
             ir.state_epoch = getattr(state_snapshot, "epoch", 1)
@@ -510,6 +511,7 @@ class ConstraintDependencyGraph:
                     epoch=state_epoch if state_epoch is not None else runtime_state_version,
                     threat_scores=threat_scores,
                 )
+                ir.state_snapshot = snap
                 ir.state_fingerprint = snap.fingerprint()
                 ir.state_schema_id = snap.schema_id
                 ir.state_epoch = snap.epoch

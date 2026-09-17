@@ -123,7 +123,7 @@ def run_single_trial(sample_size: int, trial_idx: int, total_trials: int) -> Dic
     total_checks = len(unique_checks)
     
     # Compile and solve ILP
-    ilp_prob, x_vars = FormulationCompiler.compile_to_ilp(ir, certificate=cert)
+    ilp_prob, x_vars = FormulationCompiler.compile_to_ilp(ir, certificate=cert, current_snapshot=getattr(ir, "state_snapshot", None))
     ilp_prob.solve(pulp.PULP_CBC_CMD(msg=False))
     sol = FormulationCompiler.extract_solution_from_ilp(ilp_prob, ir, x_vars)
     
