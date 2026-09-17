@@ -95,7 +95,11 @@ Operational bounds (effective budget, minimum achievable cost, active variable/c
 Prior to backend compilation, the certifier verifies safety invariants over the SC-IR and executes a constructive backtracking search to discover a **constructive feasibility witness** $W_t = (\text{assignment}, \text{budget\_slack}, \text{active\_constraints})$ that simultaneously satisfies exactly-one, conflict, budget, and mandate constraints (`test_28`).
 
 On success, it emits a **state-envelope certificate** $C_t$ signed under the certifier's private key (Ed25519 or HMAC-SHA256 fallback), binding:
-$$C_t = \text{Sign}_K\Big(H(\text{SC-IR}_t), H(R^*_t), H(W_t), E_t, \text{AssetScope}, \text{PolicyRevision}, \text{StateSchema}, n, \text{LeasePolicy}\Big)$$
+$$C_t = \text{Sign}_K\Big(H(\text{SC-IR}_t), H(R^*_t), H(W_t), E_t, \text{AssetScope}, \text{PolicyRevision}, \text{StateSchema}, n, \text{LeasePolicy}, H(\text{Manifest}), \text{Manifest}\Big)$$
+
+**Three-Way Revocation Rule:** Actuation authority is governed by an explicit three-way binding rule:
+$$\text{IR changed} \lor \text{state} \notin E_t \lor \text{policy revision changed} \implies \text{authority revoked}$$
+If the SC-IR is altered, if the runtime state drifts outside the decision invariance envelope $E_t$, or if the deployed policy revision differs from the certified revision, all execution authority is immediately and unconditionally revoked.
 
 ### 3.6 Proof-carrying formulation compiler and independent checker (640 / 580–590)
 
@@ -169,7 +173,7 @@ For exact solvers, removing a variable and fixing it to zero yield the identical
 >
 > (d) **compiling the certified SC-IR into a solver-specific optimisation formulation** upon verifying the certificate and confirming that a current runtime state is contained within the security-decision invariance envelope, and emitting a fidelity proof demonstrating that an assignment of certified response variables is feasible in the SC-IR if and only if there exists an assignment of auxiliary variables feasible in the solver-specific formulation, wherein an independent proof checker verifies the fidelity proof prior to solver invocation; and
 >
-> (e) **authorising actuation at an actuation capability verifier** prior to emitting control commands to the infrastructure resources by verifying the cryptographic authenticity of the certificate, verifying that a current state snapshot is contained within the security-decision invariance envelope and has a state epoch greater than or equal to the state epoch in the certificate, verifying that a solved response plan contains only actions within the certified admissible domain, and dispatching control commands carrying an expected state revision validated by a device-side interface against a current device revision.
+> (e) **authorising actuation at an actuation capability verifier** prior to emitting control commands to the infrastructure resources by verifying the cryptographic authenticity of the certificate, verifying that a current state snapshot is contained within the security-decision invariance envelope and has a state epoch greater than or equal to the state epoch in the certificate, verifying that a solved response plan contains only actions within the certified admissible domain, and dispatching control commands carrying an expected state revision validated by a device-side interface against a current device revision, wherein actuation authority is subject to a three-way revocation rule establishing that execution authority is revoked upon occurrence of any of: alteration of the SC-IR, drift of the measured runtime infrastructure state outside the security-decision invariance envelope, or modification of the policy revision identifier.
 
 ---
 

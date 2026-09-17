@@ -1880,6 +1880,92 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         finally:
             policy_thresholds.POLICY_REVISION = orig_rev
 
+    def test_56_three_way_binding_independent_revocation(self):
+        """
+        Hardening Item C: Three-way binding made explicit.
+        Revocation rule: IR changed OR state not in E_t OR policy revision changed => authority revoked.
+        Exercises each of the three revocations independently with the other two held constant.
+        """
+        from layer8_orchestration.capability_verifier import (
+            ActuationCapabilityVerifier,
+            ActuationVerificationError,
+            ActuationEnvelopeViolationError,
+        )
+        from layer5_constraints.formulation_compiler import FormulationCompiler
+        from layer5_constraints.proof_checker import IndependentProofChecker, FidelityProofError
+        from layer5_constraints.safety_certifier import PreSolveSafetyCertifier
+        from layer5_constraints import policy_thresholds
+
+        # Setup baseline: IR, state snapshot inside envelope, and current POLICY_REVISION
+        scen = {
+            "incident_id": "threeway_test",
+            "scenario": "threeway_test",
+            "resources": [
+                {"id": "s1", "type": "server"},
+                {"id": "p1", "type": "plc_controller"},
+            ],
+        }
+        threat = {"s1": 0.85, "p1": 0.85}
+        ctx = {
+            "s1": create_test_context("s1", "server", threat=0.85, sla="HIGH", hipaa=True),
+            "p1": create_test_context("p1", "plc_controller", threat=0.85, sla="CRITICAL", hipaa=False),
+        }
+        conf = {"s1": create_test_confidence("s1"), "p1": create_test_confidence("p1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1)
+
+        dag = ConstraintDependencyGraph(incident_id="threeway_test")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        plan = {"s1": "isolate", "p1": "monitor"}
+
+        # Baseline: All 3 held valid -> Actuation authorized
+        auth = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+        self.assertTrue(auth.is_authorized)
+
+        # ---------------------------------------------------------------------
+        # Revocation 1: IR changed (State in E_t held constant, Policy Revision held constant)
+        # ---------------------------------------------------------------------
+        # If IR changes, compiler rejects because certificate commits H(IR)
+        modified_ir = copy.deepcopy(ir)
+        modified_ir.incident_id = "tampered_ir_incident"
+        with self.assertRaises(Exception):
+            FormulationCompiler.compile_to_ilp(modified_ir, cert, current_snapshot=snap)
+
+        # If proof checker checks modified IR against original cert -> rejected
+        comp_ilp = FormulationCompiler.compile_to_ilp(ir, cert, current_snapshot=snap)
+        with self.assertRaises(FidelityProofError):
+            IndependentProofChecker.check(modified_ir, comp_ilp.model, comp_ilp.fidelity_proof, cert)
+
+        # If certificate's committed IR digest is altered in transit to verifier -> signature fails
+        tampered_ir_cert = copy.deepcopy(cert)
+        tampered_ir_cert.ir_sha256 = "0" * 64
+        with self.assertRaises(ActuationVerificationError):
+            ActuationCapabilityVerifier.authorize(plan, tampered_ir_cert, current_snapshot=snap)
+
+        # ---------------------------------------------------------------------
+        # Revocation 2: State NOT in E_t (IR held constant, Policy Revision held constant)
+        # ---------------------------------------------------------------------
+        drifted_ctx = copy.deepcopy(ctx)
+        drifted_ctx["s1"].threat.threat_score = 0.25  # Crosses 0.70 threshold -> outside E_t!
+        snap_drifted = snapshot_from_contexts(drifted_ctx, conf, scen, epoch=1)
+        with self.assertRaises(ActuationEnvelopeViolationError):
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap_drifted)
+
+        # ---------------------------------------------------------------------
+        # Revocation 3: Policy revision changed (IR held constant, State in E_t held constant)
+        # ---------------------------------------------------------------------
+        orig_rev = policy_thresholds.POLICY_REVISION
+        try:
+            policy_thresholds.POLICY_REVISION = "MUTATED_REVISION_HASH_999"
+            with self.assertRaises(ActuationVerificationError):
+                ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+        finally:
+            policy_thresholds.POLICY_REVISION = orig_rev
+
+        # Verification that restoring the three invariants restores authorization
+        auth_restored = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+        self.assertTrue(auth_restored.is_authorized)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
