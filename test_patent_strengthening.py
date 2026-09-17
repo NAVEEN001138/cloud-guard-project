@@ -939,6 +939,25 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         self.assertIn(("web:isolate", "db:isolate"), derived)
         self.assertIn(("web:rotate_credentials", "db:rotate_credentials"), derived)
 
+    # 39. Replacing the feasibility witness after certification is rejected
+    def test_39_swapped_witness_rejected(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        self.assertIsNotNone(cert.feasibility_witness)
+        self.assertTrue(bool(cert.witness_digest))
+
+        # Tamper with witness
+        tampered_witness = dict(cert.feasibility_witness)
+        for res_id in tampered_witness:
+            tampered_witness[res_id] = "monitor"
+        cert.feasibility_witness = tampered_witness
+
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.verify_binding(ir, cert)
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.compile_to_ilp(ir, cert)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

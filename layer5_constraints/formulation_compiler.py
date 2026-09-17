@@ -125,11 +125,26 @@ class FormulationCompiler:
                 "The SC-IR was modified after safety certification."
             )
 
+        # Recompute and verify witness_digest if present
+        expected_witness_digest = ""
+        if certificate.feasibility_witness is not None:
+            expected_witness_digest = hashlib.sha256(
+                json.dumps(certificate.feasibility_witness, sort_keys=True).encode("utf-8")
+            ).hexdigest()
+        if certificate.witness_digest and certificate.witness_digest != expected_witness_digest:
+            raise IntegrityBindingError(
+                f"Compilation rejected: Witness digest mismatch. "
+                f"Certificate witness digest '{certificate.witness_digest[:16]}...' does not match recomputed '{expected_witness_digest[:16]}...'. "
+                "The feasibility witness was altered after certification."
+            )
+
         # Recompute and verify certificate's own integrity digest
         if certificate.integrity_digest:
+            witness_part = f":{certificate.witness_digest}" if certificate.witness_digest else ""
             expected_cert_payload = (
                 f"{certificate.certificate_id}:{certificate.ir_sha256}:{certificate.ir_version}:{certificate.runtime_state_version}:"
                 f"{certificate.status}:{json.dumps(certificate.verification_checks, sort_keys=True)}:{certificate.closure_digest}"
+                f"{witness_part}"
             )
             expected_cert_hash = hashlib.sha256(expected_cert_payload.encode("utf-8")).hexdigest()
             if certificate.integrity_digest != expected_cert_hash:

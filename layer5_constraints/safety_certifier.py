@@ -49,6 +49,7 @@ class ConstraintSafetyCertificate:
     ir_version: int = 1
     runtime_state_version: int = 1
     closure_digest: str = ""
+    witness_digest: str = ""
     feasibility_witness: Optional[Dict[str, str]] = None
 
     @property
@@ -276,6 +277,11 @@ class PreSolveSafetyCertifier:
             c_dict = ir.dependency_closure_metadata.to_dict() if hasattr(ir.dependency_closure_metadata, "to_dict") else str(ir.dependency_closure_metadata)
             closure_digest = hashlib.sha256(json.dumps(c_dict, sort_keys=True).encode("utf-8")).hexdigest()
 
+        # Compute canonical digest of feasibility_witness
+        witness_digest = ""
+        if witness is not None:
+            witness_digest = hashlib.sha256(json.dumps(witness, sort_keys=True).encode("utf-8")).hexdigest()
+
         # Certification Determination
         all_passed = all(checks.values()) and len(violations) == 0
         status = "CERTIFIED" if all_passed else "VIOLATION_DETECTED"
@@ -285,7 +291,7 @@ class PreSolveSafetyCertifier:
         # Tamper-evident cryptographic state fingerprint sealing the verified IR state
         cert_payload = (
             f"{cert_id}:{ir_digest}:{ir.ir_version}:{ir.runtime_state_version}:"
-            f"{status}:{json.dumps(checks, sort_keys=True)}:{closure_digest}"
+            f"{status}:{json.dumps(checks, sort_keys=True)}:{closure_digest}:{witness_digest}"
         )
         integrity_hash = hashlib.sha256(cert_payload.encode("utf-8")).hexdigest()
 
@@ -306,5 +312,6 @@ class PreSolveSafetyCertifier:
             ir_version=ir.ir_version,
             runtime_state_version=ir.runtime_state_version,
             closure_digest=closure_digest,
+            witness_digest=witness_digest,
             feasibility_witness=witness,
         )
