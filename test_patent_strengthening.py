@@ -1257,7 +1257,81 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         with self.assertRaises(StaleCertificateError):
             FormulationCompiler.verify_binding(ir, c_expired)
 
+    # 47. Independent Proof Checker agrees with Enumeration Oracle on small instances
+    def test_47_proof_checker_agrees_with_enumeration(self):
+        from layer5_constraints.proof_checker import IndependentProofChecker, FidelityProofError
+        from layer5_constraints.semantic_validator import SemanticValidator
+
+        small_scen = {
+            "scenario": "checker_agreement",
+            "resources": [
+                {"id": "s1", "type": "server"},
+                {"id": "p1", "type": "plc_controller"},
+            ],
+        }
+        small_scores = {"s1": 0.8, "p1": 0.8}
+        small_ctx = {
+            "s1": create_test_context("s1", "server", threat=0.8, sla="HIGH", hipaa=False),
+            "p1": create_test_context("p1", "plc_controller", threat=0.8, sla="CRITICAL", hipaa=False),
+        }
+        small_conf = {"s1": create_test_confidence("s1"), "p1": create_test_confidence("p1")}
+
+        dag = ConstraintDependencyGraph(incident_id="checker_agreement")
+        ir = dag.resolve(small_scen, small_scores, small_ctx, small_conf, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # Compile both backends
+        comp_ilp = FormulationCompiler.compile_to_ilp(ir, certificate=cert)
+        comp_qubo = FormulationCompiler.compile_to_qubo(ir, certificate=cert)
+
+        prob, x_vars = comp_ilp
+        qp, q_vars = comp_qubo
+
+        # 1. Independent Proof Checker passes on valid formulations
+        ilp_report = IndependentProofChecker.check(ir, prob, comp_ilp.fidelity_proof, cert)
+        self.assertTrue(ilp_report.is_valid)
+        self.assertEqual(ilp_report.backend_id, "ILP_PULP")
+        self.assertIn("polynomial in the size of the proof", ilp_report.complexity_guarantee)
+
+        qubo_report = IndependentProofChecker.check(ir, qp, comp_qubo.fidelity_proof, cert)
+        self.assertTrue(qubo_report.is_valid)
+        self.assertEqual(qubo_report.backend_id, "QUBO_QISKIT")
+
+        # 2. Semantic Validator (Enumeration Oracle) also verifies 100% fidelity
+        sem_rep = SemanticValidator.validate_backend_semantics(
+            ir=ir,
+            ilp_model=prob,
+            ilp_var_lookup=x_vars,
+            qubo_model=qp,
+            qubo_var_lookup=q_vars,
+            manifest=comp_ilp.manifest,
+            max_vars=10,
+        )
+        self.assertEqual(sem_rep.ir_vs_ilp_mismatches, 0)
+        self.assertEqual(sem_rep.ir_vs_qubo_mismatches, 0)
+        self.assertEqual(sem_rep.semantic_fidelity_ilp_pct, 100.0)
+        self.assertEqual(sem_rep.semantic_fidelity_qubo_pct, 100.0)
+
+        # 3. Corrupt ILP by dropping constraints: both Checker and Oracle detect the defect
+        corrupt_prob = copy.deepcopy(prob)
+        corrupt_prob.constraints.clear()
+
+        # Checker rejects corrupted backend
+        with self.assertRaises(FidelityProofError):
+            IndependentProofChecker.check(ir, corrupt_prob, comp_ilp.fidelity_proof, cert)
+
+        # Oracle confirms mismatch
+        sem_rep_corrupt = SemanticValidator.validate_backend_semantics(
+            ir=ir,
+            ilp_model=corrupt_prob,
+            ilp_var_lookup=x_vars,
+            manifest=comp_ilp.manifest,
+            max_vars=10,
+        )
+        self.assertGreater(sem_rep_corrupt.ir_vs_ilp_mismatches, 0)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 

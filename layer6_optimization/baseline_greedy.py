@@ -160,7 +160,12 @@ def solve_with_ilp(
             else:
                 cert = constraints.safety_certificate or PreSolveSafetyCertifier.certify(ir)
 
-            prob, x_vars = FormulationCompiler.compile_to_ilp(ir, certificate=cert)
+            comp_res = FormulationCompiler.compile_to_ilp(ir, certificate=cert)
+            prob, x_vars = comp_res
+            proof = getattr(comp_res, "fidelity_proof", None) or getattr(comp_res, "proof", None)
+            if proof is not None:
+                from layer5_constraints.proof_checker import IndependentProofChecker
+                IndependentProofChecker.check(ir, prob, proof, cert)
             prob.solve(pulp.PULP_CBC_CMD(msg=False))
 
             plan = {}

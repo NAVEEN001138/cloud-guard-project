@@ -87,6 +87,18 @@ class ConstraintSafetyCertificate:
         }
         return json.dumps(payload_obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
+    def verify_signature(self, verifier_key: Optional[Any] = None) -> bool:
+        """
+        Verifies the cryptographic signature of the certificate using the public VerifierKey.
+        """
+        if not self.signature:
+            return True
+        from layer5_constraints.keys import get_verifier_key
+        vk = verifier_key or get_verifier_key()
+        payload_bytes = self.compute_canonical_payload()
+        return vk.verify(payload_bytes, self.signature, self.auth_mechanism)
+
+
     @property
     def ir_digest(self) -> str:
         """Alias for ir_sha256 / canonical digest."""
@@ -303,8 +315,9 @@ class PreSolveSafetyCertifier:
                     violations.append(f"PROVENANCE GAP: Pruned action '{pruned}' on '{rid}' lacks provenance rule")
         checks["7_provenance_audit_completeness"] = prov_ok
 
-        # Compute canonical digest of IR if not already present
-        ir_digest = ir.canonical_digest or ir.compute_canonical_digest()
+        # Compute canonical digest of IR
+        ir_digest = ir.compute_canonical_digest()
+        ir.canonical_digest = ir_digest
 
         # Compute closure digest
         closure_digest = ""

@@ -47,6 +47,7 @@ from layer5_constraints.constraint_ir import (
     SemanticManifest,
 )
 from layer5_constraints.safety_certifier import ConstraintSafetyCertificate
+from layer5_constraints.fidelity_proof import FidelityProof
 
 
 class UncertifiedIRCompilationError(Exception):
@@ -72,15 +73,29 @@ class StateEnvelopeViolationError(Exception):
 class CompilationResult(tuple):
     """
     Two-element tuple subclass preserving backward compatibility for (model, var_lookup)
-    while exposing the emitted SemanticManifest via the .manifest attribute.
+    while exposing the emitted SemanticManifest and FidelityProof via attributes.
     """
-    def __new__(cls, model: Any, var_lookup: Any, manifest: Optional[SemanticManifest] = None):
+    def __new__(
+        cls,
+        model: Any,
+        var_lookup: Any,
+        manifest: Optional[SemanticManifest] = None,
+        fidelity_proof: Optional[FidelityProof] = None,
+    ):
         return super().__new__(cls, (model, var_lookup))
 
-    def __init__(self, model: Any, var_lookup: Any, manifest: Optional[SemanticManifest] = None):
+    def __init__(
+        self,
+        model: Any,
+        var_lookup: Any,
+        manifest: Optional[SemanticManifest] = None,
+        fidelity_proof: Optional[FidelityProof] = None,
+    ):
         self.model = model
         self.var_lookup = var_lookup
         self.manifest = manifest
+        self.fidelity_proof = fidelity_proof
+        self.proof = fidelity_proof
 
 
 class FormulationCompiler:
@@ -420,9 +435,105 @@ class FormulationCompiler:
             backend_type="QUBO_QISKIT",
         )
 
+        # Build constraint translations for FidelityProof
+        qubo_translations = []
+        for inv in ir.invariance_constraints:
+            active_vars = [
+                var_lookup[(inv.resource_id, a)]
+                for a in sorted(inv.actions)
+                if (inv.resource_id, a) in var_lookup
+            ]
+            qubo_translations.append({
+                "ir_constraint_type": "INVARIANCE",
+                "ir_constraint_id": f"invariance_{inv.resource_id}",
+                "backend_elements": active_vars,
+                "parameters": {
+                    "resource_id": inv.resource_id,
+                    "actions": sorted(inv.actions),
+                    "penalty": lambda_invariance,
+                },
+            })
+
+        for conf in ir.conflict_hyperedges:
+            pair1 = (conf.resource_1, conf.action_1)
+            pair2 = (conf.resource_2, conf.action_2)
+            c_vars = []
+            if pair1 in var_lookup and pair2 in var_lookup:
+                c_vars = [var_lookup[pair1], var_lookup[pair2]]
+            qubo_translations.append({
+                "ir_constraint_type": "CONFLICT",
+                "ir_constraint_id": f"conflict_{conf.resource_1}_{conf.action_1}_{conf.resource_2}_{conf.action_2}",
+                "backend_elements": c_vars,
+                "parameters": {
+                    "resource_1": conf.resource_1,
+                    "action_1": conf.action_1,
+                    "resource_2": conf.resource_2,
+                    "action_2": conf.action_2,
+                    "penalty": lambda_conflict,
+                },
+            })
+
+        if ir.budget_constraint and ir.budget_constraint.max_budget > 0:
+            qubo_translations.append({
+                "ir_constraint_type": "BUDGET",
+                "ir_constraint_id": "operational_budget_ceiling",
+                "backend_elements": [sname for sname, _, _ in slack_info],
+                "parameters": {
+                    "max_budget": B_float,
+                    "budget_int": B_int,
+                    "cost_scale": cost_scale,
+                    "slack_weights": slack_weights,
+                    "penalty": lambda_B,
+                },
+            })
+
+        for mandated in ir.provenance_records:
+            if mandated.constraint_type == "MANDATED":
+                vname = var_lookup.get((mandated.target_resource, mandated.target_action))
+                qubo_translations.append({
+                    "ir_constraint_type": "MANDATE",
+                    "ir_constraint_id": f"mandate_{mandated.target_resource}_{mandated.target_action}",
+                    "backend_elements": [vname] if vname else [],
+                    "parameters": {
+                        "resource_id": mandated.target_resource,
+                        "action": mandated.target_action,
+                    },
+                })
+
+        delta_obj = sum(abs(t.coefficient) for t in ir.objective_terms.values())
+        min_penalty = min(
+            lambda_invariance,
+            lambda_conflict,
+            (lambda_B / (cost_scale ** 2)) if ir.budget_constraint and ir.budget_constraint.max_budget > 0 else float("inf")
+        )
+        if min_penalty == float("inf"):
+            min_penalty = min(lambda_invariance, lambda_conflict)
+
+        # Ensure dominating penalty P > delta_obj
+        penalty_coeff = max(min_penalty, delta_obj + 10.0)
+
+        pruned_actions = [
+            (r.target_resource, r.target_action)
+            for r in ir.provenance_records if r.constraint_type == "PRUNED"
+        ]
+
+        fidelity_proof = FidelityProof(
+            backend_id="QUBO_QISKIT",
+            certificate_id=certificate.certificate_id if certificate else "",
+            variable_map=var_lookup.copy(),
+            auxiliary_variables=[sname for sname, _, _ in slack_info],
+            constraint_translations=qubo_translations,
+            penalty_coefficient=float(penalty_coeff),
+            objective_range_bound=float(delta_obj),
+            pruned_actions=pruned_actions,
+        )
+
+        qp.fidelity_proof = fidelity_proof
+        qp.proof = fidelity_proof
+
         if return_manifest:
             return qp, var_lookup, manifest
-        return CompilationResult(qp, var_lookup, manifest)
+        return CompilationResult(qp, var_lookup, manifest, fidelity_proof)
 
     @classmethod
     def compile_to_ilp(
@@ -502,9 +613,81 @@ class FormulationCompiler:
             backend_type="ILP_PULP",
         )
 
+        # Build constraint translations for FidelityProof
+        ilp_translations = []
+        for inv in ir.invariance_constraints:
+            c_name = f"Invariance_{inv.resource_id}".replace("-", "_")
+            ilp_translations.append({
+                "ir_constraint_type": "INVARIANCE",
+                "ir_constraint_id": f"invariance_{inv.resource_id}",
+                "backend_elements": [c_name],
+                "parameters": {
+                    "resource_id": inv.resource_id,
+                    "actions": sorted(inv.actions),
+                    "target_value": inv.target_value,
+                },
+            })
+
+        for idx, conf in enumerate(ir.conflict_hyperedges):
+            cname = f"Conflict_{idx}_{conf.resource_1}_{conf.action_1}".replace("-", "_")
+            ilp_translations.append({
+                "ir_constraint_type": "CONFLICT",
+                "ir_constraint_id": f"conflict_{conf.resource_1}_{conf.action_1}_{conf.resource_2}_{conf.action_2}",
+                "backend_elements": [cname],
+                "parameters": {
+                    "resource_1": conf.resource_1,
+                    "action_1": conf.action_1,
+                    "resource_2": conf.resource_2,
+                    "action_2": conf.action_2,
+                },
+            })
+
+        if ir.budget_constraint and ir.budget_constraint.max_budget > 0:
+            ilp_translations.append({
+                "ir_constraint_type": "BUDGET",
+                "ir_constraint_id": "operational_budget_ceiling",
+                "backend_elements": ["Operational_Budget_Ceiling"],
+                "parameters": {
+                    "max_budget": float(ir.budget_constraint.max_budget),
+                    "cost_map": {f"{r}:{a}": float(c) for (r, a), c in ir.budget_constraint.cost_map.items()},
+                },
+            })
+
+        for mandated in ir.provenance_records:
+            if mandated.constraint_type == "MANDATED":
+                m_name = f"Invariance_{mandated.target_resource}".replace("-", "_")
+                ilp_translations.append({
+                    "ir_constraint_type": "MANDATE",
+                    "ir_constraint_id": f"mandate_{mandated.target_resource}_{mandated.target_action}",
+                    "backend_elements": [m_name],
+                    "parameters": {
+                        "resource_id": mandated.target_resource,
+                        "action": mandated.target_action,
+                    },
+                })
+
+        pruned_actions = [
+            (r.target_resource, r.target_action)
+            for r in ir.provenance_records if r.constraint_type == "PRUNED"
+        ]
+
+        var_map = {k: v.name for k, v in x_vars.items()}
+
+        fidelity_proof = FidelityProof(
+            backend_id="ILP_PULP",
+            certificate_id=certificate.certificate_id if certificate else "",
+            variable_map=var_map,
+            auxiliary_variables=[],
+            constraint_translations=ilp_translations,
+            pruned_actions=pruned_actions,
+        )
+
+        prob.fidelity_proof = fidelity_proof
+        prob.proof = fidelity_proof
+
         if return_manifest:
             return prob, x_vars, manifest
-        return CompilationResult(prob, x_vars, manifest)
+        return CompilationResult(prob, x_vars, manifest, fidelity_proof)
 
     @staticmethod
     def extract_solution_from_ilp(

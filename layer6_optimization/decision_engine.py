@@ -85,7 +85,13 @@ def build_qubo(
             cert = PreSolveSafetyCertifier.certify(ir)
         else:
             cert = constraints.safety_certificate or PreSolveSafetyCertifier.certify(ir)
-        return FormulationCompiler.compile_to_qubo(ir, certificate=cert)
+        comp_res = FormulationCompiler.compile_to_qubo(ir, certificate=cert)
+        qp, var_lookup = comp_res
+        qp.fidelity_proof = getattr(comp_res, "fidelity_proof", None)
+        qp.proof = getattr(comp_res, "proof", None)
+        qp.ir = ir
+        qp.certificate = cert
+        return qp, var_lookup
 
     qp = QuadraticProgram("incident_response")
     var_lookup = {}
@@ -271,6 +277,15 @@ def solve_quantum(
     seed: int = 42,
     var_lookup: Optional[Dict[Tuple[str, str], str]] = None,
 ) -> dict:
+    # Independent proof checker gate: verify fidelity proof if present
+    proof = getattr(qp, "fidelity_proof", None) or getattr(qp, "proof", None)
+    if proof is not None:
+        from layer5_constraints.proof_checker import IndependentProofChecker
+        ir = getattr(qp, "ir", None)
+        cert = getattr(qp, "certificate", None)
+        if ir is not None:
+            IndependentProofChecker.check(ir, qp, proof, cert)
+
     num_vars = qp.get_num_vars()
     if num_vars <= 14:
         if method == "numpy":
