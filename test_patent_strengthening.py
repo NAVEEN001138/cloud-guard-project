@@ -84,6 +84,7 @@ from layer5_constraints.incremental_compiler import (
     IncrementalConstraintCompiler,
     RuntimeStateDelta,
     IncrementalCompilationResult,
+    SubgraphDigestMismatchError,
 )
 from layer5_constraints.semantic_validator import (
     SemanticValidator,
@@ -1469,6 +1470,116 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         # New envelope must contain the mutated state
         is_inside, viols = new_cert.validity_envelope.contains(new_snap)
         self.assertTrue(is_inside, f"New envelope failed to contain new state: {viols}")
+
+    # 50. Certified incremental lineage chain, parent cryptographic binding, and clean subgraph invariance
+    def test_50_certified_incremental_lineage_chain_and_subgraph_invariance(self):
+        scenario = {
+            "scenario": "lineage_chain_test",
+            "resources": [
+                {"id": "res_a", "type": "server"},
+                {"id": "res_b", "type": "server"},
+                {"id": "res_c", "type": "server"},
+                {"id": "res_d", "type": "server"},
+            ],
+        }
+        threats_t1 = {"res_a": 0.85, "res_b": 0.85, "res_c": 0.85, "res_d": 0.85}
+        ctx_t1 = {
+            r["id"]: create_test_context(r["id"], r["type"], threat=0.85, sla="HIGH")
+            for r in scenario["resources"]
+        }
+        conf_t1 = {r["id"]: create_test_confidence(r["id"], 0.90) for r in scenario["resources"]}
+
+        # 1. Base compile: C_1 (root of lineage)
+        dag = ConstraintDependencyGraph(incident_id="lineage_test")
+        ir_1 = dag.resolve(scenario, threats_t1, ctx_t1, conf_t1, base_budget=20.0, ir_version=1)
+        cert_1 = PreSolveSafetyCertifier.certify(ir_1)
+        self.assertIsNone(cert_1.parent_certificate_digest)
+        self.assertTrue(cert_1.verify_signature())
+        self.assertGreater(len(cert_1.subgraph_digests), 0)
+
+        # 2. Incremental compile 1: Delta on res_a -> C_2 (parent: C_1)
+        threats_t2 = dict(threats_t1)
+        threats_t2["res_a"] = 0.55
+        delta_1 = RuntimeStateDelta(
+            changed_assets=["res_a"],
+            changed_threat_state={"res_a": 0.55},
+        )
+        res_1 = IncrementalConstraintCompiler.compile_delta(
+            previous_ir=ir_1,
+            delta=delta_1,
+            scenario=scenario,
+            all_contexts=ctx_t1,
+            all_confidences=conf_t1,
+            all_threat_scores=threats_t2,
+            base_budget=20.0,
+            parent_certificate=cert_1,
+        )
+        ir_2 = res_1.updated_ir
+        cert_2 = res_1.updated_certificate
+        self.assertEqual(cert_2.parent_certificate_digest, cert_1.integrity_digest)
+        self.assertTrue(cert_2.verify_signature())
+        self.assertTrue(cert_2.verify_lineage(cert_1))
+        self.assertIsNotNone(cert_2.incremental_equivalence_check)
+        self.assertTrue(cert_2.incremental_equivalence_check["verified"])
+
+        # 3. Incremental compile 2: Delta on res_b -> C_3 (parent: C_2)
+        threats_t3 = dict(threats_t2)
+        threats_t3["res_b"] = 0.45
+        delta_2 = RuntimeStateDelta(
+            changed_assets=["res_b"],
+            changed_threat_state={"res_b": 0.45},
+        )
+        res_2 = IncrementalConstraintCompiler.compile_delta(
+            previous_ir=ir_2,
+            delta=delta_2,
+            scenario=scenario,
+            all_contexts=ctx_t1,
+            all_confidences=conf_t1,
+            all_threat_scores=threats_t3,
+            base_budget=20.0,
+            parent_certificate=cert_2,
+        )
+        ir_3 = res_2.updated_ir
+        cert_3 = res_2.updated_certificate
+        self.assertEqual(cert_3.parent_certificate_digest, cert_2.integrity_digest)
+        self.assertTrue(cert_3.verify_signature())
+        self.assertTrue(cert_3.verify_lineage(cert_2))
+        self.assertIsNotNone(cert_3.incremental_equivalence_check)
+
+        # 4. Three-certificate sequential lineage chain verifies in order
+        chain = [cert_1, cert_2, cert_3]
+        self.assertTrue(ConstraintSafetyCertificate.verify_lineage_chain(chain))
+
+        # 5. Breaking parent link fails verification
+        # 5a. Tampered parent digest in C_3
+        broken_c3 = copy.deepcopy(cert_3)
+        broken_c3.parent_certificate_digest = "0" * 64
+        self.assertFalse(broken_c3.verify_lineage(cert_2))
+        self.assertFalse(ConstraintSafetyCertificate.verify_lineage_chain([cert_1, cert_2, broken_c3]))
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.verify_binding(ir_3, broken_c3)
+
+        # 5b. Broken intermediate parent certificate in chain
+        tampered_c2 = copy.deepcopy(cert_2)
+        tampered_c2.policy_revision = "unauthorized_policy_mutation"
+        self.assertFalse(cert_3.verify_lineage(tampered_c2))
+        self.assertFalse(ConstraintSafetyCertificate.verify_lineage_chain([cert_1, tampered_c2, cert_3]))
+
+        # 6. Reused clean subgraph whose digest changed is refused
+        # Mutate clean asset 'res_c' inside ir_2 before running delta_2
+        corrupted_ir_2 = copy.deepcopy(ir_2)
+        corrupted_ir_2.variable_domains["res_c"].admissible_actions.append("non_certified_action")
+        with self.assertRaises(SubgraphDigestMismatchError):
+            IncrementalConstraintCompiler.compile_delta(
+                previous_ir=corrupted_ir_2,
+                delta=delta_2,
+                scenario=scenario,
+                all_contexts=ctx_t1,
+                all_confidences=conf_t1,
+                all_threat_scores=threats_t3,
+                base_budget=20.0,
+                parent_certificate=cert_2,
+            )
 
 
 if __name__ == "__main__":

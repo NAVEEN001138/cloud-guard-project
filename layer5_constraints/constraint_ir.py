@@ -170,6 +170,9 @@ class SecurityConstraintIR:
     state_epoch: int = 1
     validity_envelope: Optional[Any] = None
 
+    # Subgraph Canonical Digests for Certified Incremental Lineage (Phase 7)
+    subgraph_digests: Dict[str, str] = field(default_factory=dict)
+
     @property
     def active_variable_domain(self) -> Dict[str, List[str]]:
         """Active admissible decision domain per resource."""
@@ -279,7 +282,46 @@ class SecurityConstraintIR:
         digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
         self.canonical_digest = digest
         self.sha256_hash = digest
+        self.compute_all_subgraph_digests()
         return digest
+
+    def compute_subgraph_digest(self, resource_id: str) -> str:
+        """
+        Computes a deterministic canonical digest for a resource's local constraint subgraph:
+        variable domain (admissible/pruned), invariance constraint, and connected conflict hyperedges.
+        """
+        dom = self.variable_domains.get(resource_id)
+        dom_data = {
+            "id": resource_id,
+            "type": dom.resource_type if dom else "",
+            "admissible": sorted(list(dom.admissible_actions)) if dom else [],
+            "pruned": sorted(list(dom.pruned_actions)) if dom else [],
+        }
+        invars = [
+            {"target": inv.target_value, "actions": sorted(list(inv.actions))}
+            for inv in self.invariance_constraints
+            if inv.resource_id == resource_id
+        ]
+        confs = [
+            {"r1": c.resource_1, "a1": c.action_1, "r2": c.resource_2, "a2": c.action_2, "rule": c.rule_id}
+            for c in self.conflict_hyperedges
+            if c.resource_1 == resource_id or c.resource_2 == resource_id
+        ]
+        confs.sort(key=lambda x: (x["r1"], x["a1"], x["r2"], x["a2"]))
+        obj = {
+            "domain": dom_data,
+            "invariance": invars,
+            "conflicts": confs,
+        }
+        return hashlib.sha256(json.dumps(obj, sort_keys=True).encode("utf-8")).hexdigest()
+
+    def compute_all_subgraph_digests(self) -> Dict[str, str]:
+        """Computes and updates canonical digests for all resource subgraphs in the IR."""
+        self.subgraph_digests = {
+            rid: self.compute_subgraph_digest(rid)
+            for rid in self.variable_domains
+        }
+        return self.subgraph_digests
 
     def semantic_fingerprint(self) -> str:
         """

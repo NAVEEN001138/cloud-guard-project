@@ -64,6 +64,11 @@ class ConstraintSafetyCertificate:
     certifier_id: str = "certifier-node-primary"
     canonical_payload_bytes: bytes = b""
 
+    # Certified Incremental Lineage (Phase 7)
+    parent_certificate_digest: Optional[str] = None
+    subgraph_digests: Dict[str, str] = field(default_factory=dict)
+    incremental_equivalence_check: Optional[Dict[str, Any]] = None
+
     def compute_canonical_payload(self) -> bytes:
         """
         Recomputes the canonical payload bytes committed under the certificate signature.
@@ -83,6 +88,11 @@ class ConstraintSafetyCertificate:
             "state_epoch": int(self.state_epoch),
             "lease_policy": int(self.lease_policy),
             "certifier_id": self.certifier_id,
+            "parent_certificate_digest": self.parent_certificate_digest or "",
+            "incremental_equivalence_digest": (
+                self.incremental_equivalence_check.get("semantic_fingerprint", "")
+                if self.incremental_equivalence_check else ""
+            ),
             "verification_checks": self.verification_checks,
         }
         return json.dumps(payload_obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -97,6 +107,34 @@ class ConstraintSafetyCertificate:
         vk = verifier_key or get_verifier_key()
         payload_bytes = self.compute_canonical_payload()
         return vk.verify(payload_bytes, self.signature, self.auth_mechanism)
+
+    def verify_lineage(self, parent_cert: Optional["ConstraintSafetyCertificate"] = None) -> bool:
+        """
+        Verifies cryptographic lineage binding to a parent certificate.
+        """
+        if parent_cert is None:
+            return self.parent_certificate_digest is None
+        if not self.parent_certificate_digest:
+            return False
+        if not parent_cert.verify_signature():
+            return False
+        return self.parent_certificate_digest == parent_cert.integrity_digest
+
+    @classmethod
+    def verify_lineage_chain(cls, chain: List["ConstraintSafetyCertificate"]) -> bool:
+        """
+        Verifies a sequential cryptographic lineage chain of certificates C_0 -> C_1 -> ... -> C_k.
+        """
+        if not chain:
+            return False
+        if not chain[0].verify_signature():
+            return False
+        for i in range(1, len(chain)):
+            child = chain[i]
+            parent = chain[i - 1]
+            if not child.verify_lineage(parent):
+                return False
+        return True
 
 
     @property
@@ -213,6 +251,9 @@ class PreSolveSafetyCertifier:
         cls,
         ir: SecurityConstraintIR,
         known_forbidden_specs: Optional[Dict[str, List[str]]] = None,
+        parent_certificate: Optional["ConstraintSafetyCertificate"] = None,
+        parent_certificate_digest: Optional[str] = None,
+        incremental_equivalence_check: Optional[Dict[str, Any]] = None,
     ) -> ConstraintSafetyCertificate:
         """
         Executes deterministic pre-solve invariant verification across 7 mandatory constraint invariants.
@@ -349,6 +390,12 @@ class PreSolveSafetyCertifier:
         lease_policy = 300
         certifier_id = "certifier-node-primary"
 
+        # Certified Lineage Metadata (Phase 7)
+        p_digest = parent_certificate.integrity_digest if parent_certificate else parent_certificate_digest
+        subgraph_digests = getattr(ir, "subgraph_digests", {}) or (
+            ir.compute_all_subgraph_digests() if hasattr(ir, "compute_all_subgraph_digests") else {}
+        )
+
         cert = ConstraintSafetyCertificate(
             certificate_id=cert_id,
             incident_id=ir.incident_id,
@@ -374,6 +421,9 @@ class PreSolveSafetyCertifier:
             state_epoch=state_epoch,
             lease_policy=lease_policy,
             certifier_id=certifier_id,
+            parent_certificate_digest=p_digest,
+            subgraph_digests=subgraph_digests,
+            incremental_equivalence_check=incremental_equivalence_check,
         )
 
         canonical_payload_bytes = cert.compute_canonical_payload()
