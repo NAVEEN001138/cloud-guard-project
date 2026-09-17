@@ -34,6 +34,35 @@ ALL_THREAT_THRESHOLDS = sorted([THRESHOLD_THREAT_LOW, THRESHOLD_HIPAA_MANDATE, T
 PLC_MODE_RUN = "RUN"
 PLC_MODE_MAINTENANCE = "MAINTENANCE"
 
+
+def get_effective_plc_mode(resource: Any) -> str:
+    """
+    Returns the effective operating mode for a PLC controller (defaulting to PLC_MODE_RUN == 'RUN').
+    If resource has a physical_state dict or attribute, extracts 'mode'.
+    Absent, empty, or None -> returns PLC_MODE_RUN ('RUN').
+    """
+    if isinstance(resource, dict):
+        phys = resource.get("physical_state")
+        if isinstance(phys, dict):
+            mode = phys.get("mode")
+            if mode:
+                return str(mode)
+        elif hasattr(phys, "mode"):
+            mode = getattr(phys, "mode")
+            if mode:
+                return str(mode)
+    elif hasattr(resource, "physical_state"):
+        phys = getattr(resource, "physical_state", None)
+        if isinstance(phys, dict):
+            mode = phys.get("mode")
+            if mode:
+                return str(mode)
+        elif hasattr(phys, "mode"):
+            mode = getattr(phys, "mode")
+            if mode:
+                return str(mode)
+    return PLC_MODE_RUN
+
 POLICY_THRESHOLDS_DICT = {
     "THRESHOLD_THREAT_HIGH": THRESHOLD_THREAT_HIGH,
     "THRESHOLD_HIPAA_MANDATE": THRESHOLD_HIPAA_MANDATE,

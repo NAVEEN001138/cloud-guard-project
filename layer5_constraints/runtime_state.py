@@ -224,7 +224,10 @@ def snapshot_from_contexts(
 
         req_iso = _as_list(r.get("requires_isolation_with", []))
         cred_prov = _as_list(r.get("credential_provider", []))
-        phys_state = dict(r.get("physical_state", {}))
+        phys_state = dict(r.get("physical_state", {})) if isinstance(r.get("physical_state"), dict) else {}
+        if rtype == "plc_controller" and "mode" not in phys_state:
+            from layer5_constraints.policy_thresholds import get_effective_plc_mode
+            phys_state["mode"] = get_effective_plc_mode(r)
 
         res_states[rid] = ValidityRelevantState(
             resource_id=rid,

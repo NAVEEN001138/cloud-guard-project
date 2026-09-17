@@ -358,7 +358,11 @@ def derive_validity_envelope(
         ))
 
         # 7. Physical State Attributes
-        phys = r.get("physical_state", {})
+        phys = dict(r.get("physical_state", {})) if isinstance(r.get("physical_state"), dict) else {}
+        rtype = r.get("type", "")
+        if rtype == "plc_controller" and "mode" not in phys:
+            from layer5_constraints.policy_thresholds import get_effective_plc_mode
+            phys["mode"] = get_effective_plc_mode(r)
         for pk, pv in phys.items():
             preds.append(FieldPredicate(
                 field_path=f"physical_state.{pk}",

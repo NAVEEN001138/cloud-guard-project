@@ -59,6 +59,7 @@ from layer5_constraints.policy_thresholds import (
     DEFAULT_BUSINESS_IMPACT_LOW,
     PLC_MODE_RUN,
     PLC_MODE_MAINTENANCE,
+    get_effective_plc_mode,
 )
 
 
@@ -636,10 +637,8 @@ class ConstraintDependencyGraph:
             # Cyber-Physical Industrial Safety Profile
             # PLC mode policy: RUN prunes 'isolate'; MAINTENANCE admits 'isolate'.
             # Medical devices: never automated isolation regardless of mode.
-            phys = r.get("physical_state", {})
-            plc_mode = phys.get("mode") if isinstance(phys, dict) else None
-
             if rtype == "plc_controller":
+                plc_mode = get_effective_plc_mode(r)
                 if plc_mode == PLC_MODE_MAINTENANCE:
                     # MAINTENANCE mode: PLC admits 'isolate' — skip safety pruning
                     ir.provenance_records.append(IRProvenanceRecord(
@@ -661,7 +660,7 @@ class ConstraintDependencyGraph:
                             constraint_type="PRUNED",
                             origin="PHYSICAL_SAFETY_PROFILE",
                             rule_id=f"SAFETY_PROFILE_{rtype.upper()}",
-                            rationale=f"PLC in {plc_mode or PLC_MODE_RUN} mode prohibits automated isolation",
+                            rationale=f"PLC in {plc_mode} mode prohibits automated isolation",
                         ))
             elif rtype == "medical_device":
                 var_tuple = (rid, "isolate")
