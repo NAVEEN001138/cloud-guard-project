@@ -4,7 +4,7 @@
 **Date:** 2026-09-17  
 **Branch:** `unification`  
 **Repository:** `E:\networks\adaptive constraint patent\cloud-guard-project`  
-**Environment:** Python 3.11 (`.venv`), Windows PowerShell  
+**Environment:** Python 3.14.0 (`.venv`), Windows PowerShell  
 **Target Specification:** Invention Candidate v2 Implementation Brief  
 
 ---
@@ -65,7 +65,7 @@ All metrics were directly measured by executing the test suite and benchmark run
   - `layer5_constraints/fidelity_proof.py`: Defines `FidelityProof`, mapping IR variables to backend variables, auxiliary slack variables, constraint translation terms, penalty coefficient $P$, and objective range bound $\Delta_{\text{obj}}$. States the projection obligation $x \in F(\text{SC-IR}) \iff \exists z : (x, z) \in F(M_b)$.
   - `layer5_constraints/proof_checker.py`: Standalone verifier taking `(ir, model, proof, certificate)` and verifying variable bijectivity, absence of pruned variables, per-constraint translations, and QUBO penalty dominance. Imports zero compiler modules.
 - **Solver integration:** `CompilationResult` updated to return `(model, fidelity_proof)` while maintaining tuple unpacking backwards compatibility; `decision_engine.py` calls `verify_fidelity_proof()` prior to solver invocation.
-- **Locking tests:** `test_45_least_fixed_point_uniqueness`, `test_46_proof_checker_agrees_with_enumeration`.
+- **Locking tests:** `test_54`, `test_47`.
 - **Deviations:** None.
 
 ### Phase 5 — Feasibility Gate & Conditional Repair

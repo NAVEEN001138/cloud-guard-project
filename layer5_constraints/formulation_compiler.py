@@ -386,27 +386,27 @@ class FormulationCompiler:
                 slack_weights.append(fw)
                 slack_info.append((s_name, fw, iw))
 
-            # Combined list of all terms in budget sum: (variable_name, float_coefficient)
-            budget_terms = [
-                (var_lookup[(rid, act)], float(ir.budget_constraint.cost_map.get((rid, act), 0.0)))
+            # Combined list of all terms in budget sum in integer space: (variable_name, int_coefficient)
+            budget_int_terms = [
+                (var_lookup[(rid, act)], int(round(float(ir.budget_constraint.cost_map.get((rid, act), 0.0)) * cost_scale)))
                 for (rid, act) in ir.get_all_variables()
                 if (rid, act) in var_lookup
-            ] + [(sname, fw) for sname, fw, _ in slack_info]
+            ] + [(sname, iw) for sname, _, iw in slack_info]
 
-            # Linear terms expansion: lambda_B * (c_i^2 - 2 * B * c_i) * y_i
-            for vname, coeff in budget_terms:
-                lin_delta = lambda_B * (coeff ** 2 - 2.0 * B_float * coeff)
+            # Linear terms expansion: lambda_effective * (c_i^2 - 2 * B_int * c_i) * y_i
+            for vname, c_int in budget_int_terms:
+                lin_delta = lambda_effective * (c_int ** 2 - 2.0 * B_int * c_int)
                 linear_terms[vname] = linear_terms.get(vname, 0.0) + lin_delta
 
-            # Quadratic cross terms expansion: 2 * lambda_B * c_i * c_j * y_i * y_j
-            for i in range(len(budget_terms)):
-                v1, c1 = budget_terms[i]
-                for j in range(i + 1, len(budget_terms)):
-                    v2, c2 = budget_terms[j]
+            # Quadratic cross terms expansion: 2 * lambda_effective * c_i * c_j * y_i * y_j
+            for i in range(len(budget_int_terms)):
+                v1, c1_int = budget_int_terms[i]
+                for j in range(i + 1, len(budget_int_terms)):
+                    v2, c2_int = budget_int_terms[j]
                     pair = (v1, v2) if v1 < v2 else (v2, v1)
-                    quadratic_terms[pair] = quadratic_terms.get(pair, 0.0) + 2.0 * lambda_B * c1 * c2
+                    quadratic_terms[pair] = quadratic_terms.get(pair, 0.0) + 2.0 * lambda_effective * c1_int * c2_int
 
-            constant += lambda_B * (B_float ** 2)
+            constant += lambda_effective * (B_int ** 2)
 
         qp.minimize(constant=constant, linear=linear_terms, quadratic=quadratic_terms)
         qp.slack_weights = slack_weights
@@ -414,10 +414,6 @@ class FormulationCompiler:
         qp.cost_scale = cost_scale
         qp.budget_int = B_int
         qp.budget_max = B_float
-        qp.lambda_B = lambda_B
-        qp.lambda_invariance = lambda_invariance
-        qp.lambda_conflict = lambda_conflict
-        qp.lambda_effective = lambda_effective if (ir.budget_constraint and ir.budget_constraint.max_budget > 0) else None
         qp.var_lookup = var_lookup
         qp.cost_map = ir.budget_constraint.cost_map.copy() if ir.budget_constraint else {}
 
@@ -491,7 +487,13 @@ class FormulationCompiler:
                     "budget_int": B_int,
                     "cost_scale": cost_scale,
                     "slack_weights": slack_weights,
-                    "penalty": lambda_B,
+                    "slack_powers": [iw for _, _, iw in slack_info],
+                    "variable_costs": {
+                        var_lookup[(rid, act)]: int(round(float(ir.budget_constraint.cost_map.get((rid, act), 0.0)) * cost_scale))
+                        for (rid, act) in ir.get_all_variables()
+                        if (rid, act) in var_lookup
+                    },
+                    "penalty": lambda_effective,
                 },
             })
 
@@ -511,7 +513,7 @@ class FormulationCompiler:
         delta_obj = sum(abs(t.coefficient) for t in ir.objective_terms.values())
         applied_penalties = [lambda_invariance, lambda_conflict]
         if ir.budget_constraint and ir.budget_constraint.max_budget > 0:
-            applied_penalties.append(lambda_B / (cost_scale ** 2))
+            applied_penalties.append(lambda_effective)
         actual_min_penalty = min(applied_penalties)
         penalty_coeff = actual_min_penalty
 

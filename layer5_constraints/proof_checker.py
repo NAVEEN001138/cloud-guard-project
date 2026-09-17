@@ -291,87 +291,182 @@ class IndependentProofChecker:
         qp: Any,
         proof: FidelityProof,
     ) -> None:
-        """Verifies that QUBO penalty structure satisfies dominating penalty obligations."""
-        # (a) Recompute objective_range_bound independently from ir.objective_terms (do not trust proof)
-        recomputed_range_bound = sum(abs(t.coefficient) for t in ir.objective_terms.values())
+        """
+        Verifies that the compiled QUBO model algebraically matches the expected objective
+        reconstructed directly from the proof translations and recomputed IR objective terms.
+        Verifies dominating penalty bounds from verified translation parameters.
+        """
+        if not (
+            hasattr(qp, "objective")
+            and hasattr(qp.objective, "quadratic")
+            and hasattr(qp.objective, "linear")
+            and hasattr(qp.objective, "constant")
+        ):
+            raise FidelityProofError("QuadraticProgram model is missing objective or objective components.")
 
-        # (b) Extract the actual penalty coefficients from the QuadraticProgram
-        quad_dict = {}
-        if hasattr(qp, "objective") and hasattr(qp.objective, "quadratic"):
-            quad_attr = qp.objective.quadratic
-            quad_dict = quad_attr.to_dict() if hasattr(quad_attr, "to_dict") else {}
-        elif hasattr(qp, "quadratic_terms"):
-            quad_dict = qp.quadratic_terms
+        # 1. Read the model directly via the official model APIs
+        raw_model_quad = qp.objective.quadratic.to_dict(use_name=True)
+        raw_model_lin = qp.objective.linear.to_dict(use_name=True)
+        model_const = float(qp.objective.constant)
 
-        extracted_penalties: List[float] = []
+        # Canonicalize model quadratic dictionary symmetrically (u <= v)
+        model_quad: Dict[Tuple[str, str], float] = {}
+        for (u, v), val in raw_model_quad.items():
+            pair = (u, v) if u <= v else (v, u)
+            model_quad[pair] = model_quad.get(pair, 0.0) + float(val)
 
+        model_lin: Dict[str, float] = {k: float(v) for k, v in raw_model_lin.items()}
+
+        # 2. Reconstruct expected objective from the PROOF alone
+        recon_lin: Dict[str, float] = {}
+        recon_quad: Dict[Tuple[str, str], float] = {}
+        recon_const: float = 0.0
+
+        def add_quad(u: str, v: str, val: float) -> None:
+            pair = (u, v) if u <= v else (v, u)
+            recon_quad[pair] = recon_quad.get(pair, 0.0) + float(val)
+
+        def add_lin(v: str, val: float) -> None:
+            recon_lin[v] = recon_lin.get(v, 0.0) + float(val)
+
+        # 2a. Recompute base IR objective linear terms from ir.objective_terms
+        for (rid, act), term in ir.objective_terms.items():
+            vname = proof.variable_map.get((rid, act))
+            if vname:
+                add_lin(vname, float(term.coefficient))
+
+        # 2b. Add penalty term expansions for each constraint translation from proof
         for trans in proof.constraint_translations:
             ctype = trans.get("ir_constraint_type")
-            backend_elems = trans.get("backend_elements", [])
+            params = trans.get("parameters", {})
+            elems = trans.get("backend_elements", [])
 
-            if ctype == "CONFLICT" and len(backend_elems) >= 2:
-                v1, v2 = backend_elems[0], backend_elems[1]
-                coeff = quad_dict.get((v1, v2), quad_dict.get((v2, v1), None))
-                if coeff is not None and coeff > 0:
-                    extracted_penalties.append(float(coeff))
-                elif hasattr(qp, "lambda_conflict"):
-                    extracted_penalties.append(float(qp.lambda_conflict))
+            if ctype == "INVARIANCE":
+                if "penalty" not in params:
+                    raise FidelityProofError(
+                        f"Invariance translation '{trans.get('ir_constraint_id')}' missing explicit 'penalty' parameter."
+                    )
+                w = float(params["penalty"])
+                # Expansion: w * (sum x - 1)^2 = w * (sum x_i - 2 * sum x_i + 2 * sum_{i<j} x_i x_j + 1)
+                #            = -w * sum x_i + 2*w * sum_{i<j} x_i x_j + w
+                recon_const += w
+                for v in elems:
+                    add_lin(v, -w)
+                for i in range(len(elems)):
+                    for j in range(i + 1, len(elems)):
+                        add_quad(elems[i], elems[j], 2.0 * w)
 
-            elif ctype == "INVARIANCE" and len(backend_elems) >= 2:
-                v1, v2 = backend_elems[0], backend_elems[1]
-                coeff = quad_dict.get((v1, v2), quad_dict.get((v2, v1), None))
-                if coeff is not None and coeff > 0:
-                    extracted_penalties.append(float(coeff / 2.0))
-                elif hasattr(qp, "lambda_invariance"):
-                    extracted_penalties.append(float(qp.lambda_invariance))
+            elif ctype == "CONFLICT":
+                if "penalty" not in params:
+                    raise FidelityProofError(
+                        f"Conflict translation '{trans.get('ir_constraint_id')}' missing explicit 'penalty' parameter."
+                    )
+                w = float(params["penalty"])
+                if len(elems) >= 2:
+                    add_quad(elems[0], elems[1], w)
 
             elif ctype == "BUDGET":
-                b_params = trans.get("parameters", {})
-                slack_weights = b_params.get("slack_weights", [])
-                extracted_budget_pen = None
-                if len(backend_elems) >= 2 and len(slack_weights) >= 2:
-                    s0, s1 = backend_elems[0], backend_elems[1]
-                    w0, w1 = float(slack_weights[0]), float(slack_weights[1])
-                    if w0 > 0 and w1 > 0:
-                        s_coeff = quad_dict.get((s0, s1), quad_dict.get((s1, s0), None))
-                        if s_coeff is not None and s_coeff > 0:
-                            extracted_budget_pen = float(s_coeff / (2.0 * w0 * w1))
-                if extracted_budget_pen is not None:
-                    extracted_penalties.append(extracted_budget_pen)
-                elif hasattr(qp, "lambda_effective") and qp.lambda_effective:
-                    extracted_penalties.append(float(qp.lambda_effective))
-                elif hasattr(qp, "lambda_B") and hasattr(qp, "cost_scale"):
-                    extracted_penalties.append(float(qp.lambda_B / (qp.cost_scale ** 2)))
+                if "penalty" not in params:
+                    raise FidelityProofError(
+                        f"Budget translation '{trans.get('ir_constraint_id')}' missing explicit 'penalty' parameter."
+                    )
+                w = float(params["penalty"])
+                cost_scale = int(params.get("cost_scale", 1000))
+                b_int = int(params["budget_int"]) if "budget_int" in params else int(round(float(params["max_budget"]) * cost_scale))
 
-        if not extracted_penalties:
-            if hasattr(qp, "lambda_conflict"):
-                extracted_penalties.append(float(qp.lambda_conflict))
-            if hasattr(qp, "lambda_invariance"):
-                extracted_penalties.append(float(qp.lambda_invariance))
-            if hasattr(qp, "lambda_effective") and qp.lambda_effective:
-                extracted_penalties.append(float(qp.lambda_effective))
+                # Slack powers
+                slack_powers = params.get("slack_powers")
+                if slack_powers is None:
+                    slack_weights = params.get("slack_weights", [])
+                    slack_powers = [int(round(float(sw) * cost_scale)) for sw in slack_weights]
 
-        if not extracted_penalties:
-            raise FidelityProofError("QUBO proof verification failed: Could not extract penalty coefficients from QuadraticProgram.")
+                # Variable costs
+                var_costs = params.get("variable_costs")
+                if var_costs is None:
+                    if ir.budget_constraint:
+                        var_costs = {
+                            proof.variable_map[(r, a)]: int(round(float(c) * cost_scale))
+                            for (r, a), c in ir.budget_constraint.cost_map.items()
+                            if (r, a) in proof.variable_map
+                        }
+                    else:
+                        var_costs = {}
 
-        actual_min_penalty = min(extracted_penalties)
+                # Combined integer terms: (var_name, int_coefficient)
+                int_terms: List[Tuple[str, int]] = []
+                for vname, c_int in var_costs.items():
+                    int_terms.append((vname, c_int))
+                for sname, sp in zip(elems, slack_powers):
+                    int_terms.append((sname, sp))
 
-        # (c) Assert actual_min_penalty > recomputed_range_bound
-        if actual_min_penalty <= recomputed_range_bound:
+                # Expansion: w * (sum c_i x_i + sum slack_k * 2^k - B_int)^2 in the scaled integer space
+                recon_const += float(w * (b_int ** 2))
+                for v, a in int_terms:
+                    add_lin(v, float(w * (a ** 2 - 2 * b_int * a)))
+                for i in range(len(int_terms)):
+                    v1, a1 = int_terms[i]
+                    for j in range(i + 1, len(int_terms)):
+                        v2, a2 = int_terms[j]
+                        add_quad(v1, v2, float(2.0 * w * a1 * a2))
+
+        # 3. Assert coefficient-by-coefficient equality (tolerance 1e-6)
+        # Check constant
+        if abs(model_const - recon_const) > 1e-6:
             raise FidelityProofError(
-                f"QUBO dominating penalty check failed: extracted minimum penalty {actual_min_penalty:.4f} <= "
+                f"QUBO objective constant mismatch: model={model_const:.6f}, reconstructed={recon_const:.6f} "
+                f"(diff={abs(model_const - recon_const):.6e})."
+            )
+
+        # Check linear coefficients
+        all_lin_keys = sorted(set(model_lin) | set(recon_lin))
+        for key in all_lin_keys:
+            m_val = float(model_lin.get(key, 0.0))
+            r_val = float(recon_lin.get(key, 0.0))
+            if abs(m_val - r_val) > 1e-6:
+                raise FidelityProofError(
+                    f"QUBO linear coefficient mismatch for key '{key}': model={m_val:.6f}, "
+                    f"reconstructed={r_val:.6f} (diff={abs(m_val - r_val):.6e})."
+                )
+
+        # Check quadratic coefficients
+        all_quad_keys = sorted(set(model_quad) | set(recon_quad))
+        for key in all_quad_keys:
+            m_val = float(model_quad.get(key, 0.0))
+            r_val = float(recon_quad.get(key, 0.0))
+            if abs(m_val - r_val) > 1e-6:
+                raise FidelityProofError(
+                    f"QUBO quadratic coefficient mismatch for key '{key}': model={m_val:.6f}, "
+                    f"reconstructed={r_val:.6f} (diff={abs(m_val - r_val):.6e})."
+                )
+
+        # 4. Dominance: minimum penalty weight across translations (from the now-verified parameters)
+        # must exceed the range bound recomputed from ir.objective_terms.
+        translation_penalties = [
+            float(t["parameters"]["penalty"])
+            for t in proof.constraint_translations
+            if "penalty" in t.get("parameters", {})
+        ]
+        if not translation_penalties:
+            raise FidelityProofError("QUBO proof verification failed: No penalty parameters found in constraint translations.")
+
+        min_penalty = min(translation_penalties)
+        recomputed_range_bound = sum(abs(t.coefficient) for t in ir.objective_terms.values())
+
+        if min_penalty <= recomputed_range_bound:
+            raise FidelityProofError(
+                f"QUBO dominating penalty check failed: verified minimum translation penalty {min_penalty:.4f} <= "
                 f"recomputed objective range bound {recomputed_range_bound:.4f}. "
                 "Feasibility of the ground state is not guaranteed."
             )
 
-        # (d) Assert proof.penalty_coefficient == actual_min_penalty
-        if proof.penalty_coefficient is None or abs(proof.penalty_coefficient - actual_min_penalty) > 1e-4:
+        # Assert proof.penalty_coefficient equals that minimum
+        if proof.penalty_coefficient is None or abs(proof.penalty_coefficient - min_penalty) > 1e-6:
             raise FidelityProofError(
                 f"QUBO proof penalty mismatch: proof reports {proof.penalty_coefficient}, "
-                f"but model actual minimum penalty is {actual_min_penalty:.4f}."
+                f"but verified minimum translation penalty is {min_penalty:.4f}."
             )
 
-        # Check slack variables for exact integer budget representation
+        # 5. Check slack variables for exact integer budget representation
         budget_trans = next((t for t in proof.constraint_translations if t.get("ir_constraint_type") == "BUDGET"), None)
         if budget_trans:
             b_params = budget_trans.get("parameters", {})

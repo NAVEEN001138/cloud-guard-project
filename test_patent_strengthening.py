@@ -1681,7 +1681,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
                 "All thresholds must be imported from policy_thresholds.py."
             )
 
-    # 53. QUBO under-sized penalty rejected by independent proof checker
+    # 53. QUBO fidelity checker verifies model, not compiler metadata (three model mutations + one proof mutation)
     def test_53_qubo_undersized_penalty_rejected_by_checker(self):
         from layer5_constraints.proof_checker import IndependentProofChecker, FidelityProofError
         ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
@@ -1694,29 +1694,47 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         report = IndependentProofChecker.check(ir, qp, proof, cert)
         self.assertTrue(report.is_valid)
 
-        # Corrupt model: reduce penalties to an under-sized value below range bound
-        recomputed_range_bound = sum(abs(t.coefficient) for t in ir.objective_terms.values())
-        corrupted_qp = copy.deepcopy(qp)
-        undersized_penalty = 0.05  # Far below recomputed_range_bound (>= 1.0)
-        corrupted_qp.lambda_conflict = undersized_penalty
-        corrupted_qp.lambda_invariance = undersized_penalty
-        quad_dict = corrupted_qp.objective.quadratic.to_dict()
-        corrupted_qp.objective.quadratic = {pair: undersized_penalty for pair in quad_dict}
-
-        # Case A: Proof matches corrupted model, but penalty is under-sized
-        undersized_proof = copy.deepcopy(proof)
-        undersized_proof.penalty_coefficient = undersized_penalty
-        undersized_proof.proof_digest = undersized_proof.compute_digest()
-
+        # Negative (a): Scale all quadratic coefficients by 0.01 in the model ONLY
+        qp_a = copy.deepcopy(qp)
+        quad_a = qp_a.objective.quadratic.to_dict(use_name=True)
+        qp_a.objective.quadratic = {pair: float(val) * 0.01 for pair, val in quad_a.items()}
         with self.assertRaises(FidelityProofError) as ctx_a:
-            IndependentProofChecker.check(ir, corrupted_qp, undersized_proof, cert)
-        self.assertIn("dominating penalty", str(ctx_a.exception).lower())
+            IndependentProofChecker.check(ir, qp_a, proof, cert)
+        self.assertIn("quadratic coefficient mismatch", str(ctx_a.exception).lower())
 
-        # Case B: Proof claims dominating penalty, but model actually contains under-sized penalty
+        # Negative (b): Zero one conflict pair's coefficient in the model ONLY
+        qp_b = copy.deepcopy(qp)
+        quad_b = qp_b.objective.quadratic.to_dict(use_name=True)
+        conflict_trans = next(t for t in proof.constraint_translations if t.get("ir_constraint_type") == "CONFLICT")
+        c_elems = conflict_trans["backend_elements"]
+        c_pair = (c_elems[0], c_elems[1]) if (c_elems[0], c_elems[1]) in quad_b else (c_elems[1], c_elems[0])
+        new_quad_b = dict(quad_b)
+        new_quad_b[c_pair] = 0.0
+        qp_b.objective.quadratic = new_quad_b
         with self.assertRaises(FidelityProofError) as ctx_b:
-            IndependentProofChecker.check(ir, corrupted_qp, proof, cert)
-        err_msg = str(ctx_b.exception).lower()
-        self.assertTrue("mismatch" in err_msg or "dominating penalty" in err_msg)
+            IndependentProofChecker.check(ir, qp_b, proof, cert)
+        self.assertIn("quadratic coefficient mismatch", str(ctx_b.exception).lower())
+
+        # Negative (c): Change one linear coefficient in the model ONLY
+        qp_c = copy.deepcopy(qp)
+        lin_c = dict(qp_c.objective.linear.to_dict(use_name=True))
+        target_var = next(iter(lin_c.keys()))
+        lin_c[target_var] = float(lin_c[target_var]) + 100.0
+        qp_c.objective.linear = lin_c
+        with self.assertRaises(FidelityProofError) as ctx_c:
+            IndependentProofChecker.check(ir, qp_c, proof, cert)
+        self.assertIn("linear coefficient mismatch", str(ctx_c.exception).lower())
+
+        # Negative (d): Mutate one translation weight in the proof only -> must raise
+        proof_d = copy.deepcopy(proof)
+        first_trans = proof_d.constraint_translations[0]
+        first_trans["parameters"]["penalty"] = float(first_trans["parameters"]["penalty"]) * 2.0
+        proof_d.proof_digest = proof_d.compute_digest()
+        with self.assertRaises(FidelityProofError) as ctx_d:
+            IndependentProofChecker.check(ir, qp, proof_d, cert)
+        self.assertTrue(
+            "mismatch" in str(ctx_d.exception).lower() or "penalty" in str(ctx_d.exception).lower()
+        )
 
     # 54. Least-fixed-point closure order-independence across random edge insertion permutations
     def test_54_least_fixed_point_order_independence(self):
