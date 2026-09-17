@@ -65,12 +65,12 @@ class UncertifiedActuationError(Exception):
     """Raised when actuation is attempted without a valid SC-IR/certificate binding."""
 
 
-class InadmissibleActionError(Exception):
-    """Raised when a plan contains an action outside the certified admissible domain."""
-
-
-class ActuationBudgetExceededError(Exception):
-    """Raised when a plan's total cost exceeds the certified regenerated budget."""
+from layer8_orchestration.capability_verifier import (
+    ActuationVerificationError,
+    ActuationEnvelopeViolationError,
+    InadmissibleActionError,
+    ActuationBudgetExceededError,
+)
 
 
 def validate_plan_against_certified_ir(
@@ -436,6 +436,7 @@ def _execute_action(
     action: str,
     step: Optional[int] = None,
     resource_meta: Optional[Dict[str, Any]] = None,
+    expected_state_revision: Optional[int] = None,
 ) -> dict:
     """
     Executes an action by dispatching machine-level control commands to the
@@ -457,6 +458,10 @@ def _execute_action(
     else:
         actuator_record = CloudHypervisorActuator.dispatch(resource_id, action)
 
+    if "command" in actuator_record and isinstance(actuator_record["command"], dict):
+        actuator_record["command"]["expected_state_revision"] = expected_state_revision
+    actuator_record["expected_state_revision"] = expected_state_revision
+
     log_line = (
         f"[{timestamp}] {resource_id}{step_str}: {description} "
         f"[Interface: {actuator_record['interface']} | Protocol: {actuator_record['protocol']}]"
@@ -473,7 +478,53 @@ def _execute_action(
         "interface_type": actuator_record["interface"],
         "actuation_command": actuator_record,
         "resource_type": rtype,
+        "expected_state_revision": expected_state_revision,
     }
+
+
+class SimulatedDeviceInterface:
+    """
+    Simulated Device-Side Control Interface.
+    Maintains a simulated local hardware/device state revision (state epoch).
+    Enforces that incoming actuation commands carry an expected_state_revision
+    matching the current device revision. If revisions differ (e.g. TOCTOU race),
+    the command is rejected.
+    """
+    def __init__(self, device_id: str, initial_revision: int = 1):
+        self.device_id = device_id
+        self.current_revision = initial_revision
+
+    def bump_revision(self, delta: int = 1) -> int:
+        """Simulates an asynchronous physical state mutation on the device."""
+        self.current_revision += delta
+        return self.current_revision
+
+    def execute_command(self, command_record: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Receives and executes an actuation command. Rejects if expected revision != current.
+        """
+        expected_rev = command_record.get("expected_state_revision")
+        if expected_rev is None:
+            return {
+                "status": "rejected",
+                "error": "Missing expected_state_revision in actuation command",
+                "device_id": self.device_id,
+                "current_revision": self.current_revision,
+            }
+        if expected_rev != self.current_revision:
+            return {
+                "status": "rejected",
+                "error": f"Device state revision race detected: command expected revision {expected_rev} != device current revision {self.current_revision}",
+                "device_id": self.device_id,
+                "expected_revision": expected_rev,
+                "current_revision": self.current_revision,
+            }
+        return {
+            "status": "simulated_success",
+            "device_id": self.device_id,
+            "revision": self.current_revision,
+            "executed_command": command_record,
+        }
 
 
 def execute_plan(
@@ -482,6 +533,7 @@ def execute_plan(
     sc_ir: Optional[SecurityConstraintIR] = None,
     certificate: Optional[ConstraintSafetyCertificate] = None,
     current_snapshot: Optional[Any] = None,
+    public_key: Optional[Any] = None,
 ) -> list:
     """
     plan: {resource_id: action}
@@ -492,13 +544,42 @@ def execute_plan(
     Returns list of execution log records with protocol-level actuation commands.
     """
     meta_map = resource_metadata or {}
-    certified = sc_ir is not None
-    if certified:
-        validate_plan_against_certified_ir(plan, sc_ir, certificate, current_snapshot=current_snapshot)
+    domain_certified = False
+    envelope_valid = False
+    epoch_valid = False
+    expected_rev = None
 
-    logs = [_execute_action(rid, action, resource_meta=meta_map.get(rid)) for rid, action in plan.items()]
+    if certificate is not None:
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier
+        auth = ActuationCapabilityVerifier.authorize(
+            plan=plan,
+            certificate=certificate,
+            current_snapshot=current_snapshot,
+            public_key=public_key,
+            sc_ir=sc_ir,
+        )
+        domain_certified = auth.domain_certified
+        envelope_valid = auth.envelope_valid
+        epoch_valid = auth.epoch_valid
+        expected_rev = auth.expected_state_revision
+    elif sc_ir is not None:
+        validate_plan_against_certified_ir(plan, sc_ir, certificate, current_snapshot=current_snapshot)
+        domain_certified = True
+        envelope_valid = True
+        epoch_valid = True
+        expected_rev = getattr(current_snapshot, "epoch", getattr(sc_ir, "state_epoch", 1))
+    elif current_snapshot is not None:
+        expected_rev = getattr(current_snapshot, "epoch", 1)
+
+    logs = [
+        _execute_action(rid, action, resource_meta=meta_map.get(rid), expected_state_revision=expected_rev)
+        for rid, action in plan.items()
+    ]
     for log in logs:
-        log["domain_certified"] = certified
+        log["domain_certified"] = domain_certified
+        log["envelope_valid"] = envelope_valid
+        log["epoch_valid"] = epoch_valid
+        log["expected_state_revision"] = expected_rev
     return logs
 
 
@@ -510,6 +591,7 @@ def execute_strategy(
     sc_ir: Optional[SecurityConstraintIR] = None,
     certificate: Optional[ConstraintSafetyCertificate] = None,
     current_snapshot: Optional[Any] = None,
+    public_key: Optional[Any] = None,
 ) -> list:
     """
     Executes a multi-step response strategy across physical and cloud actuation interfaces.

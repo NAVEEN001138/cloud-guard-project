@@ -33,6 +33,11 @@ THRESHOLD_SLA_CRITICAL = 0.40
 ALL_THREAT_THRESHOLDS = sorted([THRESHOLD_SLA_CRITICAL, THRESHOLD_HIPAA_MANDATE, THRESHOLD_BUDGET_HIGH])
 
 
+class StateEnvelopeViolationError(Exception):
+    """Raised when a runtime state vector violates the certified validity envelope."""
+    pass
+
+
 @dataclass
 class FieldPredicate:
     """

@@ -1386,9 +1386,94 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         none_bound = FeasibilityGate.compute_certified_loss_bound(res_repaired.plan, ir, lp_relaxation_lower_bound=None)
         self.assertIsNone(none_bound)
 
+    # 49. Actuation capability verifier, state epoch, and device-side revision check
+    def test_49_actuation_capability_verifier_and_device_revision_race(self):
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier, ActuationVerificationError
+        from layer8_orchestration.executor import SimulatedDeviceInterface, execute_plan
+        from pipeline import reconstruct_and_recertify
+        from layer5_constraints.runtime_state import snapshot_from_contexts
+
+        scen = {
+            "scenario": "actuation_test",
+            "resources": [
+                {"id": "s1", "type": "server"},
+                {"id": "p1", "type": "plc_controller"},
+            ],
+        }
+        threat = {"s1": 0.85, "p1": 0.85}
+        ctx = {
+            "s1": create_test_context("s1", "server", threat=0.85, sla="HIGH", hipaa=True),
+            "p1": create_test_context("p1", "plc_controller", threat=0.85, sla="CRITICAL", hipaa=False),
+        }
+        conf = {"s1": create_test_confidence("s1"), "p1": create_test_confidence("p1")}
+
+        snap_initial = snapshot_from_contexts(ctx, conf, scen, epoch=1)
+        dag = ConstraintDependencyGraph(incident_id="actuation_test")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap_initial)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        plan = {"s1": "isolate", "p1": "monitor"}
+
+        # 1. Authorize actuation with matching snapshot
+        auth = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap_initial, sc_ir=ir)
+        self.assertTrue(auth.is_authorized)
+        self.assertEqual(auth.expected_state_revision, 1)
+        self.assertTrue(auth.domain_certified)
+        self.assertTrue(auth.envelope_valid)
+        self.assertTrue(auth.epoch_valid)
+
+        # 2. SimulatedDeviceInterface executes command with matching expected_state_revision
+        sim_dev = SimulatedDeviceInterface("p1", initial_revision=1)
+        cmd = {
+            "resource_id": "p1",
+            "action": "monitor",
+            "expected_state_revision": auth.expected_state_revision,
+        }
+        res_cmd = sim_dev.execute_command(cmd)
+        self.assertEqual(res_cmd["status"], "simulated_success")
+        self.assertEqual(res_cmd["revision"], 1)
+
+        # 3. Race condition: Bump device revision asynchronously (mutation occurs before dispatch)
+        sim_dev.bump_revision(1)  # Device revision is now 2
+        self.assertEqual(sim_dev.current_revision, 2)
+
+        # Dispatch command carrying stale expected revision 1 -> MUST BE REJECTED
+        res_stale = sim_dev.execute_command(cmd)
+        self.assertEqual(res_stale["status"], "rejected")
+        self.assertIn("revision race", res_stale["error"].lower())
+
+        # 4. execute_plan routes through verifier and attaches expected revision and validation flags
+        logs = execute_plan(plan, sc_ir=ir, certificate=cert, current_snapshot=snap_initial)
+        self.assertGreater(len(logs), 0)
+        for entry in logs:
+            self.assertEqual(entry["expected_state_revision"], 1)
+            self.assertTrue(entry["domain_certified"])
+            self.assertTrue(entry["envelope_valid"])
+            self.assertTrue(entry["epoch_valid"])
+
+        # 5. Closed-loop: Relevant state change triggers refusal, then reconstruction recertifies
+        mutated_ctx = copy.deepcopy(ctx)
+        mutated_ctx["s1"].threat.threat_score = 0.25  # Crosses 0.70 threshold -> leaves envelope!
+        snap_mutated = snapshot_from_contexts(mutated_ctx, conf, scen, epoch=2)
+
+        # Actuation refused on old certificate
+        with self.assertRaises(ActuationVerificationError):
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap_mutated, sc_ir=ir)
+
+        # Closed-loop reconstruction & recertification
+        new_ir, new_cert, new_snap = reconstruct_and_recertify(
+            scen, {"s1": 0.25, "p1": 0.85}, mutated_ctx, conf, reason="state_drift_detected", epoch=2
+        )
+        self.assertEqual(new_cert.status, "CERTIFIED")
+        self.assertEqual(new_cert.state_epoch, 2)
+        # New envelope must contain the mutated state
+        is_inside, viols = new_cert.validity_envelope.contains(new_snap)
+        self.assertTrue(is_inside, f"New envelope failed to contain new state: {viols}")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 
 
 

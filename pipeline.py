@@ -93,6 +93,7 @@ class PipelineResult:
     leakage_reduction_pct: float = 0.0
     constraint_ir: Optional[SecurityConstraintIR] = None
     safety_certificate: Optional[ConstraintSafetyCertificate] = None
+    state_snapshot: Optional[Any] = None
 
     def result_by_name(self, name: str) -> Optional[SolverResult]:
         for result in self.solver_results:
@@ -239,6 +240,9 @@ def run_pipeline(
         scenario, ilp_res.plan, contexts, confidences, constraints, action_utilities, role=role
     )
 
+    ir_obj = getattr(constraints, "constraint_ir", None)
+    snapshot = getattr(ir_obj, "state_snapshot", None) if ir_obj else None
+
     return PipelineResult(
         scenario=scenario,
         threat_scores=scores,
@@ -250,9 +254,34 @@ def run_pipeline(
         explanation_report=exp_report,
         privacy_payload=privacy_payload,
         leakage_reduction_pct=leakage_reduction,
-        constraint_ir=getattr(constraints, "constraint_ir", None),
+        constraint_ir=ir_obj,
         safety_certificate=getattr(constraints, "safety_certificate", None),
+        state_snapshot=snapshot,
     )
+
+
+def reconstruct_and_recertify(
+    scenario: dict,
+    scores: dict,
+    contexts: dict,
+    confidences: dict,
+    reason: str = "state_drift_detected",
+    base_budget: float = MAX_BUDGET,
+    epoch: int = 1,
+) -> Tuple[SecurityConstraintIR, ConstraintSafetyCertificate, Any]:
+    """
+    Closed-loop reconstruction & recertification triggered upon actuation or compilation refusal.
+    Synthesizes a new SC-IR and fresh State-Envelope Certificate whose envelope contains the new state.
+    """
+    from layer5_constraints.runtime_state import snapshot_from_contexts
+    from layer5_constraints.dependency_graph import ConstraintDependencyGraph
+    from layer5_constraints.safety_certifier import PreSolveSafetyCertifier
+
+    snapshot = snapshot_from_contexts(contexts, confidences, scenario, epoch=epoch)
+    dag = ConstraintDependencyGraph(incident_id=f"reconstructed_{int(time.time())}")
+    ir = dag.resolve(scenario, scores, contexts, confidences, base_budget=base_budget, state_snapshot=snapshot)
+    cert = PreSolveSafetyCertifier.certify(ir)
+    return ir, cert, snapshot
 
 
 def comparison_table(result: PipelineResult, ilp_baseline: str = "ilp") -> List[dict]:
@@ -295,5 +324,6 @@ if __name__ == "__main__":
             best.plan,
             sc_ir=result.constraint_ir,
             certificate=result.safety_certificate,
+            current_snapshot=result.state_snapshot,
         )
         print(f"\nExecuted ILP plan ({len(logs)} actions), certified-domain gate enforced")

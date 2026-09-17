@@ -65,9 +65,7 @@ class IntegrityBindingError(Exception):
     pass
 
 
-class StateEnvelopeViolationError(Exception):
-    """Raised when runtime state drifts outside the certified validity envelope."""
-    pass
+from layer5_constraints.validity_envelope import StateEnvelopeViolationError
 
 
 class CompilationResult(tuple):
