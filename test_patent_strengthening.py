@@ -71,8 +71,14 @@ from layer5_constraints.formulation_compiler import (
     UncertifiedIRCompilationError,
     StaleCertificateError,
     IntegrityBindingError,
+    StateEnvelopeViolationError,
     HAS_PULP,
     HAS_QISKIT,
+)
+from layer5_constraints.validity_envelope import (
+    FieldPredicate,
+    ValidityEnvelope,
+    derive_validity_envelope,
 )
 from layer5_constraints.incremental_compiler import (
     IncrementalConstraintCompiler,
@@ -1008,6 +1014,140 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         self.assertEqual(ir.state_fingerprint, fp_orig)
         self.assertEqual(ir.state_schema_id, STATE_SCHEMA_ID)
         self.assertEqual(ir.state_epoch, 1)
+
+    # 41. Validity envelope soundness by sampling (≥500 in-envelope and ≥500 boundary-violating)
+    def test_41_validity_envelope_soundness_by_sampling(self):
+        import random
+        rng = random.Random(42)
+
+        base_ir = self.dag.resolve(
+            self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0
+        )
+        envelope = base_ir.validity_envelope
+        self.assertIsNotNone(envelope)
+
+        base_domains = base_ir.active_variable_domain
+        base_hard = sorted([(c.constraint_id, c.target_resource, c.target_action) for c in base_ir.hard_constraints])
+        base_budget = round(float(base_ir.budget_constraint.max_budget), 4)
+
+        base_snap = snapshot_from_contexts(
+            contexts=self.contexts,
+            confidences=self.confidences,
+            scenario=self.scenario,
+            epoch=1,
+            threat_scores=self.threat_scores,
+        )
+        in_env_ok, _ = envelope.contains(base_snap)
+        self.assertTrue(in_env_ok)
+
+        # 1. Sample 500 snapshots strictly inside E_t
+        for _ in range(500):
+            sample_threats = {}
+            sample_contexts = {}
+            sample_confidences = {}
+            for rid in ["res_server_01", "res_plc_01", "res_gw_01"]:
+                # Threat stays in (0.70, 1.0]
+                t_val = rng.uniform(0.71, 0.99)
+                sample_threats[rid] = t_val
+                sla_val = "CRITICAL" if rid != "res_server_01" else "HIGH"
+                sample_contexts[rid] = create_test_context(rid, self.scenario["resources"][0]["type"], threat=t_val, sla=sla_val)
+                # Confidence stays in [0.50, 1.0]
+                c_val = rng.uniform(0.52, 0.98)
+                sample_confidences[rid] = create_test_confidence(rid, c_val)
+
+            snap_sample = snapshot_from_contexts(
+                contexts=sample_contexts,
+                confidences=sample_confidences,
+                scenario=self.scenario,
+                epoch=1,
+                threat_scores=sample_threats,
+            )
+            inside, viols = envelope.contains(snap_sample)
+            self.assertTrue(inside, f"Generated sample failed envelope: {viols}")
+
+            # Re-resolve and assert exact structural invariance
+            ir_sample = self.dag.resolve(
+                self.scenario, sample_threats, sample_contexts, sample_confidences, base_budget=10.0
+            )
+            self.assertEqual(ir_sample.active_variable_domain, base_domains)
+            sample_hard = sorted([(c.constraint_id, c.target_resource, c.target_action) for c in ir_sample.hard_constraints])
+            self.assertEqual(sample_hard, base_hard)
+            self.assertEqual(round(float(ir_sample.budget_constraint.max_budget), 4), base_budget)
+
+        # 2. Sample 500 snapshots that violate exactly one predicate
+        outcome_changed_count = 0
+        for i in range(500):
+            violating_snap = copy.deepcopy(base_snap)
+            pick = i % 3
+            if pick == 0:
+                # Threat crosses below 0.40 threshold for res_gw_01 (SLA Critical forbids isolate)
+                violating_snap.resources["res_gw_01"].threat_score = rng.uniform(0.10, 0.35)
+            elif pick == 1:
+                # Confidence drops below 0.50 threshold for res_server_01
+                violating_snap.resources["res_server_01"].overall_confidence = rng.uniform(0.10, 0.45)
+            else:
+                # SLA priority changed to LOW
+                violating_snap.resources["res_plc_01"].sla_priority = "LOW"
+
+            inside, viols = envelope.contains(violating_snap)
+            self.assertFalse(inside)
+            self.assertTrue(len(viols) > 0)
+
+            # Re-resolve to see if outcome changes
+            v_threats = {r: violating_snap.resources[r].threat_score for r in violating_snap.resources}
+            v_contexts = {}
+            for r in violating_snap.resources:
+                st = violating_snap.resources[r]
+                v_contexts[r] = create_test_context(r, st.resource_type, threat=st.threat_score, sla=st.sla_priority, hipaa=st.hipaa_applicable)
+            v_confidences = {r: create_test_confidence(r, violating_snap.resources[r].overall_confidence) for r in violating_snap.resources}
+
+            ir_viol = self.dag.resolve(self.scenario, v_threats, v_contexts, v_confidences, base_budget=10.0)
+            if (ir_viol.active_variable_domain != base_domains or
+                round(float(ir_viol.budget_constraint.max_budget), 4) != base_budget):
+                outcome_changed_count += 1
+
+        # Soundness requires that envelope never permits an outcome change;
+        # tightness is not 100%, so a portion of outside samples change the outcome.
+        self.assertGreater(outcome_changed_count, 0)
+
+    # 42. TOCTOU: State drift outside envelope refused; drift inside envelope accepted
+    def test_42_toctou_validity_envelope_drift_and_invariance(self):
+        base_ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(base_ir)
+        base_snap = snapshot_from_contexts(
+            contexts=self.contexts,
+            confidences=self.confidences,
+            scenario=self.scenario,
+            epoch=1,
+            threat_scores=self.threat_scores,
+        )
+
+        # Case (a): mutate a validity-relevant field so it leaves E_t
+        drift_snap = copy.deepcopy(base_snap)
+        drift_snap.resources["res_gw_01"].threat_score = 0.20  # Crosses 0.40 SLA Critical threshold
+        with self.assertRaises(StateEnvelopeViolationError):
+            FormulationCompiler.compile_to_ilp(base_ir, cert, current_snapshot=drift_snap)
+        with self.assertRaises(StateEnvelopeViolationError):
+            validate_plan_against_certified_ir({"res_gw_01": "isolate"}, base_ir, cert, current_snapshot=drift_snap)
+        with self.assertRaises(StateEnvelopeViolationError):
+            execute_plan({"res_gw_01": "isolate"}, sc_ir=base_ir, certificate=cert, current_snapshot=drift_snap)
+
+        # Case (b): mutate a field to a new value still inside E_t
+        valid_drift_snap = copy.deepcopy(base_snap)
+        valid_drift_snap.resources["res_gw_01"].threat_score = 0.88  # Still in (0.70, 1.0]
+        # Both compilation and actuation succeed without recompilation
+        res = FormulationCompiler.compile_to_ilp(base_ir, cert, current_snapshot=valid_drift_snap)
+        self.assertIsNotNone(res)
+        report = validate_plan_against_certified_ir({"res_gw_01": "isolate"}, base_ir, cert, current_snapshot=valid_drift_snap)
+        self.assertEqual(report["validated_actions"], 1)
+
+        # Case (c): mutate a non-validity-relevant field (e.g. timestamp sampled_at)
+        time_snap = copy.deepcopy(base_snap)
+        time_snap.sampled_at += 10000.0
+        res_time = FormulationCompiler.compile_to_ilp(base_ir, cert, current_snapshot=time_snap)
+        self.assertIsNotNone(res_time)
+        report_time = validate_plan_against_certified_ir({"res_gw_01": "isolate"}, base_ir, cert, current_snapshot=time_snap)
+        self.assertEqual(report_time["validated_actions"], 1)
 
 
 if __name__ == "__main__":

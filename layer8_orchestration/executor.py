@@ -77,21 +77,23 @@ def validate_plan_against_certified_ir(
     plan: Dict[str, str],
     sc_ir: SecurityConstraintIR,
     certificate: Optional[ConstraintSafetyCertificate],
+    current_snapshot: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """
     Post-solve, pre-actuation verification gate.
 
     Re-establishes the cryptographic certificate binding and confirms every action
     in the solver-produced plan lies inside the certified admissible domain and
-    within the certified regenerated budget. Raises on any violation.
+    within the certified regenerated budget. Also validates against the certified
+    validity envelope if current_snapshot is provided. Raises on any violation.
     """
     if sc_ir is None:
         raise UncertifiedActuationError(
             "Actuation rejected: no SecurityConstraintIR supplied for plan validation."
         )
 
-    # Reuse the canonical Layer 5 binding verifier (status, versions, digests).
-    FormulationCompiler.verify_binding(sc_ir, certificate)
+    # Reuse the canonical Layer 5 binding verifier (status, versions, digests, envelope).
+    FormulationCompiler.verify_binding(sc_ir, certificate, current_snapshot=current_snapshot)
 
     validated: Dict[str, str] = {}
     for rid, action in plan.items():
@@ -479,18 +481,20 @@ def execute_plan(
     resource_metadata: Optional[Dict[str, Dict[str, Any]]] = None,
     sc_ir: Optional[SecurityConstraintIR] = None,
     certificate: Optional[ConstraintSafetyCertificate] = None,
+    current_snapshot: Optional[Any] = None,
 ) -> list:
     """
     plan: {resource_id: action}
     resource_metadata: optional {resource_id: {type: ...}}
     sc_ir / certificate: when supplied, the plan is validated against the certified
-        admissible domain and budget before any actuation command is emitted.
+        admissible domain, budget, and validity envelope before any actuation command is emitted.
+    current_snapshot: optional StateSnapshot to enforce validity envelope at actuation boundary.
     Returns list of execution log records with protocol-level actuation commands.
     """
     meta_map = resource_metadata or {}
     certified = sc_ir is not None
     if certified:
-        validate_plan_against_certified_ir(plan, sc_ir, certificate)
+        validate_plan_against_certified_ir(plan, sc_ir, certificate, current_snapshot=current_snapshot)
 
     logs = [_execute_action(rid, action, resource_meta=meta_map.get(rid)) for rid, action in plan.items()]
     for log in logs:
@@ -505,12 +509,12 @@ def execute_strategy(
     resource_metadata: Optional[Dict[str, Dict[str, Any]]] = None,
     sc_ir: Optional[SecurityConstraintIR] = None,
     certificate: Optional[ConstraintSafetyCertificate] = None,
+    current_snapshot: Optional[Any] = None,
 ) -> list:
     """
     Executes a multi-step response strategy across physical and cloud actuation interfaces.
     When sc_ir is supplied, every (resource, action) the strategy would apply is validated
-    against the certified admissible domain first, so a strategy step cannot actuate an
-    action that was pruned for that resource.
+    against the certified admissible domain and validity envelope first.
     Returns a list of all log records from all steps.
     """
     all_logs = []
@@ -522,7 +526,7 @@ def execute_strategy(
     for action in strategy:
         if certified:
             validate_plan_against_certified_ir(
-                {rid: action for rid in plan}, sc_ir, certificate
+                {rid: action for rid in plan}, sc_ir, certificate, current_snapshot=current_snapshot
             )
         for resource_id in plan:
             log = _execute_action(resource_id, action, step_num, resource_meta=meta_map.get(resource_id))

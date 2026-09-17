@@ -50,6 +50,8 @@ class ConstraintSafetyCertificate:
     runtime_state_version: int = 1
     closure_digest: str = ""
     witness_digest: str = ""
+    envelope_digest: str = ""
+    validity_envelope: Optional[Any] = None
     feasibility_witness: Optional[Dict[str, str]] = None
 
     @property
@@ -282,6 +284,10 @@ class PreSolveSafetyCertifier:
         if witness is not None:
             witness_digest = hashlib.sha256(json.dumps(witness, sort_keys=True).encode("utf-8")).hexdigest()
 
+        # Extract validity envelope from IR if present
+        envelope = getattr(ir, "validity_envelope", None)
+        envelope_digest = getattr(envelope, "envelope_digest", "") if envelope else ""
+
         # Certification Determination
         all_passed = all(checks.values()) and len(violations) == 0
         status = "CERTIFIED" if all_passed else "VIOLATION_DETECTED"
@@ -289,9 +295,12 @@ class PreSolveSafetyCertifier:
         cert_id = f"CERT_{ir.incident_id}_{int(cert_time)}"
 
         # Tamper-evident cryptographic state fingerprint sealing the verified IR state
+        envelope_part = f":{envelope_digest}" if envelope_digest else ""
+        witness_part = f":{witness_digest}" if witness_digest else ""
         cert_payload = (
             f"{cert_id}:{ir_digest}:{ir.ir_version}:{ir.runtime_state_version}:"
-            f"{status}:{json.dumps(checks, sort_keys=True)}:{closure_digest}:{witness_digest}"
+            f"{status}:{json.dumps(checks, sort_keys=True)}:{closure_digest}"
+            f"{witness_part}{envelope_part}"
         )
         integrity_hash = hashlib.sha256(cert_payload.encode("utf-8")).hexdigest()
 
@@ -313,5 +322,7 @@ class PreSolveSafetyCertifier:
             runtime_state_version=ir.runtime_state_version,
             closure_digest=closure_digest,
             witness_digest=witness_digest,
+            envelope_digest=envelope_digest,
+            validity_envelope=envelope,
             feasibility_witness=witness,
         )

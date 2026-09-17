@@ -63,6 +63,11 @@ class IntegrityBindingError(Exception):
     pass
 
 
+class StateEnvelopeViolationError(Exception):
+    """Raised when runtime state drifts outside the certified validity envelope."""
+    pass
+
+
 class CompilationResult(tuple):
     """
     Two-element tuple subclass preserving backward compatibility for (model, var_lookup)
@@ -87,6 +92,7 @@ class FormulationCompiler:
     def verify_binding(
         ir: SecurityConstraintIR,
         certificate: Optional[ConstraintSafetyCertificate],
+        current_snapshot: Optional[Any] = None,
     ) -> None:
         """
         Enforces cryptographic and semantic binding between SC-IR and Safety Certificate.
@@ -138,13 +144,37 @@ class FormulationCompiler:
                 "The feasibility witness was altered after certification."
             )
 
+        # Recompute and verify envelope_digest if present
+        if getattr(certificate, "envelope_digest", ""):
+            expected_envelope_digest = ""
+            envelope = getattr(certificate, "validity_envelope", None) or getattr(ir, "validity_envelope", None)
+            if envelope is not None:
+                expected_envelope_digest = getattr(envelope, "envelope_digest", "")
+            if certificate.envelope_digest != expected_envelope_digest:
+                raise IntegrityBindingError(
+                    f"Compilation rejected: Envelope digest mismatch. "
+                    f"Certificate envelope digest '{certificate.envelope_digest[:16]}...' does not match recomputed '{expected_envelope_digest[:16]}...'. "
+                    "The validity envelope was altered after certification."
+                )
+
+        # Check current_snapshot against validity envelope if provided
+        if current_snapshot is not None:
+            envelope = getattr(certificate, "validity_envelope", None) or getattr(ir, "validity_envelope", None)
+            if envelope is not None:
+                ok, violations = envelope.contains(current_snapshot)
+                if not ok:
+                    raise StateEnvelopeViolationError(
+                        f"Compilation rejected: Current state snapshot violates certified validity envelope: {violations}"
+                    )
+
         # Recompute and verify certificate's own integrity digest
         if certificate.integrity_digest:
             witness_part = f":{certificate.witness_digest}" if certificate.witness_digest else ""
+            envelope_part = f":{certificate.envelope_digest}" if getattr(certificate, "envelope_digest", "") else ""
             expected_cert_payload = (
                 f"{certificate.certificate_id}:{certificate.ir_sha256}:{certificate.ir_version}:{certificate.runtime_state_version}:"
                 f"{certificate.status}:{json.dumps(certificate.verification_checks, sort_keys=True)}:{certificate.closure_digest}"
-                f"{witness_part}"
+                f"{witness_part}{envelope_part}"
             )
             expected_cert_hash = hashlib.sha256(expected_cert_payload.encode("utf-8")).hexdigest()
             if certificate.integrity_digest != expected_cert_hash:
@@ -180,6 +210,7 @@ class FormulationCompiler:
         lambda_invariance: float = LAMBDA_PENALTY,
         lambda_conflict: float = 8.0,
         return_manifest: bool = False,
+        current_snapshot: Optional[Any] = None,
     ) -> Union[CompilationResult, Tuple[Any, Dict[Tuple[str, str], str], SemanticManifest]]:
         """
         Compiles certified SecurityConstraintIR into a Qiskit QuadraticProgram.
@@ -188,8 +219,8 @@ class FormulationCompiler:
             sum c_i x_i + sum 2^k z_k == B
         ensuring that under-budget valid responses are not incorrectly penalized.
         """
-        # 1. Gate: Verify certificate binding
-        cls.verify_binding(ir, certificate)
+        # 1. Gate: Verify certificate binding and state envelope
+        cls.verify_binding(ir, certificate, current_snapshot=current_snapshot)
 
         if not HAS_QISKIT:
             raise RuntimeError("qiskit-optimization is required for compile_to_qubo")
@@ -352,13 +383,14 @@ class FormulationCompiler:
         ir: SecurityConstraintIR,
         certificate: Optional[ConstraintSafetyCertificate] = None,
         return_manifest: bool = False,
+        current_snapshot: Optional[Any] = None,
     ) -> Union[CompilationResult, Tuple[Any, Dict[Tuple[str, str], Any], SemanticManifest]]:
         """
         Compiles certified SecurityConstraintIR into a PuLP LpProblem model.
         Requires a valid, un-tampered PreSolve Safety Certificate.
         """
-        # 1. Gate: Verify certificate binding
-        cls.verify_binding(ir, certificate)
+        # 1. Gate: Verify certificate binding and state envelope
+        cls.verify_binding(ir, certificate, current_snapshot=current_snapshot)
 
         if not HAS_PULP:
             raise RuntimeError("PuLP is required for compile_to_ilp")

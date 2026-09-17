@@ -501,6 +501,17 @@ class ConstraintDependencyGraph:
             except Exception:
                 pass
 
+        try:
+            from layer5_constraints.validity_envelope import derive_validity_envelope
+            ir.validity_envelope = derive_validity_envelope(
+                scenario=scenario,
+                threat_scores=threat_scores,
+                contexts=contexts,
+                confidences=confidences,
+            )
+        except Exception:
+            pass
+
         prev_plan = previous_plan or {}
         resources = scenario.get("resources", [])
         all_possible_actions = set(ACTIONS.keys())
