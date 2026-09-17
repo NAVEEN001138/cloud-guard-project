@@ -201,21 +201,21 @@ For exact solvers, removing a variable and fixing it to zero yield the identical
 
 | Claim element | Implementation module | Verified by |
 |---|---|---|
-| 1(a) Validity envelope, fingerprint, epoch | `layer5_constraints/runtime_state.py`, `validity_envelope.py` | tests 40, 41, 42, 51, 52; Exp 14 ($N=1000$ churn sweep) |
-| 1(b) Structural transformation, closure, bounds | `layer5_constraints/dependency_graph.py`, `constraint_ir.py` | tests 01–08, 20, 35, 36, 38, 54; Exp 1, 3, 7 |
+| 1(a) Validity envelope, fingerprint, epoch | `layer5_constraints/runtime_state.py`, `validity_envelope.py` | tests 40, 41, 42, 51, 52, 57, 58, 60, 61; Exp 14 ($N=1000$ churn sweep) |
+| 1(b) Structural transformation, closure, bounds | `layer5_constraints/dependency_graph.py`, `constraint_ir.py` | tests 01–08, 20, 35, 36, 38, 54, 59; Exp 1, 3, 7 |
 | 1(c) Witness, certificate, digital signature | `safety_certifier.py`, `keys.py` | tests 12, 13, 16, 27, 28, 29, 30, 39, 43, 44; Exp 2, 8, 16 |
 | 1(d) Proof-carrying compiler, independent checker | `formulation_compiler.py`, `fidelity_proof.py`, `proof_checker.py` | tests 09–13, 17, 21–26, 47, 53; Exp 10, 12, 13 |
-| 1(e) Actuation verifier, device revision check | `layer8_orchestration/capability_verifier.py`, `executor.py` | tests 37, 49; Exp 15 (TOCTOU & race suite) |
+| 1(e) Actuation verifier, device revision check | `layer8_orchestration/capability_verifier.py`, `executor.py` | tests 37, 48, 49; Exp 15 (TOCTOU & race suite) |
 | 2 Least fixed point uniqueness | `dependency_graph.py` (`compute_fixed_point_closure`) | tests 01–04, 54; Exp 7 |
 | 3 ILP and QUBO backends, penalty dominance | `formulation_compiler.py`, `fidelity_proof.py` | tests 21–24, 53; Exp 13 |
 | 4 Feasibility gate, conditional repair | `layer6_optimization/feasibility_gate.py` | test 48 |
 | 5 Asymmetric signature & separated roles | `layer5_constraints/keys.py`, `safety_certifier.py` | tests 43, 44, 45, 46; Exp 16 (9 attack vectors) |
 | 6 Topology-derived typed relations | `dependency_graph.py` | tests 02, 05, 31, 35, 38 |
-| 7 Continuous intervals & discrete value sets | `validity_envelope.py` | tests 41, 42, 51, 52 |
-| 8 Incremental lineage & digest invariance | `incremental_compiler.py` | tests 14, 15, 31–34, 50; Exp 9 |
+| 7 Continuous intervals & discrete value sets | `validity_envelope.py` | tests 41, 42, 51, 52, 57, 58, 60, 61 |
+| 8 Incremental lineage & digest invariance | `incremental_compiler.py` | tests 14, 15, 31–34, 50, 62; Exp 9 |
 | 9 Protocol-specific payloads & revision check | `executor.py`, `SimulatedDeviceInterface` | test 49; `verify_system.py` Layer 8 |
 
-*All 54 unit tests pass; 10/10 layer verification passes; Experiments 1–16 execute without error (2026-09-17).*
+*All 62 unit tests pass; 10/10 layer verification passes; Experiments 1–16 execute without error (2026-09-17).*
 
 ---
 
