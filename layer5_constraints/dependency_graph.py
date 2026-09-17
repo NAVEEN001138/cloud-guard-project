@@ -468,6 +468,8 @@ class ConstraintDependencyGraph:
         explicit_dependencies: Optional[List[TypedDependencyEdge]] = None,
         runtime_state_version: int = 1,
         ir_version: int = 1,
+        state_snapshot: Optional[Any] = None,
+        state_epoch: Optional[int] = None,
     ) -> SecurityConstraintIR:
         """
         Topological execution of the constraint dependency graph with deterministic
@@ -479,6 +481,26 @@ class ConstraintDependencyGraph:
             runtime_state_version=runtime_state_version,
             creation_timestamp=time.time(),
         )
+        if state_snapshot is not None:
+            ir.state_fingerprint = state_snapshot.fingerprint()
+            ir.state_schema_id = getattr(state_snapshot, "schema_id", "cg-state-v1")
+            ir.state_epoch = getattr(state_snapshot, "epoch", 1)
+        else:
+            try:
+                from layer5_constraints.runtime_state import snapshot_from_contexts
+                snap = snapshot_from_contexts(
+                    contexts=contexts,
+                    confidences=confidences,
+                    scenario=scenario,
+                    epoch=state_epoch if state_epoch is not None else runtime_state_version,
+                    threat_scores=threat_scores,
+                )
+                ir.state_fingerprint = snap.fingerprint()
+                ir.state_schema_id = snap.schema_id
+                ir.state_epoch = snap.epoch
+            except Exception:
+                pass
+
         prev_plan = previous_plan or {}
         resources = scenario.get("resources", [])
         all_possible_actions = set(ACTIONS.keys())

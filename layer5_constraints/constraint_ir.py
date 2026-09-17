@@ -157,12 +157,18 @@ class SecurityConstraintIR:
 
     # Patent Strengthening Versioned Attributes
     ir_version: int = 1
-    runtime_state_version: int = 1
+    runtime_state_version: int = 1  # Retained for backward compatibility; state_fingerprint is authoritative
     parent_ir_version: Optional[int] = None
     creation_timestamp: float = field(default_factory=time.time)
     canonical_digest: str = ""
     regenerated_bounds: Dict[str, Any] = field(default_factory=dict)
     dependency_closure_metadata: Optional[Any] = None
+
+    # State Envelope & Epoch Tracking (Phase 1 & 2)
+    state_fingerprint: str = ""
+    state_schema_id: str = "cg-state-v1"
+    state_epoch: int = 1
+    validity_envelope: Optional[Any] = None
 
     @property
     def active_variable_domain(self) -> Dict[str, List[str]]:
@@ -228,6 +234,9 @@ class SecurityConstraintIR:
             "incident_id": self.incident_id,
             "ir_version": self.ir_version,
             "runtime_state_version": self.runtime_state_version,
+            "state_fingerprint": self.state_fingerprint,
+            "state_schema_id": self.state_schema_id,
+            "state_epoch": self.state_epoch,
             "variable_domains": {
                 k: (sorted(v.admissible_actions), sorted(v.pruned_actions))
                 for k, v in sorted(self.variable_domains.items())
