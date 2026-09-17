@@ -1,7 +1,7 @@
 {
   "benchmark_metadata": {
     "title": "System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response",
-    "timestamp": "2026-09-18T00:36:43.071639",
+    "timestamp": "2026-09-18T01:22:27.210116",
     "python_version": "3.14.0",
     "platform": "win32"
   },
@@ -14,7 +14,7 @@
         "transitively_affected_entities": 0,
         "dangling_dependencies": 1,
         "stale_conflicts": 1,
-        "runtime_ms": 0.0053,
+        "runtime_ms": 0.0056,
         "solver_infeasibility_risk": "HIGH (Unsatisfied prerequisites active in model)"
       },
       "fixed_point_closure": {
@@ -24,7 +24,7 @@
         "closure_iterations": 3,
         "dangling_dependencies": 0,
         "stale_conflicts": 0,
-        "runtime_ms": 0.0838,
+        "runtime_ms": 0.0832,
         "closure_status": "CONVERGED"
       },
       "technical_effect": "Eliminates 100% of dangling dependency references across multi-hop topological chains."
@@ -84,76 +84,76 @@
     "experiment_9_incremental_vs_full_compilation": [
       {
         "fleet_size_assets": 10,
-        "full_compile_ms": 2.854,
-        "full_compile_std_ms": 0.26,
-        "full_compile_p95_ms": 3.311,
-        "incremental_compile_ms": 2.518,
-        "incremental_compile_std_ms": 0.162,
-        "incremental_compile_p95_ms": 2.937,
+        "full_compile_ms": 2.915,
+        "full_compile_std_ms": 0.193,
+        "full_compile_p95_ms": 3.262,
+        "incremental_compile_ms": 2.637,
+        "incremental_compile_std_ms": 0.286,
+        "incremental_compile_p95_ms": 3.39,
         "trials": 30,
         "total_nodes": 10,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 43,
         "node_recompute_ratio": 0.1,
-        "latency_reduction_pct": 11.77,
+        "latency_reduction_pct": 9.54,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 50,
-        "full_compile_ms": 15.227,
-        "full_compile_std_ms": 0.934,
-        "full_compile_p95_ms": 17.423,
-        "incremental_compile_ms": 13.071,
-        "incremental_compile_std_ms": 0.342,
-        "incremental_compile_p95_ms": 13.678,
+        "full_compile_ms": 14.606,
+        "full_compile_std_ms": 0.237,
+        "full_compile_p95_ms": 15.25,
+        "incremental_compile_ms": 13.03,
+        "incremental_compile_std_ms": 0.284,
+        "incremental_compile_p95_ms": 13.56,
         "trials": 30,
         "total_nodes": 50,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 233,
         "node_recompute_ratio": 0.02,
-        "latency_reduction_pct": 14.16,
+        "latency_reduction_pct": 10.79,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 100,
-        "full_compile_ms": 35.285,
-        "full_compile_std_ms": 5.338,
-        "full_compile_p95_ms": 51.051,
-        "incremental_compile_ms": 29.699,
-        "incremental_compile_std_ms": 2.547,
-        "incremental_compile_p95_ms": 33.507,
+        "full_compile_ms": 68.674,
+        "full_compile_std_ms": 21.723,
+        "full_compile_p95_ms": 93.381,
+        "incremental_compile_ms": 66.795,
+        "incremental_compile_std_ms": 7.539,
+        "incremental_compile_p95_ms": 84.388,
         "trials": 30,
         "total_nodes": 100,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 471,
         "node_recompute_ratio": 0.01,
-        "latency_reduction_pct": 15.83,
+        "latency_reduction_pct": 2.74,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 250,
-        "full_compile_ms": 146.894,
-        "full_compile_std_ms": 16.079,
-        "full_compile_p95_ms": 167.714,
-        "incremental_compile_ms": 101.42,
-        "incremental_compile_std_ms": 10.952,
-        "incremental_compile_p95_ms": 129.409,
+        "full_compile_ms": 317.42,
+        "full_compile_std_ms": 35.977,
+        "full_compile_p95_ms": 387.457,
+        "incremental_compile_ms": 213.741,
+        "incremental_compile_std_ms": 19.031,
+        "incremental_compile_p95_ms": 248.84,
         "trials": 30,
         "total_nodes": 250,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 1183,
         "node_recompute_ratio": 0.004,
-        "latency_reduction_pct": 30.96,
+        "latency_reduction_pct": 32.66,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
@@ -634,6 +634,16 @@
             "allowed_values": [
               "()"
             ]
+          },
+          {
+            "field_path": "physical_state.mode",
+            "kind": "value_set",
+            "rule_ids": [
+              "PHYSICAL_STATE_MODE"
+            ],
+            "allowed_values": [
+              "RUN"
+            ]
           }
         ]
       },
@@ -650,7 +660,7 @@
           "upper_inclusive": true
         }
       ],
-      "envelope_digest": "342399835864a351e55d0c24152745fdb097e62d9883dfb40e69439617c349c3"
+      "envelope_digest": "69f35ddfb96d26d67dec7c2ee3cbb2d17a878996fc16264fcb5d40b8aec30269"
     },
     "witness": {
       "scada-app-03": "block_ip",

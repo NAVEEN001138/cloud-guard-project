@@ -15,7 +15,7 @@ All metrics were directly measured by executing the test suite and benchmark run
 
 | Verification Dimension | Baseline (v1 / Commit `07e9e74`) | Final (Invention Candidate v2 / Branch `unification`) | Status |
 |---|:---:|:---:|:---:|
-| Unit Test Suite (`test_patent_strengthening.py`) | 38 / 38 passed | **62 / 62 passed** | 24 new tests added, zero regressions |
+| Unit Test Suite (`test_patent_strengthening.py`) | 38 / 38 passed | **72 / 72 passed** | 34 new tests added, zero regressions |
 | End-to-End System Verification (`verify_system.py`) | 10 / 10 layers passed | **10 / 10 layers passed** | Layer 6 (checker) & Layer 8 (verifier) integrated |
 | Constraint Compiler Benchmark (`run_constraint_compiler_benchmark.py`) | Experiments 1–6 passed | **Experiments 1–6 passed** | Clean execution, zero errors |
 | Patent Strengthening Benchmark (`run_patent_strengthening_benchmark.py`) | Experiments 7–11 passed | **Experiments 7–16 passed** | 5 new experiments added (Exp 12–16), zero errors |
@@ -97,7 +97,7 @@ All metrics were directly measured by executing the test suite and benchmark run
 ### Phase 8 — Experiments 12–16, Visualizations, and CI
 - **Benchmarks implemented:** Added Experiments 12–16 in `run_patent_strengthening_benchmark.py`.
 - **Visualizations:** Added FIG. 7 (`create_figure_7()`, `patent_v2_fig7_v2_chain_and_incremental_loop.png`) to `generate_patent_figures_v2.py`.
-- **CI configuration:** Updated `.github/workflows/ci.yml` step names to reflect 62/62 tests and Experiments 7–16.
+- **CI configuration:** Updated `.github/workflows/ci.yml` step names to reflect 72/72 tests and Experiments 7–16.
 - **Deviations:** None.
 
 ### Phase 9 — Final Hardening Sprint & Architecture Freeze
@@ -463,6 +463,16 @@ Evaluated at initial state ($S_t$: PLC threat 0.85, gateway threat 0.85, SCADA H
         "allowed_values": [
           "()"
         ]
+      },
+      {
+        "field_path": "physical_state.mode",
+        "kind": "value_set",
+        "rule_ids": [
+          "PHYSICAL_STATE_MODE"
+        ],
+        "allowed_values": [
+          "RUN"
+        ]
       }
     ]
   },
@@ -479,7 +489,7 @@ Evaluated at initial state ($S_t$: PLC threat 0.85, gateway threat 0.85, SCADA H
       "upper_inclusive": true
     }
   ],
-  "envelope_digest": "342399835864a351e55d0c24152745fdb097e62d9883dfb40e69439617c349c3"
+  "envelope_digest": "69f35ddfb96d26d67dec7c2ee3cbb2d17a878996fc16264fcb5d40b8aec30269"
 }
 ```
 
@@ -571,7 +581,7 @@ The following elements are demoted from the independent claim to dependent claim
 
 ### Architectural Freeze & Verification Rigor
 - **Zero Subjective Self-Ratings:** All evaluations are purely empirical and mathematical. No subjective scorecards or self-assigned ratings exist in the repository or report.
-- **Deterministic Reproducibility:** Every quantitative metric in this report is directly reproducible by executing `pytest` (62/62 tests passing), `python verify_system.py` (10/10 layers passing), and `python run_patent_strengthening_benchmark.py` (Experiments 7–16 passing with 0 errors).
+- **Deterministic Reproducibility:** Every quantitative metric in this report is directly reproducible by executing `pytest` (72/72 tests passing), `python verify_system.py` (10/10 layers passing), and `python run_patent_strengthening_benchmark.py` (Experiments 7–16 passing with 0 errors).
 
 ---
 
