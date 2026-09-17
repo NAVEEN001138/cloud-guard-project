@@ -155,7 +155,7 @@ python run_constraint_compiler_benchmark.py
 ```bash
 python run_data_scaling_trials.py
 ```
-*Executes throttled empirical scaling trials across $N \in [2k, 4k, 10k, 50k, 100k, 1M]$ samples, verifying 0.0% forbidden action violations, 7/7 unique safety invariant checks passed, and 100.00% Constraint Compliance Rate (CCR) across all data scales under CPU throttling. See [`EMPIRICAL_SCALING_TRIALS.md`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/EMPIRICAL_SCALING_TRIALS.md).*
+*Executes throttled empirical scaling trials across $N \in [2k, 4k, 10k, 50k, 100k, 1M]$ samples, verifying 0.0% forbidden action violations, 7/7 unique safety invariant checks passed, and 100.00% Constraint Compliance Rate (CCR) across all data scales under CPU throttling. See [`EMPIRICAL_SCALING_TRIALS.md`](EMPIRICAL_SCALING_TRIALS.md).*
 
 ### 5. Run Automated Patent Strengthening Test Suite (34 Tests)
 ```bash
@@ -173,7 +173,7 @@ python run_patent_strengthening_benchmark.py
 - **Experiment 9**: Incremental vs. full compilation scaling across 10, 50, 100, 250 assets with 100% semantic equivalence (+59.9% speedup at 250 assets over 30 repeated trials).
 - **Experiment 10**: Exhaustive solver semantic fidelity (1024 discrete assignments evaluated with 100% SF on ILP and QUBO).
 - **Experiment 11**: Safety-gated experience memory with sandboxed monotonicity enforcement (0 unsafe rules admitted).
-*Outputs: [`patent_strengthening_results.json`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/patent_strengthening_results.json) and [`PATENT_STRENGTHENING_RESULTS.md`](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/PATENT_STRENGTHENING_RESULTS.md).*
+*Outputs: [`patent_strengthening_results.json`](patent_strengthening_results.json) and [`PATENT_STRENGTHENING_RESULTS.md`](PATENT_STRENGTHENING_RESULTS.md).*
 
 ### 7. Generate High-Resolution Publication & Patent Diagrams (300 DPI)
 ```bash
