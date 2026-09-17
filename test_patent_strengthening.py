@@ -2307,6 +2307,303 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
 
         self.assertGreaterEqual(len(checked_constants), 10, "Must check all core policy constants across rule modules")
 
+    # 64. Adversarial a: Forged certificate with auth_mechanism="digest-only", signature=sha256(payload), no key
+    def test_64_adversarial_a_forged_digest_only_cert_rejected(self):
+        """
+        Adversarial Vector a:
+        Forged certificate with auth_mechanism='digest-only' and signature=sha256(payload)
+        with no private key MUST be rejected by verify_signature and ActuationCapabilityVerifier.
+        """
+        import hashlib
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier, ActuationVerificationError
+
+        scen = {"scenario": "test_adv_a", "resources": [{"id": "srv1", "type": "server"}]}
+        threat = {"srv1": 0.85}
+        ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+        conf = {"srv1": create_test_confidence("srv1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+        dag = ConstraintDependencyGraph(incident_id="test_adv_a")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+
+        cert = PreSolveSafetyCertifier.certify(ir)
+        # Forge signature and mechanism: digest-only without key
+        cert.auth_mechanism = "digest-only"
+        payload = cert.compute_canonical_payload()
+        cert.signature = hashlib.sha256(payload).hexdigest()
+
+        vk = get_verifier_key()
+        # 1. verify_signature returns False
+        self.assertFalse(cert.verify_signature(vk))
+        # 2. Actuation rejects with ActuationVerificationError
+        plan = {"srv1": "isolate"}
+        with self.assertRaises(ActuationVerificationError) as cm:
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap, public_key=vk)
+        self.assertIn("Invalid certificate cryptographic signature", str(cm.exception))
+
+    # 65. Adversarial b: Empty signature rejected
+    def test_65_adversarial_b_empty_signature_rejected(self):
+        """
+        Adversarial Vector b:
+        Certificate with empty or missing signature MUST be rejected and return False.
+        """
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier, ActuationVerificationError
+
+        scen = {"scenario": "test_adv_b", "resources": [{"id": "srv1", "type": "server"}]}
+        threat = {"srv1": 0.85}
+        ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+        conf = {"srv1": create_test_confidence("srv1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+        dag = ConstraintDependencyGraph(incident_id="test_adv_b")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+
+        cert = PreSolveSafetyCertifier.certify(ir)
+        vk = get_verifier_key()
+
+        # Empty string signature
+        cert.signature = ""
+        self.assertFalse(cert.verify_signature(vk))
+        plan = {"srv1": "isolate"}
+        with self.assertRaises(ActuationVerificationError):
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap, public_key=vk)
+
+        # None signature
+        cert.signature = None
+        self.assertFalse(cert.verify_signature(vk))
+        with self.assertRaises(ActuationVerificationError):
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap, public_key=vk)
+
+    # 66. Adversarial c: Valid Ed25519 signature but auth_mechanism field altered after signing
+    def test_66_adversarial_c_altered_auth_mechanism_rejected(self):
+        """
+        Adversarial Vector c:
+        Valid Ed25519 signature, but auth_mechanism field altered after signing.
+        Because auth_mechanism is included in the signed canonical payload, verification MUST fail.
+        """
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier, ActuationVerificationError
+
+        scen = {"scenario": "test_adv_c", "resources": [{"id": "srv1", "type": "server"}]}
+        threat = {"srv1": 0.85}
+        ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+        conf = {"srv1": create_test_confidence("srv1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+        dag = ConstraintDependencyGraph(incident_id="test_adv_c")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+
+        cert = PreSolveSafetyCertifier.certify(ir)
+        vk = get_verifier_key()
+        self.assertTrue(cert.verify_signature(vk))
+
+        # Alter auth_mechanism field
+        cert.auth_mechanism = "hmac-sha256"
+        self.assertFalse(cert.verify_signature(vk))
+
+        plan = {"srv1": "isolate"}
+        with self.assertRaises(ActuationVerificationError):
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap, public_key=vk)
+
+    # 67. Adversarial d: Signed certificate with status="VIOLATION_DETECTED" presented to actuator
+    def test_67_adversarial_d_violation_detected_status_rejected(self):
+        """
+        Adversarial Vector d:
+        Signed certificate with status='VIOLATION_DETECTED' presented to actuator MUST be refused.
+        """
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier, ActuationVerificationError
+
+        scen = {"scenario": "test_adv_d", "resources": [{"id": "srv1", "type": "server"}]}
+        threat = {"srv1": 0.85}
+        ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+        conf = {"srv1": create_test_confidence("srv1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+        dag = ConstraintDependencyGraph(incident_id="test_adv_d")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+
+        cert = PreSolveSafetyCertifier.certify(ir)
+        # Even if validly signed with VIOLATION_DETECTED
+        cert.status = "VIOLATION_DETECTED"
+        ck = get_certifier_key()
+        payload = cert.compute_canonical_payload()
+        sig_hex, _ = ck.sign(payload)
+        cert.signature = sig_hex
+        cert.canonical_payload_bytes = payload
+
+        # Cryptographic signature itself is valid
+        self.assertTrue(cert.verify_signature(get_verifier_key()))
+
+        plan = {"srv1": "isolate"}
+        with self.assertRaises(ActuationVerificationError) as cm:
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+        self.assertIn("VIOLATION_DETECTED", str(cm.exception))
+        self.assertIn("expected 'CERTIFIED'", str(cm.exception))
+
+    # 68. Adversarial e: Compile and actuate with current_snapshot=None
+    def test_68_adversarial_e_compile_and_actuate_none_snapshot_rejected(self):
+        """
+        Adversarial Vector e:
+        Compiling and actuating when certificate carries an envelope but
+        current_snapshot=None MUST fail closed with 'current runtime state unavailable'.
+        """
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier, ActuationVerificationError
+
+        scen = {"scenario": "test_adv_e", "resources": [{"id": "srv1", "type": "server"}]}
+        threat = {"srv1": 0.85}
+        ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+        conf = {"srv1": create_test_confidence("srv1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+        dag = ConstraintDependencyGraph(incident_id="test_adv_e")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+
+        self.assertIsNotNone(ir.validity_envelope)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # Compiler fail-closed
+        with self.assertRaises(StateEnvelopeViolationError) as cm_comp:
+            FormulationCompiler.compile_to_ilp(ir, certificate=cert, current_snapshot=None)
+        self.assertIn("current runtime state unavailable", str(cm_comp.exception))
+
+        # Actuator fail-closed
+        plan = {"srv1": "isolate"}
+        with self.assertRaises(ActuationVerificationError) as cm_act:
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=None)
+        self.assertIn("current runtime state unavailable", str(cm_act.exception))
+
+    # 69. Adversarial f: PLC certified with no physical_state; snapshot later reports mode=MAINTENANCE
+    def test_69_adversarial_f_plc_no_physical_state_mode_maintenance_rejected(self):
+        """
+        Adversarial Vector f:
+        PLC certified with no physical_state defaults effectively to 'RUN' and emits
+        envelope predicate. When runtime snapshot subsequently reports mode=MAINTENANCE,
+        actuation MUST be refused.
+        """
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier, ActuationVerificationError
+
+        # No physical_state provided in scenario
+        scen = {"scenario": "test_adv_f", "resources": [{"id": "plc1", "type": "plc_controller"}]}
+        threat = {"plc1": 0.85}
+        ctx = {"plc1": create_test_context("plc1", "plc_controller", threat=0.85)}
+        conf = {"plc1": create_test_confidence("plc1")}
+        snap_run = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+
+        dag = ConstraintDependencyGraph(incident_id="test_adv_f")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap_run)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # Effective mode was RUN, and predicate was emitted
+        plc_preds = ir.validity_envelope.predicates.get("plc1", [])
+        mode_preds = [p for p in plc_preds if p.field_path == "physical_state.mode"]
+        self.assertEqual(len(mode_preds), 1)
+        self.assertEqual(mode_preds[0].allowed_values, {"RUN"})
+
+        # Later snapshot reports mode=MAINTENANCE
+        scen_maint = copy.deepcopy(scen)
+        scen_maint["resources"][0]["physical_state"] = {"mode": "MAINTENANCE"}
+        snap_maint = snapshot_from_contexts(ctx, conf, scen_maint, epoch=2, threat_scores=threat)
+
+        plan = {"plc1": "monitor"}
+        with self.assertRaises(ActuationVerificationError) as cm:
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap_maint)
+        self.assertIn("physical_state.mode", str(cm.exception))
+
+    # 70. Adversarial g: Plan action whose cost is absent from the manifest
+    def test_70_adversarial_g_missing_cost_action_rejected(self):
+        """
+        Adversarial Vector g:
+        Plan action whose cost is absent from the manifest MUST be refused by actuator
+        (fail-closed: 0.0 fallback deleted).
+        """
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier, ActuationVerificationError
+
+        scen = {"scenario": "test_adv_g", "resources": [{"id": "srv1", "type": "server"}]}
+        threat = {"srv1": 0.85}
+        ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+        conf = {"srv1": create_test_confidence("srv1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+
+        dag = ConstraintDependencyGraph(incident_id="test_adv_g")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # Delete cost for ("srv1", "isolate") from manifest and update digest/signature
+        cert.execution_manifest.cost_map.pop(("srv1", "isolate"), None)
+        cert.execution_manifest.cost_map.pop("srv1:isolate", None)
+        cert.manifest_digest = cert.execution_manifest.compute_digest()
+        ck = get_certifier_key()
+        payload = cert.compute_canonical_payload()
+        sig_hex, _ = ck.sign(payload)
+        cert.signature = sig_hex
+        cert.canonical_payload_bytes = payload
+
+        plan = {"srv1": "isolate"}
+        with self.assertRaises(ActuationVerificationError) as cm:
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+        self.assertIn("Missing cost for action ('srv1', 'isolate') in certified manifest", str(cm.exception))
+
+    # 71. Adversarial h: Change one entry in PHYSICAL_CAPABILITY_MAP -> POLICY_REVISION changes -> actuation refused
+    def test_71_adversarial_h_policy_manifest_mutation_rejected(self):
+        """
+        Adversarial Vector h:
+        Changing one entry in PHYSICAL_CAPABILITY_MAP changes POLICY_REVISION,
+        causing actuator to refuse actuation due to policy revision mismatch.
+        """
+        import layer5_constraints.policy_thresholds as pt
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier, ActuationVerificationError
+
+        scen = {"scenario": "test_adv_h", "resources": [{"id": "srv1", "type": "server"}]}
+        threat = {"srv1": 0.85}
+        ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+        conf = {"srv1": create_test_confidence("srv1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+
+        dag = ConstraintDependencyGraph(incident_id="test_adv_h")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        orig_caps = copy.deepcopy(pt.PHYSICAL_CAPABILITY_MAP)
+        orig_rev = pt.POLICY_REVISION
+        self.assertEqual(cert.execution_manifest.policy_revision, orig_rev)
+
+        try:
+            # Mutate one entry
+            pt.PHYSICAL_CAPABILITY_MAP["server"] = ["isolate"]
+            mutated_rev = pt.POLICY_REVISION
+            self.assertNotEqual(orig_rev, mutated_rev)
+
+            plan = {"srv1": "isolate"}
+            with self.assertRaises(ActuationVerificationError) as cm:
+                ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+            self.assertIn("Policy revision mismatch", str(cm.exception))
+        finally:
+            pt.PHYSICAL_CAPABILITY_MAP.clear()
+            pt.PHYSICAL_CAPABILITY_MAP.update(orig_caps)
+            self.assertEqual(pt.POLICY_REVISION, orig_rev)
+
+    # 72. Adversarial i: Honest path with snapshot supplied -> ACCEPT (regression)
+    def test_72_adversarial_i_honest_path_with_snapshot_accepted(self):
+        """
+        Adversarial Vector i:
+        Honest path: valid certificate with Ed25519 signature, matching current snapshot,
+        all invariant checks passed, certified plan executed -> ACCEPT.
+        """
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier
+
+        scen = {"scenario": "test_adv_i", "resources": [{"id": "srv1", "type": "server"}]}
+        threat = {"srv1": 0.85}
+        ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+        conf = {"srv1": create_test_confidence("srv1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+
+        dag = ConstraintDependencyGraph(incident_id="test_adv_i")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # Honest plan within admissible actions and budget
+        plan = {"srv1": "isolate"}
+        auth = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+        self.assertTrue(auth.is_authorized)
+        self.assertEqual(auth.authorized_actions, plan)
+        self.assertTrue(auth.domain_authenticated)
+        self.assertTrue(auth.envelope_valid)
+        self.assertTrue(auth.epoch_valid)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
