@@ -54,6 +54,39 @@ class ConstraintSafetyCertificate:
     validity_envelope: Optional[Any] = None
     feasibility_witness: Optional[Dict[str, str]] = None
 
+    # State-Envelope Certificate Payload & Signature (Phase 3)
+    auth_mechanism: str = "ed25519"
+    asset_scope: List[str] = field(default_factory=list)
+    policy_revision: str = ""
+    state_schema_id: str = "cg-state-v1"
+    state_epoch: int = 1
+    lease_policy: int = 300
+    certifier_id: str = "certifier-node-primary"
+    canonical_payload_bytes: bytes = b""
+
+    def compute_canonical_payload(self) -> bytes:
+        """
+        Recomputes the canonical payload bytes committed under the certificate signature.
+        """
+        payload_obj = {
+            "certificate_id": self.certificate_id,
+            "ir_sha256": self.ir_sha256,
+            "ir_version": self.ir_version,
+            "runtime_state_version": self.runtime_state_version,
+            "status": self.status,
+            "closure_digest": self.closure_digest,
+            "witness_digest": self.witness_digest,
+            "envelope_digest": self.envelope_digest,
+            "asset_scope": sorted(self.asset_scope or []),
+            "policy_revision": self.policy_revision,
+            "state_schema_id": self.state_schema_id,
+            "state_epoch": int(self.state_epoch),
+            "lease_policy": int(self.lease_policy),
+            "certifier_id": self.certifier_id,
+            "verification_checks": self.verification_checks,
+        }
+        return json.dumps(payload_obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
     @property
     def ir_digest(self) -> str:
         """Alias for ir_sha256 / canonical digest."""
@@ -294,17 +327,16 @@ class PreSolveSafetyCertifier:
         cert_time = time.time()
         cert_id = f"CERT_{ir.incident_id}_{int(cert_time)}"
 
-        # Tamper-evident cryptographic state fingerprint sealing the verified IR state
-        envelope_part = f":{envelope_digest}" if envelope_digest else ""
-        witness_part = f":{witness_digest}" if witness_digest else ""
-        cert_payload = (
-            f"{cert_id}:{ir_digest}:{ir.ir_version}:{ir.runtime_state_version}:"
-            f"{status}:{json.dumps(checks, sort_keys=True)}:{closure_digest}"
-            f"{witness_part}{envelope_part}"
-        )
-        integrity_hash = hashlib.sha256(cert_payload.encode("utf-8")).hexdigest()
+        # Extract metadata for Phase 3 State-Envelope Certificate
+        asset_scope = sorted(list(ir.variable_domains.keys()))
+        state_schema_id = getattr(ir, "state_schema_id", "cg-state-v1")
+        state_epoch = int(getattr(ir, "state_epoch", 1))
+        from layer5_constraints.keys import POLICY_REVISION, get_certifier_key
+        policy_revision = POLICY_REVISION
+        lease_policy = 300
+        certifier_id = "certifier-node-primary"
 
-        return ConstraintSafetyCertificate(
+        cert = ConstraintSafetyCertificate(
             certificate_id=cert_id,
             incident_id=ir.incident_id,
             ir_sha256=ir_digest,
@@ -316,8 +348,6 @@ class PreSolveSafetyCertifier:
             provenance_complete=prov_ok,
             total_variables_certified=len(ir.get_all_variables()),
             total_conflicts_verified=len(ir.conflict_hyperedges),
-            integrity_digest=integrity_hash,
-            signature=integrity_hash,
             ir_version=ir.ir_version,
             runtime_state_version=ir.runtime_state_version,
             closure_digest=closure_digest,
@@ -325,4 +355,23 @@ class PreSolveSafetyCertifier:
             envelope_digest=envelope_digest,
             validity_envelope=envelope,
             feasibility_witness=witness,
+            asset_scope=asset_scope,
+            policy_revision=policy_revision,
+            state_schema_id=state_schema_id,
+            state_epoch=state_epoch,
+            lease_policy=lease_policy,
+            certifier_id=certifier_id,
         )
+
+        canonical_payload_bytes = cert.compute_canonical_payload()
+        integrity_hash = hashlib.sha256(canonical_payload_bytes).hexdigest()
+
+        certifier_key = get_certifier_key()
+        sig_hex, auth_mech = certifier_key.sign(canonical_payload_bytes)
+
+        cert.integrity_digest = integrity_hash
+        cert.signature = sig_hex
+        cert.auth_mechanism = auth_mech
+        cert.canonical_payload_bytes = canonical_payload_bytes
+
+        return cert

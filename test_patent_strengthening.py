@@ -102,6 +102,13 @@ from layer5_constraints.runtime_state import (
     snapshot_from_contexts,
     STATE_SCHEMA_ID,
 )
+from layer5_constraints.keys import (
+    CertifierKey,
+    VerifierKey,
+    get_certifier_key,
+    get_verifier_key,
+    POLICY_REVISION,
+)
 from layer8_orchestration.executor import (
     execute_plan,
     validate_plan_against_certified_ir,
@@ -1148,6 +1155,107 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         self.assertIsNotNone(res_time)
         report_time = validate_plan_against_certified_ir({"res_gw_01": "isolate"}, base_ir, cert, current_snapshot=time_snap)
         self.assertEqual(report_time["validated_actions"], 1)
+
+    # 43. State-envelope certificate signature validity under Ed25519 / HMAC
+    def test_43_state_envelope_certificate_signature_validity(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        self.assertTrue(bool(cert.signature))
+        self.assertIn(cert.auth_mechanism, {"ed25519", "hmac-sha256"})
+        self.assertEqual(cert.asset_scope, sorted(list(ir.variable_domains.keys())))
+        self.assertEqual(cert.policy_revision, POLICY_REVISION)
+
+        # Compilation succeeds under valid signature
+        prob, ilp_lookup = FormulationCompiler.compile_to_ilp(ir, cert)
+        self.assertIsNotNone(prob)
+
+    # 44. Tampered payload fields (IR digest, closure, witness, envelope, asset_scope, policy_revision, epoch) rejected
+    def test_44_certificate_tampered_payload_fields_rejected(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # 1. Tampered IR digest
+        c1 = copy.deepcopy(cert)
+        c1.ir_sha256 = "f" * 64
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.verify_binding(ir, c1)
+
+        # 2. Tampered closure digest
+        c2 = copy.deepcopy(cert)
+        c2.closure_digest = "e" * 64
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.verify_binding(ir, c2)
+
+        # 3. Tampered witness digest
+        c3 = copy.deepcopy(cert)
+        c3.witness_digest = "d" * 64
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.verify_binding(ir, c3)
+
+        # 4. Tampered envelope digest
+        c4 = copy.deepcopy(cert)
+        c4.envelope_digest = "c" * 64
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.verify_binding(ir, c4)
+
+        # 5. Tampered asset scope
+        c5 = copy.deepcopy(cert)
+        c5.asset_scope = ["rogue_resource_99"]
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.verify_binding(ir, c5)
+
+        # 6. Tampered policy revision
+        c6 = copy.deepcopy(cert)
+        c6.policy_revision = "stale_policy_hash"
+        with self.assertRaises((IntegrityBindingError, StaleCertificateError)):
+            FormulationCompiler.verify_binding(ir, c6)
+
+        # 7. Tampered epoch
+        c7 = copy.deepcopy(cert)
+        c7.state_epoch = 999
+        with self.assertRaises((IntegrityBindingError, StaleCertificateError)):
+            FormulationCompiler.verify_binding(ir, c7)
+
+    # 45. Signature from unauthorized key is rejected
+    def test_45_certificate_unauthorized_key_signature_rejected(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # Generate an independent rogue certifier key
+        try:
+            from cryptography.hazmat.primitives.asymmetric import ed25519
+            rogue_priv = ed25519.Ed25519PrivateKey.generate()
+            rogue_key = CertifierKey(private_key=rogue_priv)
+        except Exception:
+            rogue_key = CertifierKey(hmac_secret=b"unauthorized_secret_key_12345678")
+
+        payload_bytes = cert.compute_canonical_payload()
+        rogue_sig, mech = rogue_key.sign(payload_bytes)
+        c_rogue = copy.deepcopy(cert)
+        c_rogue.signature = rogue_sig
+        c_rogue.auth_mechanism = mech
+
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.verify_binding(ir, c_rogue)
+
+    # 46. Replay of certificate against different asset scope or expired lease rejected
+    def test_46_certificate_replay_different_scope_or_incident_rejected(self):
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # 1. Different asset scope
+        ir_diff_scope = copy.deepcopy(ir)
+        ir_diff_scope.variable_domains["extra_res_01"] = VariableDomain(
+            resource_id="extra_res_01", resource_type="server", admissible_actions=["monitor"]
+        )
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.verify_binding(ir_diff_scope, cert)
+
+        # 2. Expired lease
+        c_expired = copy.deepcopy(cert)
+        c_expired.timestamp -= 600.0  # Expired > 300s lease
+        with self.assertRaises(StaleCertificateError):
+            FormulationCompiler.verify_binding(ir, c_expired)
 
 
 if __name__ == "__main__":

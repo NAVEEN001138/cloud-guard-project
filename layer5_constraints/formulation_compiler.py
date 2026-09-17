@@ -26,6 +26,7 @@ Problem Solved:
 
 import json
 import hashlib
+import time
 from typing import Dict, List, Tuple, Optional, Any, Union
 
 try:
@@ -93,6 +94,7 @@ class FormulationCompiler:
         ir: SecurityConstraintIR,
         certificate: Optional[ConstraintSafetyCertificate],
         current_snapshot: Optional[Any] = None,
+        verifier_key: Optional[Any] = None,
     ) -> None:
         """
         Enforces cryptographic and semantic binding between SC-IR and Safety Certificate.
@@ -167,8 +169,27 @@ class FormulationCompiler:
                         f"Compilation rejected: Current state snapshot violates certified validity envelope: {violations}"
                     )
 
-        # Recompute and verify certificate's own integrity digest
-        if certificate.integrity_digest:
+        # Recompute and verify certificate's own integrity digest and digital signature
+        if hasattr(certificate, "compute_canonical_payload") and getattr(certificate, "canonical_payload_bytes", b""):
+            expected_payload_bytes = certificate.compute_canonical_payload()
+            expected_cert_hash = hashlib.sha256(expected_payload_bytes).hexdigest()
+            if certificate.integrity_digest and certificate.integrity_digest != expected_cert_hash:
+                raise IntegrityBindingError(
+                    f"Compilation rejected: Certificate integrity digest mismatch. "
+                    f"Expected {expected_cert_hash[:16]}..., got {certificate.integrity_digest[:16]}... "
+                    "The safety certificate payload was altered after issuance."
+                )
+
+            # Digital signature verification using VerifierKey (public key only)
+            if certificate.signature and hasattr(certificate, "auth_mechanism"):
+                from layer5_constraints.keys import get_verifier_key
+                vk = verifier_key or get_verifier_key()
+                if not vk.verify(expected_payload_bytes, certificate.signature, certificate.auth_mechanism):
+                    raise IntegrityBindingError(
+                        "Compilation rejected: Digital signature verification failed. "
+                        "Certificate signature is invalid, was signed by an unauthorized key, or payload was tampered."
+                    )
+        elif certificate.integrity_digest:
             witness_part = f":{certificate.witness_digest}" if certificate.witness_digest else ""
             envelope_part = f":{certificate.envelope_digest}" if getattr(certificate, "envelope_digest", "") else ""
             expected_cert_payload = (
@@ -182,6 +203,32 @@ class FormulationCompiler:
                     f"Compilation rejected: Certificate integrity digest mismatch. "
                     f"Expected {expected_cert_hash[:16]}..., got {certificate.integrity_digest[:16]}... "
                     "The safety certificate payload was altered after issuance."
+                )
+
+        # Asset Scope verification: certificate must match active managed assets
+        if getattr(certificate, "asset_scope", None):
+            current_scope = sorted(list(ir.variable_domains.keys()))
+            if certificate.asset_scope != current_scope:
+                raise IntegrityBindingError(
+                    f"Compilation rejected: Asset scope mismatch. "
+                    f"Certificate asset scope {certificate.asset_scope} does not match current IR asset scope {current_scope}. "
+                    "Replay attack across different infrastructure scope detected."
+                )
+
+        # State Epoch verification
+        if getattr(certificate, "state_epoch", None) is not None and getattr(ir, "state_epoch", None) is not None:
+            if certificate.state_epoch != ir.state_epoch:
+                raise StaleCertificateError(
+                    f"Compilation rejected: State epoch mismatch. "
+                    f"Certificate epoch {certificate.state_epoch} != IR epoch {ir.state_epoch}."
+                )
+
+        # Lease Policy verification (max age seconds)
+        if getattr(certificate, "lease_policy", None) and getattr(certificate, "timestamp", None):
+            if (time.time() - certificate.timestamp) > certificate.lease_policy:
+                raise StaleCertificateError(
+                    f"Compilation rejected: Certificate lease expired "
+                    f"({time.time() - certificate.timestamp:.1f}s elapsed > {certificate.lease_policy}s allowed)."
                 )
 
         # Recompute and verify closure metadata digest if present

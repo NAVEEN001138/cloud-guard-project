@@ -36,3 +36,8 @@ Thumbs.db
 # Large third-party exports
 patentlens_*.md
 *.bak
+
+# Cryptographic Keys (Role-separated key storage)
+.keys/
+*.key
+*.pem
