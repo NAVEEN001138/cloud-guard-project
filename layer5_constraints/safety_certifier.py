@@ -385,7 +385,8 @@ class PreSolveSafetyCertifier:
         asset_scope = sorted(list(ir.variable_domains.keys()))
         state_schema_id = getattr(ir, "state_schema_id", "cg-state-v1")
         state_epoch = int(getattr(ir, "state_epoch", 1))
-        from layer5_constraints.keys import POLICY_REVISION, get_certifier_key
+        from layer5_constraints.policy_thresholds import POLICY_REVISION
+        from layer5_constraints.keys import get_certifier_key
         policy_revision = POLICY_REVISION
         lease_policy = 300
         certifier_id = "certifier-node-primary"

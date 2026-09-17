@@ -38,6 +38,15 @@ from layer5_constraints.constraint_ir import (
     TopologyMetadata,
 )
 from layer5_constraints.dependency_graph import ConstraintDependencyGraph
+from layer5_constraints.policy_thresholds import (
+    THRESHOLD_THREAT_HIGH,
+    THRESHOLD_HIPAA_MANDATE,
+    THRESHOLD_LOW_CONFIDENCE,
+    THRESHOLD_THREAT_LOW,
+    OFF_HOURS_DOWNTIME_FACTOR,
+    CONFIDENCE_ADAPTATION_THRESHOLD,
+    CONFIDENCE_PENALTY_CONTAINMENT,
+)
 from layer5_constraints.safety_certifier import PreSolveSafetyCertifier, ConstraintSafetyCertificate
 from layer5_constraints.formulation_compiler import FormulationCompiler
 
@@ -133,10 +142,10 @@ def generate_adaptive_constraints(
         weights["downtime"] *= 1.2
     else:
         weights["containment_effectiveness"] *= 1.3
-        weights["downtime"] *= 0.7
+        weights["downtime"] *= OFF_HOURS_DOWNTIME_FACTOR
 
-    if avg_conf < 0.6:
-        weights["containment_effectiveness"] *= 0.75
+    if avg_conf < CONFIDENCE_ADAPTATION_THRESHOLD:
+        weights["containment_effectiveness"] *= CONFIDENCE_PENALTY_CONTAINMENT
         weights["business_impact"] *= 1.25
 
     # --- 2. Feasible Action Matrix, Profiles & Provenance Matrix ---
@@ -175,7 +184,7 @@ def generate_adaptive_constraints(
                 ))
 
         # Compliance provenance
-        if ctx.compliance.hipaa_applicable and ctx.threat.threat_score > 0.6:
+        if ctx.compliance.hipaa_applicable and ctx.threat.threat_score > THRESHOLD_HIPAA_MANDATE:
             target_act = "isolate" if "isolate" in effective_feasible else "rotate_credentials"
             required[rid] = target_act
             provenance[rid].append(ConstraintProvenance(
@@ -186,21 +195,21 @@ def generate_adaptive_constraints(
                 rule_id="45_CFR_164_312_A1",
                 justification=(
                     "45 CFR § 164.312(a)(1) (Technical Safeguards - Access Control) requires implementation "
-                    "of technical mechanisms to restrict access to ePHI. Under system policy, threat score > 0.60 "
+                    f"of technical mechanisms to restrict access to ePHI. Under system policy, threat score > {THRESHOLD_HIPAA_MANDATE:.2f} "
                     "triggers mandatory isolation or credential rotation to comply with statutory access controls."
                 ),
             ))
 
         # SLA Critical provenance
-        if ctx.business.sla_priority == "CRITICAL" and ctx.threat.threat_score < 0.4:
-            forbidden[rid]["isolate"] = "Forbidden by SLA Critical policy when threat score < 0.4"
+        if ctx.business.sla_priority == "CRITICAL" and ctx.threat.threat_score < THRESHOLD_THREAT_LOW:
+            forbidden[rid]["isolate"] = f"Forbidden by SLA Critical policy when threat score < {THRESHOLD_THREAT_LOW:.2f}"
             provenance[rid].append(ConstraintProvenance(
                 resource_id=rid,
                 action="isolate",
                 constraint_type="FORBIDDEN",
                 origin="SLA_SERVICE_LEVEL",
                 rule_id="SLA_CRIT_AVAILABILITY_01",
-                justification="SLA Priority CRITICAL prohibits automated isolation when threat score < 0.40",
+                justification=f"SLA Priority CRITICAL prohibits automated isolation when threat score < {THRESHOLD_THREAT_LOW:.2f}",
             ))
 
         # Profile safety provenance (PLC / Medical Device)
@@ -217,16 +226,16 @@ def generate_adaptive_constraints(
             ))
 
         # Low Confidence provenance
-        if conf.overall_confidence < 0.5:
-            forbidden[rid]["isolate"] = "Forbidden: Low detection confidence (< 0.50)"
-            forbidden[rid]["disable_user"] = "Forbidden: Low detection confidence (< 0.50)"
+        if conf.overall_confidence < THRESHOLD_LOW_CONFIDENCE:
+            forbidden[rid]["isolate"] = f"Forbidden: Low detection confidence (< {THRESHOLD_LOW_CONFIDENCE:.2f})"
+            forbidden[rid]["disable_user"] = f"Forbidden: Low detection confidence (< {THRESHOLD_LOW_CONFIDENCE:.2f})"
             provenance[rid].append(ConstraintProvenance(
                 resource_id=rid,
                 action="isolate",
                 constraint_type="FORBIDDEN",
                 origin="CONFIDENCE_TIER",
                 rule_id="CONF_TIER_LOW_GATE",
-                justification=f"Detection Confidence ({conf.overall_confidence:.2f}) is in LOW tier (<0.50); High-disruption isolation restricted",
+                justification=f"Detection Confidence ({conf.overall_confidence:.2f}) is in LOW tier (<{THRESHOLD_LOW_CONFIDENCE:.2f}); High-disruption isolation restricted",
             ))
             provenance[rid].append(ConstraintProvenance(
                 resource_id=rid,
@@ -234,7 +243,7 @@ def generate_adaptive_constraints(
                 constraint_type="FORBIDDEN",
                 origin="CONFIDENCE_TIER",
                 rule_id="CONF_TIER_LOW_GATE",
-                justification=f"Detection Confidence ({conf.overall_confidence:.2f}) is in LOW tier (<0.50); Account disabling restricted",
+                justification=f"Detection Confidence ({conf.overall_confidence:.2f}) is in LOW tier (<{THRESHOLD_LOW_CONFIDENCE:.2f}); Account disabling restricted",
             ))
 
     # Build scenario structure if not provided

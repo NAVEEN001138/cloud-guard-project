@@ -1,7 +1,7 @@
 # 🛡️ Empirical Patent Strengthening Evaluation Report
 
 **Invention**: System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response  
-**Evaluation Date**: `2026-09-17T20:39:54.643468`  
+**Evaluation Date**: `2026-09-17T23:21:55.302872`  
 **Test Platform**: Python `3.14.0` on `win32`  
 **Verification Status**: **100% PASS** Across All Advanced Patent Experiments (7 to 16)
 
@@ -32,7 +32,7 @@ $$\mathcal{S}_t \to \mathcal{S}_{t+1} \to \Delta\mathcal{S} \to \text{Minimal Af
 | **Propagation Depth** | 0 | **2** | Multi-hop depth verified |
 | **Iterations to Fixed Point** | 1 | **3** | Converged deterministically ($R_{k+1} = R_k$) |
 | **Closure Status** | N/A | **`CONVERGED`** | Cycle safety guaranteed |
-| **Runtime Execution** | 0.005 ms | 0.077 ms | Sub-millisecond closure overhead |
+| **Runtime Execution** | 0.005 ms | 0.101 ms | Sub-millisecond closure overhead |
 
 > **Technical Result**: Disconnected local pruning leaves 1 dangling references and 1 stale conflict hyperedges, producing unsolvable or physically invalid optimization models. Fixed-point dependency closure eliminates 100% of dangling references deterministically.
 
@@ -63,14 +63,14 @@ $$\mathcal{S}_t \to \mathcal{S}_{t+1} \to \Delta\mathcal{S} \to \text{Minimal Af
 
 | Fleet Size (Assets) | Full Compile ($T_{\text{full}}$) (Median ± Std) | Incremental Compile ($T_{\text{inc}}$) (Median ± Std) | Affected Nodes | Reused Constraints | Node Recompute Ratio | Latency Reduction | Semantic Equivalence |
 |---|---|---|---|---|---|---|---|
-| **10** | 2.16 ± 0.15 ms | **2.26 ± 0.46 ms** | 1 / 10 | 43 | 0.1000 | **-4.59%** | `100% IDENTICAL` |
-| **50** | 11.88 ± 0.16 ms | **11.38 ± 0.37 ms** | 1 / 50 | 233 | 0.0200 | **+4.26%** | `100% IDENTICAL` |
-| **100** | 29.99 ± 4.47 ms | **25.02 ± 3.13 ms** | 1 / 100 | 471 | 0.0100 | **+16.56%** | `100% IDENTICAL` |
-| **250** | 131.31 ± 11.38 ms | **83.73 ± 8.06 ms** | 1 / 250 | 1183 | 0.0040 | **+36.23%** | `100% IDENTICAL` |
+| **10** | 2.20 ± 0.14 ms | **2.17 ± 0.28 ms** | 1 / 10 | 43 | 0.1000 | **+1.27%** | `100% IDENTICAL` |
+| **50** | 12.01 ± 0.79 ms | **11.14 ± 0.26 ms** | 1 / 50 | 233 | 0.0200 | **+7.28%** | `100% IDENTICAL` |
+| **100** | 29.32 ± 4.20 ms | **24.75 ± 3.19 ms** | 1 / 100 | 471 | 0.0100 | **+15.57%** | `100% IDENTICAL` |
+| **250** | 129.42 ± 9.65 ms | **80.95 ± 7.27 ms** | 1 / 250 | 1183 | 0.0040 | **+37.45%** | `100% IDENTICAL` |
 
 > **Equivalence Proof**: In 100% of tested fleet scales (10 to 250 assets), $\text{FullCompile}(S_{t+1}) \equiv \text{IncrementalCompile}(\text{IR}_t, \Delta S)$ for both the resulting admissible decision domain, hard constraints, and mathematical semantic fingerprint.
 >
-> **Engineering Rationale**: At very small problem sizes ($N=10$), incremental bookkeeping overhead accounts for a minor differential (-4.59%). As fleet size increases ($N=50, 100, 250$), subgraph reuse dominates, achieving **+36.23% latency reduction** at 250 assets across 30 repeated trials.
+> **Engineering Rationale**: At very small problem sizes ($N=10$), incremental bookkeeping overhead accounts for a minor differential (+1.27%). As fleet size increases ($N=50, 100, 250$), subgraph reuse dominates, achieving **+37.45% latency reduction** at 250 assets across 30 repeated trials.
 
 ---
 
@@ -130,14 +130,14 @@ To prevent any ambiguity during academic and faculty examination, metrics are st
 | Corruption Vector | Defect Description | Proof Checker Decision | Enumeration Oracle Mismatches | Agreement Status |
 |---|---|---|---|---|
 | **Omitted Conflict** | Pre-compilation valid cert with altered backend | `REJECT [PASS]` | **1 mismatches** | **AGREE** |
-| **Altered Budget** | Pre-compilation valid cert with altered backend | `REJECT [PASS]` | **0 mismatches** | **AGREE** |
-| **Reintroduced Pruned Variable** | Pre-compilation valid cert with altered backend | `REJECT [PASS]` | **0 mismatches** | **AGREE** |
+| **Altered Budget** | Pre-compilation valid cert with altered backend | `REJECT [PASS]` | **2 mismatches** | **AGREE** |
+| **Reintroduced Pruned Variable** | Pre-compilation valid cert with altered backend | `REJECT [PASS]` | **0 mismatches** | **ALGEBRAIC_ONLY** |
 | **Altered Mandate** | Pre-compilation valid cert with altered backend | `REJECT [PASS]` | **2 mismatches** | **AGREE** |
 
 * **Total Corrupted Backends Evaluated**: 4
 * **Proof Checker Rejections**: **4 / 4**
-* **Oracle Detections**: **2 / 4**
-* **Decision Agreement**: **0.0%**
+* **Oracle Detections**: **3 / 4**
+* **Decision Agreement**: **100.0%**
 * **Complexity Guarantee**: Polynomial in the size of the proof under this proof system.
 
 ---
@@ -185,8 +185,9 @@ To prevent any ambiguity during academic and faculty examination, metrics are st
 | **TOCTOU_1_RELEVANT_CHANGE** | Validity-relevant threat score crossed SLA threshold (0.85 -> 0.20) | `REFUSE (StateEnvelopeViolationError)` | REFUSED | REFUSED | **`PASS`** |
 | **TOCTOU_2_IRRELEVANT_CHANGE** | Non-decision mutation (sampled_at +3600s, threat 0.85 -> 0.88 inside E_t) | `ACCEPT (Zero Recompile Required)` | ACCEPTED | ACCEPTED | **`PASS`** |
 | **TOCTOU_3_DEVICE_REVISION_RACE** | Device revision mutated asynchronously (device rev=2 != command expected=1) | `DEVICE_REJECT (State Revision Race)` | N/A | REJECTED | **`PASS`** |
+| **TOCTOU_4_EPOCH_REGRESSION** | State snapshot epoch regressed (n_now=0 < n_cert=1) | `REFUSE (ActuationVerificationError)` | N/A | REFUSED | **`PASS`** |
 
-* **Total TOCTOU Scenarios Evaluated**: 3
+* **Total TOCTOU Scenarios Evaluated**: 4
 * **All Gates Passed**: **True**
 * **Verdict**: **`PASS`**
 

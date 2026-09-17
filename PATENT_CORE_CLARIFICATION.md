@@ -84,7 +84,7 @@ A decision variable is created **only** for $(i, a)$ with $a \in A'_i$. An inadm
 
 Removal has structural consequences. Declared typed relations (`REQUIRES`, `MANDATES`, `CONFLICTS_WITH`, `CONSUMES_RESOURCE`, `DERIVES_BOUND`, `PROTECTS_FAILSAFE`) are propagated:
 $$R_{k+1} = R_k \cup \text{DependentConsequences}(R_k), \quad \text{iterated until } R_{k+1} = R_k =: R^*_t$$
-A dependent whose prerequisite has been removed is itself removed; the iteration is deterministic and converges to a unique least fixed point regardless of evaluation order (`test_03`, `test_45`).
+A dependent whose prerequisite has been removed is itself removed; the iteration is deterministic and converges to a unique least fixed point regardless of evaluation order (`test_03`, `test_54`).
 
 ### 3.4 Bound regeneration and versioned SC-IR (620 / 540–550)
 
@@ -193,21 +193,21 @@ For exact solvers, removing a variable and fixing it to zero yield the identical
 
 | Claim element | Implementation module | Verified by |
 |---|---|---|
-| 1(a) Validity envelope, fingerprint, epoch | `layer5_constraints/runtime_state.py`, `validity_envelope.py` | tests 40–44; Exp 14 ($N=1000$ churn sweep) |
-| 1(b) Structural transformation, closure, bounds | `layer5_constraints/dependency_graph.py`, `constraint_ir.py` | tests 01–08, 20, 35, 36, 38, 45; Exp 1, 3, 7 |
-| 1(c) Witness, certificate, digital signature | `safety_certifier.py`, `keys.py` | tests 12, 13, 16, 27, 28, 29, 30, 39; Exp 2, 8, 16 |
-| 1(d) Proof-carrying compiler, independent checker | `formulation_compiler.py`, `fidelity_proof.py`, `proof_checker.py` | tests 09–13, 17, 21–26, 46, 47; Exp 10, 12, 13 |
-| 1(e) Actuation verifier, device revision check | `layer8_orchestration/capability_verifier.py`, `executor.py` | tests 37, 48, 49; Exp 15 (TOCTOU & race suite) |
-| 2 Least fixed point uniqueness | `dependency_graph.py` (`compute_fixed_point_closure`) | test 45 |
-| 3 ILP and QUBO backends, penalty dominance | `formulation_compiler.py`, `fidelity_proof.py` | tests 21–23; Exp 13 |
-| 4 Feasibility gate, conditional repair | `layer6_optimization/feasibility_gate.py` | test 47 |
-| 5 Asymmetric signature & separated roles | `layer5_constraints/keys.py`, `safety_certifier.py` | tests 12, 16, 39; Exp 16 (9 attack vectors) |
+| 1(a) Validity envelope, fingerprint, epoch | `layer5_constraints/runtime_state.py`, `validity_envelope.py` | tests 40, 41, 42, 51, 52; Exp 14 ($N=1000$ churn sweep) |
+| 1(b) Structural transformation, closure, bounds | `layer5_constraints/dependency_graph.py`, `constraint_ir.py` | tests 01–08, 20, 35, 36, 38, 54; Exp 1, 3, 7 |
+| 1(c) Witness, certificate, digital signature | `safety_certifier.py`, `keys.py` | tests 12, 13, 16, 27, 28, 29, 30, 39, 43, 44; Exp 2, 8, 16 |
+| 1(d) Proof-carrying compiler, independent checker | `formulation_compiler.py`, `fidelity_proof.py`, `proof_checker.py` | tests 09–13, 17, 21–26, 47, 53; Exp 10, 12, 13 |
+| 1(e) Actuation verifier, device revision check | `layer8_orchestration/capability_verifier.py`, `executor.py` | tests 37, 49; Exp 15 (TOCTOU & race suite) |
+| 2 Least fixed point uniqueness | `dependency_graph.py` (`compute_fixed_point_closure`) | tests 01–04, 54; Exp 7 |
+| 3 ILP and QUBO backends, penalty dominance | `formulation_compiler.py`, `fidelity_proof.py` | tests 21–24, 53; Exp 13 |
+| 4 Feasibility gate, conditional repair | `layer6_optimization/feasibility_gate.py` | test 48 |
+| 5 Asymmetric signature & separated roles | `layer5_constraints/keys.py`, `safety_certifier.py` | tests 43, 44, 45, 46; Exp 16 (9 attack vectors) |
 | 6 Topology-derived typed relations | `dependency_graph.py` | tests 02, 05, 31, 35, 38 |
-| 7 Continuous intervals & discrete value sets | `validity_envelope.py` | tests 41, 42, 43 |
-| 8 Incremental lineage & digest invariance | `incremental_compiler.py` | tests 31–34, 50; Exp 9 |
-| 9 Protocol-specific payloads & revision check | `executor.py`, `SimulatedDeviceInterface` | tests 48, 49; `verify_system.py` Layer 8 |
+| 7 Continuous intervals & discrete value sets | `validity_envelope.py` | tests 41, 42, 51, 52 |
+| 8 Incremental lineage & digest invariance | `incremental_compiler.py` | tests 14, 15, 31–34, 50; Exp 9 |
+| 9 Protocol-specific payloads & revision check | `executor.py`, `SimulatedDeviceInterface` | test 49; `verify_system.py` Layer 8 |
 
-*All 50 unit tests pass; 10/10 layer verification passes; Experiments 1–16 execute without error (2026-09-17).*
+*All 54 unit tests pass; 10/10 layer verification passes; Experiments 1–16 execute without error (2026-09-17).*
 
 ---
 
@@ -229,11 +229,11 @@ For exact solvers, removing a variable and fixing it to zero yield the identical
 
 1. Does runtime infrastructure state define a **security-decision invariance envelope** within which mathematical decisions are guaranteed invariant? (§3.1, Exp 14)
 2. Does the system **structurally transform** the optimization decision domain by excising inadmissible variables rather than penalizing them? (§3.2, Exp 1, Exp 6)
-3. Does fixed-point dependency closure converge to a **unique least fixed point** order-independently? (§3.3, test 45, Exp 7)
+3. Does fixed-point dependency closure converge to a **unique least fixed point** order-independently? (§3.3, test 54, Exp 7)
 4. Is the SC-IR certified by a **constructive feasibility witness** before any solver formulation is generated? (§3.5, test 28, test 39)
-5. Does the formulation compiler emit a **fidelity proof** verifiable by an **independent proof checker in polynomial time relative to proof size**? (§3.6, tests 46–47, Exp 12, Exp 13)
-6. Does actuation require **cryptographic certificate verification, envelope containment, and state-epoch validation**? (§3.8, tests 48–49, Exp 15)
-7. Does the device interface reject commands on **state-revision mismatch**? (§3.8, test 48, Exp 15)
+5. Does the formulation compiler emit a **fidelity proof** verifiable by an **independent proof checker in polynomial time relative to proof size**? (§3.6, tests 47, 53, Exp 12, Exp 13)
+6. Does actuation require **cryptographic certificate verification, envelope containment, and state-epoch validation**? (§3.8, test 49, Exp 15)
+7. Does the device interface reject commands on **state-revision mismatch**? (§3.8, test 49, Exp 15)
 
 ---
 

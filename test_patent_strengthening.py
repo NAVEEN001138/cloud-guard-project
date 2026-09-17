@@ -1028,8 +1028,24 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         import random
         rng = random.Random(42)
 
+        # Mixed tiers setup across resources:
+        # res_server_01 in high tier (0.85 in (0.70, 1.0])
+        # res_plc_01 in mid tier (0.65 in (0.60, 0.70])
+        # res_gw_01 in high tier (0.75 in (0.70, 1.0])
+        # Mean threat = (0.85 + 0.65 + 0.75) / 3 = 0.75 in (0.70, 1.0] -> Budget multiplier 1.3
+        threats_mixed = {
+            "res_server_01": 0.85,
+            "res_plc_01": 0.65,
+            "res_gw_01": 0.75,
+        }
+        contexts_mixed = {
+            "res_server_01": create_test_context("res_server_01", "server", threat=0.85, sla="HIGH", hipaa=True),
+            "res_plc_01": create_test_context("res_plc_01", "plc_controller", threat=0.65, sla="CRITICAL", hipaa=False),
+            "res_gw_01": create_test_context("res_gw_01", "network_gateway", threat=0.75, sla="CRITICAL", hipaa=False),
+        }
+
         base_ir = self.dag.resolve(
-            self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0
+            self.scenario, threats_mixed, contexts_mixed, self.confidences, base_budget=10.0
         )
         envelope = base_ir.validity_envelope
         self.assertIsNotNone(envelope)
@@ -1039,29 +1055,31 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         base_budget = round(float(base_ir.budget_constraint.max_budget), 4)
 
         base_snap = snapshot_from_contexts(
-            contexts=self.contexts,
+            contexts=contexts_mixed,
             confidences=self.confidences,
             scenario=self.scenario,
             epoch=1,
-            threat_scores=self.threat_scores,
+            threat_scores=threats_mixed,
         )
         in_env_ok, _ = envelope.contains(base_snap)
         self.assertTrue(in_env_ok)
 
-        # 1. Sample 500 snapshots strictly inside E_t
-        for _ in range(500):
-            sample_threats = {}
-            sample_contexts = {}
-            sample_confidences = {}
-            for rid in ["res_server_01", "res_plc_01", "res_gw_01"]:
-                # Threat stays in (0.70, 1.0]
-                t_val = rng.uniform(0.71, 0.99)
-                sample_threats[rid] = t_val
-                sla_val = "CRITICAL" if rid != "res_server_01" else "HIGH"
-                sample_contexts[rid] = create_test_context(rid, self.scenario["resources"][0]["type"], threat=t_val, sla=sla_val)
-                # Confidence stays in [0.50, 1.0]
-                c_val = rng.uniform(0.52, 0.98)
-                sample_confidences[rid] = create_test_confidence(rid, c_val)
+        # 1. Sample 500 snapshots strictly inside E_t across MIXED tiers
+        inside_count = 0
+        while inside_count < 500:
+            sample_threats = {
+                "res_server_01": rng.uniform(0.72, 0.98),  # (0.70, 1.0]
+                "res_plc_01": rng.uniform(0.61, 0.69),     # (0.60, 0.70]
+                "res_gw_01": rng.uniform(0.72, 0.98),      # (0.70, 1.0]
+            }
+            sample_contexts = {
+                r: create_test_context(r, contexts_mixed[r].asset.resource_type, threat=sample_threats[r], sla=contexts_mixed[r].business.sla_priority, hipaa=contexts_mixed[r].compliance.hipaa_applicable)
+                for r in sample_threats
+            }
+            sample_confidences = {
+                r: create_test_confidence(r, rng.uniform(0.52, 0.98))
+                for r in sample_threats
+            }
 
             snap_sample = snapshot_from_contexts(
                 contexts=sample_contexts,
@@ -1071,9 +1089,11 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
                 threat_scores=sample_threats,
             )
             inside, viols = envelope.contains(snap_sample)
-            self.assertTrue(inside, f"Generated sample failed envelope: {viols}")
+            if not inside:
+                continue
 
-            # Re-resolve and assert exact structural invariance
+            inside_count += 1
+            # Re-resolve and assert exact structural invariance and budget identity
             ir_sample = self.dag.resolve(
                 self.scenario, sample_threats, sample_contexts, sample_confidences, base_budget=10.0
             )
@@ -1086,16 +1106,19 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         outcome_changed_count = 0
         for i in range(500):
             violating_snap = copy.deepcopy(base_snap)
-            pick = i % 3
+            pick = i % 4
             if pick == 0:
                 # Threat crosses below 0.40 threshold for res_gw_01 (SLA Critical forbids isolate)
                 violating_snap.resources["res_gw_01"].threat_score = rng.uniform(0.10, 0.35)
             elif pick == 1:
                 # Confidence drops below 0.50 threshold for res_server_01
                 violating_snap.resources["res_server_01"].overall_confidence = rng.uniform(0.10, 0.45)
-            else:
+            elif pick == 2:
                 # SLA priority changed to LOW
                 violating_snap.resources["res_plc_01"].sla_priority = "LOW"
+            else:
+                # Violate aggregate mean_threat_score by dropping res_server_01 into low tier
+                violating_snap.resources["res_server_01"].threat_score = 0.20
 
             inside, viols = envelope.contains(violating_snap)
             self.assertFalse(inside)
@@ -1103,10 +1126,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
 
             # Re-resolve to see if outcome changes
             v_threats = {r: violating_snap.resources[r].threat_score for r in violating_snap.resources}
-            v_contexts = {}
-            for r in violating_snap.resources:
-                st = violating_snap.resources[r]
-                v_contexts[r] = create_test_context(r, st.resource_type, threat=st.threat_score, sla=st.sla_priority, hipaa=st.hipaa_applicable)
+            v_contexts = {r: create_test_context(r, violating_snap.resources[r].resource_type, threat=st.threat_score, sla=st.sla_priority, hipaa=st.hipaa_applicable) for r, st in violating_snap.resources.items()}
             v_confidences = {r: create_test_confidence(r, violating_snap.resources[r].overall_confidence) for r in violating_snap.resources}
 
             ir_viol = self.dag.resolve(self.scenario, v_threats, v_contexts, v_confidences, base_budget=10.0)
@@ -1117,6 +1137,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         # Soundness requires that envelope never permits an outcome change;
         # tightness is not 100%, so a portion of outside samples change the outcome.
         self.assertGreater(outcome_changed_count, 0)
+
 
     # 42. TOCTOU: State drift outside envelope refused; drift inside envelope accepted
     def test_42_toctou_validity_envelope_drift_and_invariance(self):
@@ -1580,6 +1601,178 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
                 base_budget=20.0,
                 parent_certificate=cert_2,
             )
+
+    # 51. Aggregate mean threat score envelope soundness
+    def test_51_aggregate_mean_threat_envelope_soundness(self):
+        scenario = {
+            "scenario": "mean_threat_test",
+            "resources": [
+                {"id": "res_1", "type": "server"},
+                {"id": "res_2", "type": "network_gateway"},
+            ],
+        }
+        threats_cert = {"res_1": 0.85, "res_2": 0.65}
+        contexts_cert = {
+            "res_1": create_test_context("res_1", "server", threat=0.85, sla="HIGH"),
+            "res_2": create_test_context("res_2", "network_gateway", threat=0.65, sla="HIGH"),
+        }
+        confidences = {
+            "res_1": create_test_confidence("res_1", 0.95),
+            "res_2": create_test_confidence("res_2", 0.95),
+        }
+
+        # 1. Certify at initial threats {0.85, 0.65}
+        # Mean threat = (0.85 + 0.65) / 2 = 0.75 > 0.70 -> Multiplier = 1.3
+        # Budget = 10.0 * 1.3 = 13.0
+        base_ir = self.dag.resolve(scenario, threats_cert, contexts_cert, confidences, base_budget=10.0)
+        self.assertEqual(round(float(base_ir.budget_constraint.max_budget), 2), 13.0)
+        envelope = base_ir.validity_envelope
+        self.assertIsNotNone(envelope)
+
+        # 2. Perturb to {0.71, 0.61}
+        # Notice: 0.71 is in (0.70, 1.0] and 0.61 is in (0.60, 0.70] (per-resource intervals hold)
+        # BUT perturbed mean threat = (0.71 + 0.61) / 2 = 0.66 <= 0.70 -> Multiplier drops to 1.0!
+        threats_pert = {"res_1": 0.71, "res_2": 0.61}
+        contexts_pert = {
+            "res_1": create_test_context("res_1", "server", threat=0.71, sla="HIGH"),
+            "res_2": create_test_context("res_2", "network_gateway", threat=0.61, sla="HIGH"),
+        }
+        snap_pert = snapshot_from_contexts(
+            contexts=contexts_pert,
+            confidences=confidences,
+            scenario=scenario,
+            epoch=1,
+            threat_scores=threats_pert,
+        )
+
+        # Assert envelope.contains() is FALSE because aggregate mean_threat_score left the interval
+        is_inside, violations = envelope.contains(snap_pert)
+        self.assertFalse(is_inside, "Envelope should have rejected sample due to mean_threat_score violation")
+        self.assertTrue(any("mean_threat_score" in v for v in violations))
+
+        # Re-derive budget on perturbed state: multiplier is 1.0, budget re-derives from 13.0 -> 10.0
+        ir_pert = self.dag.resolve(scenario, threats_pert, contexts_pert, confidences, base_budget=10.0)
+        self.assertEqual(round(float(ir_pert.budget_constraint.max_budget), 2), 10.0)
+
+    # 52. Policy threshold constants single source of truth verification
+    def test_52_policy_thresholds_single_source_of_truth(self):
+        import re
+        from pathlib import Path
+        root = Path(__file__).parent / "layer5_constraints"
+        target_files = ["dependency_graph.py", "adaptive_constraints.py", "validity_envelope.py"]
+        pattern = re.compile(r"\b0\.[4567]0?\b")
+
+        for fname in target_files:
+            fpath = root / fname
+            self.assertTrue(fpath.exists(), f"File {fpath} does not exist")
+            content = fpath.read_text(encoding="utf-8")
+            offending_lines = []
+            for lineno, line in enumerate(content.splitlines(), start=1):
+                stripped = line.strip()
+                if stripped.startswith("#"):
+                    continue
+                matches = pattern.findall(line)
+                if matches:
+                    offending_lines.append((lineno, line, matches))
+
+            self.assertEqual(
+                len(offending_lines), 0,
+                f"File {fname} contains literal threshold constants: {offending_lines}. "
+                "All thresholds must be imported from policy_thresholds.py."
+            )
+
+    # 53. QUBO under-sized penalty rejected by independent proof checker
+    def test_53_qubo_undersized_penalty_rejected_by_checker(self):
+        from layer5_constraints.proof_checker import IndependentProofChecker, FidelityProofError
+        ir = self.dag.resolve(self.scenario, self.threat_scores, self.contexts, self.confidences, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+        comp_qubo = FormulationCompiler.compile_to_qubo(ir, certificate=cert)
+        qp, _ = comp_qubo
+        proof = comp_qubo.fidelity_proof
+
+        # Normal verification passes
+        report = IndependentProofChecker.check(ir, qp, proof, cert)
+        self.assertTrue(report.is_valid)
+
+        # Corrupt model: reduce penalties to an under-sized value below range bound
+        recomputed_range_bound = sum(abs(t.coefficient) for t in ir.objective_terms.values())
+        corrupted_qp = copy.deepcopy(qp)
+        undersized_penalty = 0.05  # Far below recomputed_range_bound (>= 1.0)
+        corrupted_qp.lambda_conflict = undersized_penalty
+        corrupted_qp.lambda_invariance = undersized_penalty
+        quad_dict = corrupted_qp.objective.quadratic.to_dict()
+        corrupted_qp.objective.quadratic = {pair: undersized_penalty for pair in quad_dict}
+
+        # Case A: Proof matches corrupted model, but penalty is under-sized
+        undersized_proof = copy.deepcopy(proof)
+        undersized_proof.penalty_coefficient = undersized_penalty
+        undersized_proof.proof_digest = undersized_proof.compute_digest()
+
+        with self.assertRaises(FidelityProofError) as ctx_a:
+            IndependentProofChecker.check(ir, corrupted_qp, undersized_proof, cert)
+        self.assertIn("dominating penalty", str(ctx_a.exception).lower())
+
+        # Case B: Proof claims dominating penalty, but model actually contains under-sized penalty
+        with self.assertRaises(FidelityProofError) as ctx_b:
+            IndependentProofChecker.check(ir, corrupted_qp, proof, cert)
+        err_msg = str(ctx_b.exception).lower()
+        self.assertTrue("mismatch" in err_msg or "dominating penalty" in err_msg)
+
+    # 54. Least-fixed-point closure order-independence across random edge insertion permutations
+    def test_54_least_fixed_point_order_independence(self):
+        import random
+        from layer5_constraints.dependency_graph import TypedDependencyEdge, DependencyRelationType
+
+        all_vars = {
+            ("s1", "isolate"), ("s1", "monitor"), ("s1", "rotate_credentials"),
+            ("s2", "isolate"), ("s2", "monitor"),
+            ("gw1", "isolate"), ("gw1", "monitor"),
+            ("fw1", "isolate"), ("fw1", "monitor"),
+            ("db1", "isolate"), ("db1", "monitor"),
+            ("plc1", "isolate"), ("plc1", "monitor"),
+        }
+        initial_removed = {("plc1", "isolate"), ("db1", "isolate")}
+        edges = [
+            TypedDependencyEdge("gw1:isolate", "plc1:isolate", DependencyRelationType.REQUIRES, "r1"),
+            TypedDependencyEdge("s1:isolate", "gw1:isolate", DependencyRelationType.REQUIRES, "r2"),
+            TypedDependencyEdge("s2:isolate", "gw1:isolate", DependencyRelationType.REQUIRES, "r3"),
+            TypedDependencyEdge("fw1:isolate", "gw1:isolate", DependencyRelationType.REQUIRES, "r4"),
+            TypedDependencyEdge("s1:rotate_credentials", "db1:isolate", DependencyRelationType.REQUIRES, "r5"),
+        ]
+        conflicts = [
+            ("s1", "isolate", "s2", "isolate", "c1"),
+            ("gw1", "isolate", "fw1", "isolate", "c2"),
+        ]
+        cost_map = {(r, a): 1.0 for (r, a) in all_vars}
+
+        base_vars, base_confs, base_res = ConstraintDependencyGraph.compute_fixed_point_closure(
+            initial_removed=initial_removed,
+            all_variables=all_vars,
+            dependency_edges=edges,
+            conflict_pairs=conflicts,
+            cost_map=cost_map,
+            base_budget=10.0,
+        )
+        base_digest = base_res.compute_canonical_digest()
+
+        for seed in range(50):
+            rng = random.Random(seed)
+            shuffled_edges = list(edges)
+            rng.shuffle(shuffled_edges)
+            shuffled_conflicts = list(conflicts)
+            rng.shuffle(shuffled_conflicts)
+
+            vars_i, confs_i, res_i = ConstraintDependencyGraph.compute_fixed_point_closure(
+                initial_removed=initial_removed,
+                all_variables=all_vars,
+                dependency_edges=shuffled_edges,
+                conflict_pairs=shuffled_conflicts,
+                cost_map=cost_map,
+                base_budget=10.0,
+            )
+            self.assertEqual(vars_i, base_vars)
+            self.assertEqual(confs_i, base_confs)
+            self.assertEqual(res_i.compute_canonical_digest(), base_digest)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 {
   "benchmark_metadata": {
     "title": "System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response",
-    "timestamp": "2026-09-17T20:39:54.643468",
+    "timestamp": "2026-09-17T23:21:55.302872",
     "python_version": "3.14.0",
     "platform": "win32"
   },
@@ -14,7 +14,7 @@
         "transitively_affected_entities": 0,
         "dangling_dependencies": 1,
         "stale_conflicts": 1,
-        "runtime_ms": 0.0055,
+        "runtime_ms": 0.0052,
         "solver_infeasibility_risk": "HIGH (Unsatisfied prerequisites active in model)"
       },
       "fixed_point_closure": {
@@ -24,7 +24,7 @@
         "closure_iterations": 3,
         "dangling_dependencies": 0,
         "stale_conflicts": 0,
-        "runtime_ms": 0.0768,
+        "runtime_ms": 0.1009,
         "closure_status": "CONVERGED"
       },
       "technical_effect": "Eliminates 100% of dangling dependency references across multi-hop topological chains."
@@ -84,76 +84,76 @@
     "experiment_9_incremental_vs_full_compilation": [
       {
         "fleet_size_assets": 10,
-        "full_compile_ms": 2.162,
-        "full_compile_std_ms": 0.147,
-        "full_compile_p95_ms": 2.521,
-        "incremental_compile_ms": 2.262,
-        "incremental_compile_std_ms": 0.457,
-        "incremental_compile_p95_ms": 3.243,
+        "full_compile_ms": 2.203,
+        "full_compile_std_ms": 0.137,
+        "full_compile_p95_ms": 2.538,
+        "incremental_compile_ms": 2.175,
+        "incremental_compile_std_ms": 0.278,
+        "incremental_compile_p95_ms": 2.559,
         "trials": 30,
         "total_nodes": 10,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 43,
         "node_recompute_ratio": 0.1,
-        "latency_reduction_pct": -4.59,
+        "latency_reduction_pct": 1.27,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 50,
-        "full_compile_ms": 11.884,
-        "full_compile_std_ms": 0.163,
-        "full_compile_p95_ms": 12.22,
-        "incremental_compile_ms": 11.377,
-        "incremental_compile_std_ms": 0.367,
-        "incremental_compile_p95_ms": 11.855,
+        "full_compile_ms": 12.011,
+        "full_compile_std_ms": 0.792,
+        "full_compile_p95_ms": 13.414,
+        "incremental_compile_ms": 11.137,
+        "incremental_compile_std_ms": 0.257,
+        "incremental_compile_p95_ms": 11.61,
         "trials": 30,
         "total_nodes": 50,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 233,
         "node_recompute_ratio": 0.02,
-        "latency_reduction_pct": 4.26,
+        "latency_reduction_pct": 7.28,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 100,
-        "full_compile_ms": 29.987,
-        "full_compile_std_ms": 4.474,
-        "full_compile_p95_ms": 42.598,
-        "incremental_compile_ms": 25.02,
-        "incremental_compile_std_ms": 3.128,
-        "incremental_compile_p95_ms": 29.378,
+        "full_compile_ms": 29.316,
+        "full_compile_std_ms": 4.2,
+        "full_compile_p95_ms": 39.198,
+        "incremental_compile_ms": 24.752,
+        "incremental_compile_std_ms": 3.186,
+        "incremental_compile_p95_ms": 27.007,
         "trials": 30,
         "total_nodes": 100,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 471,
         "node_recompute_ratio": 0.01,
-        "latency_reduction_pct": 16.56,
+        "latency_reduction_pct": 15.57,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 250,
-        "full_compile_ms": 131.308,
-        "full_compile_std_ms": 11.382,
-        "full_compile_p95_ms": 154.039,
-        "incremental_compile_ms": 83.733,
-        "incremental_compile_std_ms": 8.059,
-        "incremental_compile_p95_ms": 101.843,
+        "full_compile_ms": 129.419,
+        "full_compile_std_ms": 9.655,
+        "full_compile_p95_ms": 151.939,
+        "incremental_compile_ms": 80.95,
+        "incremental_compile_std_ms": 7.269,
+        "incremental_compile_p95_ms": 100.502,
         "trials": 30,
         "total_nodes": 250,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 1183,
         "node_recompute_ratio": 0.004,
-        "latency_reduction_pct": 36.23,
+        "latency_reduction_pct": 37.45,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
@@ -220,8 +220,8 @@
       "experiment_name": "Experiment 12: Adversarial Compiler Suite",
       "total_corrupted_backends": 4,
       "checker_rejected_count": 4,
-      "oracle_detected_count": 2,
-      "agreement_rate_pct": 0.0,
+      "oracle_detected_count": 3,
+      "agreement_rate_pct": 100.0,
       "cases": [
         {
           "corruption_type": "Omitted Conflict",
@@ -234,10 +234,10 @@
         {
           "corruption_type": "Altered Budget",
           "checker_rejected": true,
-          "checker_reason": "PuLP budget constraint 'Operational_Budget_Ceiling' RHS mismatch: expected 13.0, got 1000.0.",
-          "oracle_detected": false,
-          "oracle_mismatches": 0,
-          "oracle_fidelity_pct": 100.0
+          "checker_reason": "PuLP budget constraint 'Operational_Budget_Ceiling' RHS mismatch: expected 13.0, got -0.0.",
+          "oracle_detected": true,
+          "oracle_mismatches": 2,
+          "oracle_fidelity_pct": 87.5
         },
         {
           "corruption_type": "Reintroduced Pruned Variable",
@@ -256,7 +256,7 @@
           "oracle_fidelity_pct": 87.5
         }
       ],
-      "verdict": "FAIL"
+      "verdict": "PASS"
     },
     "experiment_13_witness_preservation": {
       "experiment_name": "Experiment 13: Witness-to-Backend Preservation",
@@ -305,7 +305,7 @@
     },
     "experiment_15_toctou_suite": {
       "experiment_name": "Experiment 15: Time-of-Check to Time-of-Use (TOCTOU) Gating Suite",
-      "total_cases_evaluated": 3,
+      "total_cases_evaluated": 4,
       "cases": [
         {
           "case_id": "TOCTOU_1_RELEVANT_CHANGE",
@@ -328,7 +328,13 @@
           "description": "Device revision mutated asynchronously (device rev=2 != command expected=1)",
           "expected": "DEVICE_REJECT (State Revision Race)",
           "device_rejected": true,
-          "epoch_regression_refused": true,
+          "status": "PASS"
+        },
+        {
+          "case_id": "TOCTOU_4_EPOCH_REGRESSION",
+          "description": "State snapshot epoch regressed (n_now=0 < n_cert=1)",
+          "expected": "REFUSE (ActuationVerificationError)",
+          "actuation_refused": true,
           "status": "PASS"
         }
       ],
@@ -398,5 +404,270 @@
       ],
       "verdict": "PASS"
     }
+  },
+  "scada_industrial_cascade": {
+    "envelope_dict": {
+      "per_resource": {
+        "scada-app-03": [
+          {
+            "field_path": "threat_score",
+            "kind": "interval",
+            "rule_ids": [
+              "BUDGET_HIGH_SCALE",
+              "HIPAA_MANDATE_ACTIVE",
+              "SLA_RESTRICTION_ACTIVE"
+            ],
+            "lower_bound": 0.7,
+            "upper_bound": 1.0,
+            "lower_inclusive": false,
+            "upper_inclusive": true
+          },
+          {
+            "field_path": "overall_confidence",
+            "kind": "interval",
+            "rule_ids": [
+              "CONF_SUFFICIENT_UNRESTRICTED"
+            ],
+            "lower_bound": 0.5,
+            "upper_bound": 1.0,
+            "lower_inclusive": true,
+            "upper_inclusive": true
+          },
+          {
+            "field_path": "resource_type",
+            "kind": "value_set",
+            "rule_ids": [
+              "PHYSICAL_CAPABILITY_MAP"
+            ],
+            "allowed_values": [
+              "server"
+            ]
+          },
+          {
+            "field_path": "sla_priority",
+            "kind": "value_set",
+            "rule_ids": [
+              "SLA_AVAILABILITY_POLICY"
+            ],
+            "allowed_values": [
+              "HIGH"
+            ]
+          },
+          {
+            "field_path": "hipaa_applicable",
+            "kind": "value_set",
+            "rule_ids": [
+              "HIPAA_SAFEGUARD_MANDATE"
+            ],
+            "allowed_values": [
+              "False"
+            ]
+          },
+          {
+            "field_path": "requires_isolation_with",
+            "kind": "value_set",
+            "rule_ids": [
+              "TRUST_ZONE_CONTAINMENT_COUPLING"
+            ],
+            "allowed_values": [
+              "('scada-gw-02',)"
+            ]
+          },
+          {
+            "field_path": "credential_provider",
+            "kind": "value_set",
+            "rule_ids": [
+              "CREDENTIAL_PROVIDER_COUPLING"
+            ],
+            "allowed_values": [
+              "()"
+            ]
+          }
+        ],
+        "scada-gw-02": [
+          {
+            "field_path": "threat_score",
+            "kind": "interval",
+            "rule_ids": [
+              "BUDGET_HIGH_SCALE",
+              "HIPAA_MANDATE_ACTIVE",
+              "SLA_RESTRICTION_ACTIVE"
+            ],
+            "lower_bound": 0.7,
+            "upper_bound": 1.0,
+            "lower_inclusive": false,
+            "upper_inclusive": true
+          },
+          {
+            "field_path": "overall_confidence",
+            "kind": "interval",
+            "rule_ids": [
+              "CONF_SUFFICIENT_UNRESTRICTED"
+            ],
+            "lower_bound": 0.5,
+            "upper_bound": 1.0,
+            "lower_inclusive": true,
+            "upper_inclusive": true
+          },
+          {
+            "field_path": "resource_type",
+            "kind": "value_set",
+            "rule_ids": [
+              "PHYSICAL_CAPABILITY_MAP"
+            ],
+            "allowed_values": [
+              "network_gateway"
+            ]
+          },
+          {
+            "field_path": "sla_priority",
+            "kind": "value_set",
+            "rule_ids": [
+              "SLA_AVAILABILITY_POLICY"
+            ],
+            "allowed_values": [
+              "CRITICAL"
+            ]
+          },
+          {
+            "field_path": "hipaa_applicable",
+            "kind": "value_set",
+            "rule_ids": [
+              "HIPAA_SAFEGUARD_MANDATE"
+            ],
+            "allowed_values": [
+              "False"
+            ]
+          },
+          {
+            "field_path": "requires_isolation_with",
+            "kind": "value_set",
+            "rule_ids": [
+              "TRUST_ZONE_CONTAINMENT_COUPLING"
+            ],
+            "allowed_values": [
+              "('scada-plc-01',)"
+            ]
+          },
+          {
+            "field_path": "credential_provider",
+            "kind": "value_set",
+            "rule_ids": [
+              "CREDENTIAL_PROVIDER_COUPLING"
+            ],
+            "allowed_values": [
+              "()"
+            ]
+          }
+        ],
+        "scada-plc-01": [
+          {
+            "field_path": "threat_score",
+            "kind": "interval",
+            "rule_ids": [
+              "BUDGET_HIGH_SCALE",
+              "HIPAA_MANDATE_ACTIVE",
+              "SLA_RESTRICTION_ACTIVE"
+            ],
+            "lower_bound": 0.7,
+            "upper_bound": 1.0,
+            "lower_inclusive": false,
+            "upper_inclusive": true
+          },
+          {
+            "field_path": "overall_confidence",
+            "kind": "interval",
+            "rule_ids": [
+              "CONF_SUFFICIENT_UNRESTRICTED"
+            ],
+            "lower_bound": 0.5,
+            "upper_bound": 1.0,
+            "lower_inclusive": true,
+            "upper_inclusive": true
+          },
+          {
+            "field_path": "resource_type",
+            "kind": "value_set",
+            "rule_ids": [
+              "PHYSICAL_CAPABILITY_MAP"
+            ],
+            "allowed_values": [
+              "plc_controller"
+            ]
+          },
+          {
+            "field_path": "sla_priority",
+            "kind": "value_set",
+            "rule_ids": [
+              "SLA_AVAILABILITY_POLICY"
+            ],
+            "allowed_values": [
+              "CRITICAL"
+            ]
+          },
+          {
+            "field_path": "hipaa_applicable",
+            "kind": "value_set",
+            "rule_ids": [
+              "HIPAA_SAFEGUARD_MANDATE"
+            ],
+            "allowed_values": [
+              "False"
+            ]
+          },
+          {
+            "field_path": "requires_isolation_with",
+            "kind": "value_set",
+            "rule_ids": [
+              "TRUST_ZONE_CONTAINMENT_COUPLING"
+            ],
+            "allowed_values": [
+              "()"
+            ]
+          },
+          {
+            "field_path": "credential_provider",
+            "kind": "value_set",
+            "rule_ids": [
+              "CREDENTIAL_PROVIDER_COUPLING"
+            ],
+            "allowed_values": [
+              "()"
+            ]
+          }
+        ]
+      },
+      "aggregate": [
+        {
+          "field_path": "mean_threat_score",
+          "kind": "interval",
+          "rule_ids": [
+            "BUDGET_AGGREGATE_HIGH_SCALE"
+          ],
+          "lower_bound": 0.7,
+          "upper_bound": 1.0,
+          "lower_inclusive": false,
+          "upper_inclusive": true
+        }
+      ],
+      "envelope_digest": "342399835864a351e55d0c24152745fdb097e62d9883dfb40e69439617c349c3"
+    },
+    "witness": {
+      "scada-app-03": "block_ip",
+      "scada-gw-02": "block_ip",
+      "scada-plc-01": "increase_logging"
+    },
+    "range_bound": 1.4138,
+    "penalty_coefficient": 5.0,
+    "dominance_ratio": 3.5365681143018817
+  },
+  "soundness_sampling": {
+    "inside_evaluated": 500,
+    "inside_domains_identical": 500,
+    "inside_hard_identical": 500,
+    "inside_budget_identical": 500,
+    "outside_evaluated": 500,
+    "outside_outcome_modified": 375,
+    "outside_outcome_identical": 125
   }
 }

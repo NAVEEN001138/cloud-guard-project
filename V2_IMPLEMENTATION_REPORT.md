@@ -15,7 +15,7 @@ All metrics were directly measured by executing the test suite and benchmark run
 
 | Verification Dimension | Baseline (v1 / Commit `07e9e74`) | Final (Invention Candidate v2 / Branch `unification`) | Status |
 |---|:---:|:---:|:---:|
-| Unit Test Suite (`test_patent_strengthening.py`) | 38 / 38 passed | **50 / 50 passed** | 12 new tests added, zero regressions |
+| Unit Test Suite (`test_patent_strengthening.py`) | 38 / 38 passed | **54 / 54 passed** | 16 new tests added, zero regressions |
 | End-to-End System Verification (`verify_system.py`) | 10 / 10 layers passed | **10 / 10 layers passed** | Layer 6 (checker) & Layer 8 (verifier) integrated |
 | Constraint Compiler Benchmark (`run_constraint_compiler_benchmark.py`) | Experiments 1–6 passed | **Experiments 1–6 passed** | Clean execution, zero errors |
 | Patent Strengthening Benchmark (`run_patent_strengthening_benchmark.py`) | Experiments 7–11 passed | **Experiments 7–16 passed** | 5 new experiments added (Exp 12–16), zero errors |
@@ -111,29 +111,31 @@ All numbers below were computed by executing `python run_patent_strengthening_be
 
 Four corrupted backend models were synthesized from a valid certified SC-IR:
 1. **Omitted Conflict:** Dropped the conflict hyperedge between gateway isolation and PLC isolation.
-2. **Altered Budget:** Altered the budget constraint RHS from 6.5 to 10.0.
-3. **Reintroduced Pruned Variable:** Inserted variable `(plc-01, isolate)` back into the backend variable set.
-4. **Altered Mandate:** Relaxed the HIPAA mandate constraint.
+2. **Altered Budget:** Altered the budget constraint RHS to 0.0, rendering positive-cost actions infeasible.
+3. **Reintroduced Pruned Variable:** Inserted variable `(p1, isolate)` back into the backend variable set.
+4. **Altered Mandate:** Relaxed the invariance constraint by setting RHS constant to -2.0.
 
 | Adversarial Variant | Corruption Mechanism | Proof Checker Detection | Brute-Force Enumeration Oracle | Agreement |
 |---|---|:---:|:---:|:---:|
-| Variant 1 | Omitted Conflict Hyperedge | REJECTED (`FidelityProofError`) | VIOLATION DETECTED (24 feasible vs 21 in IR) | 100.0% |
-| Variant 2 | Altered Budget Constraint | REJECTED (`FidelityProofError`) | VIOLATION DETECTED (52 feasible vs 21 in IR) | 100.0% |
-| Variant 3 | Reintroduced Pruned Variable | REJECTED (`FidelityProofError`) | VIOLATION DETECTED (Illegal decision variable) | 100.0% |
-| Variant 4 | Altered Mandate Constraint | REJECTED (`FidelityProofError`) | VIOLATION DETECTED (Unconstrained assignment) | 100.0% |
+| Omitted Conflict | Altered backend model | REJECTED (`FidelityProofError`) | VIOLATION DETECTED (1 mismatch) | AGREE |
+| Altered Budget | Altered backend model | REJECTED (`FidelityProofError`) | VIOLATION DETECTED (2 mismatches) | AGREE |
+| Reintroduced Pruned Variable | Altered backend model | REJECTED (`FidelityProofError`) | TRANSPARENT (0 mismatches) | Algebraic Check Only |
+| Altered Mandate | Altered backend model | REJECTED (`FidelityProofError`) | VIOLATION DETECTED (2 mismatches) | AGREE |
 
-**Result:** The independent proof checker rejected 4 of 4 corrupted formulations prior to solver execution. 100.0% agreement with the brute-force enumeration oracle.
+**Result:** The independent proof checker rejected 4 of 4 corrupted formulations prior to solver execution (100.0% rejection rate). The brute-force enumeration oracle detected 3 of 4 (75.0%), as reintroduced pruned variables are structurally outside the certified IR decision space and transparent to active-variable enumeration, but are caught algebraically by the proof checker's variable manifest verification.
 
 ---
 
 ### Experiment 13 — Constructive Witness-to-Backend Preservation
 *Command to reproduce:* `python run_patent_strengthening_benchmark.py` (executes Experiment 13)
 
-For the `scada_industrial_cascade` instance ($|X| = 10$ active variables, 4 resources):
+For the test instance:
 - **Witness discovery:** Constructive search discovered witness $W_t \in F(\text{SC-IR})$ satisfying all hard constraints.
+  - Assignment: `{'p1': 'increase_logging', 's1': 'isolate'}`
+  - Operational cost: 0.4650
 - **ILP preservation:** $W_t \in F(M_{\text{ILP}})$ was verified directly ($z = \emptyset$).
-- **QUBO preservation:** The exact binary-slack assignment $z$ (14 slack variables across 4 constraints) was constructively evaluated:
-  - Exact binary slack values: $z_1=0, z_2=0, z_3=0, \dots$
+- **QUBO preservation:** The exact binary-slack assignment $z$ (14 slack variables) was constructively evaluated:
+  - Auxiliary slack variables: `['slack_13', 'slack_12', 'slack_11', 'slack_10', 'slack_9', 'slack_8', 'slack_7', 'slack_6', 'slack_5', 'slack_4', 'slack_3', 'slack_2', 'slack_1', 'slack_0']`
   - Evaluated penalty energy: $E_P(W_t, z) = 0.0000$.
   - Certified condition: $(W_t, z) \in F(M_{\text{QUBO}})$.
 
@@ -142,18 +144,18 @@ For the `scada_industrial_cascade` instance ($|X| = 10$ active variables, 4 reso
 ### Experiment 14 — Validity Envelope Reuse Under Telemetry Churn ($N=1000$ Samples)
 *Command to reproduce:* `python run_patent_strengthening_benchmark.py` (executes Experiment 14)
 
-From an initial certified state, 1,000 random telemetry perturbations were generated under two distributions ($N=500$ each):
-- **Distribution A (Intra-envelope jitter):** Small Gaussian noise ($\sigma = 0.02$) centered on current telemetry.
+From an initial certified state, 1000 random telemetry perturbations were generated under two distributions ($N=500$ each):
+- **Distribution A (Intra-envelope jitter):** Small Gaussian noise centered on current telemetry inside $E_t$.
 - **Distribution B (Threshold-crossing noise):** Uniform perturbations across $[0.0, 1.0]$ spanning decision boundaries.
 
 | Perturbation Distribution | Perturbations Evaluated ($N$) | Certificates Reused | Reused Fraction (%) | Recompilations Triggered | Recompilation Fraction (%) | Safety Violations in Reused Decisions |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
 | Distribution A (Intra-Envelope Jitter) | 500 | 500 | 100.0% | 0 | 0.0% | 0 / 500 (100% Invariance) |
 | Distribution B (Boundary-Crossing Noise) | 500 | 48 | 9.6% | 452 | 90.4% | 0 / 48 (100% Invariance) |
-| **Combined Telemetry Sweep** | **1,000** | **548** | **54.8%** | **452** | **45.2%** | **0 / 548 (100% Invariance)** |
-| *Fingerprint-Equality Baseline Policy* | 1,000 | 0 | 0.0% | 1,000 | 100.0% | N/A (Zero reuse permitted) |
+| **Combined Telemetry Sweep** | **1000** | **548** | **54.8%** | **452** | **45.2%** | **0 / 548 (100% Invariance)** |
+| *Fingerprint-Equality Baseline Policy* | 1000 | 0 | 0.0% | 1000 | 100.0% | N/A (Zero reuse permitted) |
 
-**Result:** The validity envelope avoided 548 recompilations out of 1,000 telemetry events (54.8% reduction in compilation overhead), whereas a strict fingerprint-equality policy permitted 0.0% reuse. In 100.0% of reused cases, ground-truth re-execution of `resolve()` confirmed zero changes in admissible domains, closure graph, or hard constraints.
+**Result:** The validity envelope avoided 548 recompilations out of 1000 telemetry events (54.8% reduction in compilation overhead), whereas a strict fingerprint-equality policy permitted 0.0% reuse. In 100.0% of reused cases, ground-truth re-execution of `resolve()` confirmed zero changes in admissible domains, closure graph, or hard constraints.
 
 ---
 
@@ -164,10 +166,10 @@ Four distinct temporal race and state mutation vectors were evaluated:
 
 | Test Vector | Evaluated Condition | Gate Evaluated | System Action | Result |
 |---|---|---|---|:---:|
-| Vector 1 | Telemetry leaves envelope (threat score $0.85 \to 0.20$) | Compiler & Actuator gates | Compilation REFUSED (`StateEnvelopeViolationError`); Actuation REFUSED | Pass |
-| Vector 2 | Telemetry mutates within envelope ($0.85 \to 0.88$, timestamp $+3600\text{s}$) | Compiler & Actuator gates | Compilation ACCEPTED; Actuation ACCEPTED without recompilation | Pass |
-| Vector 3 | Device state revision increments before command execution (simulated race) | Device interface (`SimulatedDeviceInterface`) | Command REJECTED by simulator (`status="rejected_stale_revision"`) | Pass |
-| Vector 4 | State snapshot epoch regresses ($n_{\text{now}} = 0 < n_{\text{cert}} = 1$) | Actuation capability verifier | Authorization REFUSED (`ActuationRefusalError`) | Pass |
+| Vector 1 | Validity-relevant threat score crossed SLA threshold (0.85 -> 0.20) | Compiler & Actuator gates | Compilation REFUSED (`StateEnvelopeViolationError`); Actuation REFUSED | Pass |
+| Vector 2 | Non-decision mutation (sampled_at +3600s, threat 0.85 -> 0.88 inside E_t) | Compiler & Actuator gates | Compilation ACCEPTED; Actuation ACCEPTED without recompilation | Pass |
+| Vector 3 | Device revision mutated asynchronously (device rev=2 != command expected=1) | Device interface (`SimulatedDeviceInterface`) | Command REJECTED by simulator (`status="rejected"`) | Pass |
+| Vector 4 | State snapshot epoch regressed (n_now=0 < n_cert=1) | Actuation capability verifier | Authorization REFUSED (`ActuationVerificationError`) | Pass |
 
 ---
 
@@ -178,15 +180,15 @@ Nine cryptographic and payload attack vectors were executed against `verify_bind
 
 | Attack Vector | Field Mutated / Attack Mechanism | Gate Reaction | Rejection Exception | False Accepts |
 |---|---|:---:|---|:---:|
-| 1. Tampered IR Digest | Bit-flipped `ir_digest` | REJECTED | `IntegrityBindingError` | 0 |
-| 2. Tampered Closure Digest | Bit-flipped `closure_digest` | REJECTED | `IntegrityBindingError` | 0 |
-| 3. Tampered Witness Digest | Modified feasibility assignment | REJECTED | `IntegrityBindingError` | 0 |
-| 4. Tampered Envelope Digest | Bit-flipped `envelope_digest` | REJECTED | `IntegrityBindingError` | 0 |
-| 5. Tampered Asset Scope | Appended resource to `asset_scope` | REJECTED | `IntegrityBindingError` | 0 |
-| 6. Tampered Policy Revision | Modified rule set identifier | REJECTED | `IntegrityBindingError` | 0 |
-| 7. Tampered State Epoch | Incremented `state_epoch` in payload | REJECTED | `IntegrityBindingError` | 0 |
-| 8. Unauthorized Signature Key | Signed payload with rogue private key | REJECTED | `IntegrityBindingError` | 0 |
-| 9. Cross-Incident Scope Replay | Replayed valid certificate on foreign assets | REJECTED | Scope mismatch refusal | 0 |
+| TAMPERED_IR_DIGEST | Tampered certificate payload tuple component | REJECTED | `IntegrityBindingError` | 0 |
+| TAMPERED_CLOSURE_DIGEST | Tampered certificate payload tuple component | REJECTED | `IntegrityBindingError` | 0 |
+| TAMPERED_WITNESS_DIGEST | Tampered certificate payload tuple component | REJECTED | `IntegrityBindingError` | 0 |
+| TAMPERED_ENVELOPE_DIGEST | Tampered certificate payload tuple component | REJECTED | `IntegrityBindingError` | 0 |
+| TAMPERED_ASSET_SCOPE | Tampered certificate payload tuple component | REJECTED | `IntegrityBindingError` | 0 |
+| TAMPERED_POLICY_REVISION | Tampered certificate payload tuple component | REJECTED | `IntegrityBindingError` | 0 |
+| TAMPERED_STATE_EPOCH | Tampered certificate payload tuple component | REJECTED | `IntegrityBindingError` | 0 |
+| UNAUTHORIZED_SIGNATURE | Tampered certificate payload tuple component | REJECTED | `IntegrityBindingError` | 0 |
+| INCIDENT_SCOPE_REPLAY | Tampered certificate payload tuple component | REJECTED | `IntegrityBindingError` | 0 |
 
 **Result:** 9 of 9 attack vectors rejected (100.0% rejection rate, 0 false acceptances).
 
@@ -195,81 +197,269 @@ Nine cryptographic and payload attack vectors were executed against `verify_bind
 ## 4. The Validity Envelope: SCADA Industrial Cascade & Soundness Sampling
 
 ### Exact Per-Field Predicates Produced for `scada_industrial_cascade`
-Evaluated at initial state ($S_t$: gateway threat 0.85, PLC threat 0.85, SLA `CRITICAL`, HIPAA applicable):
+Evaluated at initial state ($S_t$: PLC threat 0.85, gateway threat 0.85, SCADA HMI threat 0.85, SLA priorities `CRITICAL`/`HIGH`, HIPAA inapplicable):
 
 ```json
 {
-  "res_gw_01": [
+  "per_resource": {
+    "scada-app-03": [
+      {
+        "field_path": "threat_score",
+        "kind": "interval",
+        "rule_ids": [
+          "BUDGET_HIGH_SCALE",
+          "HIPAA_MANDATE_ACTIVE",
+          "SLA_RESTRICTION_ACTIVE"
+        ],
+        "lower_bound": 0.7,
+        "upper_bound": 1.0,
+        "lower_inclusive": false,
+        "upper_inclusive": true
+      },
+      {
+        "field_path": "overall_confidence",
+        "kind": "interval",
+        "rule_ids": [
+          "CONF_SUFFICIENT_UNRESTRICTED"
+        ],
+        "lower_bound": 0.5,
+        "upper_bound": 1.0,
+        "lower_inclusive": true,
+        "upper_inclusive": true
+      },
+      {
+        "field_path": "resource_type",
+        "kind": "value_set",
+        "rule_ids": [
+          "PHYSICAL_CAPABILITY_MAP"
+        ],
+        "allowed_values": [
+          "server"
+        ]
+      },
+      {
+        "field_path": "sla_priority",
+        "kind": "value_set",
+        "rule_ids": [
+          "SLA_AVAILABILITY_POLICY"
+        ],
+        "allowed_values": [
+          "HIGH"
+        ]
+      },
+      {
+        "field_path": "hipaa_applicable",
+        "kind": "value_set",
+        "rule_ids": [
+          "HIPAA_SAFEGUARD_MANDATE"
+        ],
+        "allowed_values": [
+          "False"
+        ]
+      },
+      {
+        "field_path": "requires_isolation_with",
+        "kind": "value_set",
+        "rule_ids": [
+          "TRUST_ZONE_CONTAINMENT_COUPLING"
+        ],
+        "allowed_values": [
+          "('scada-gw-02',)"
+        ]
+      },
+      {
+        "field_path": "credential_provider",
+        "kind": "value_set",
+        "rule_ids": [
+          "CREDENTIAL_PROVIDER_COUPLING"
+        ],
+        "allowed_values": [
+          "()"
+        ]
+      }
+    ],
+    "scada-gw-02": [
+      {
+        "field_path": "threat_score",
+        "kind": "interval",
+        "rule_ids": [
+          "BUDGET_HIGH_SCALE",
+          "HIPAA_MANDATE_ACTIVE",
+          "SLA_RESTRICTION_ACTIVE"
+        ],
+        "lower_bound": 0.7,
+        "upper_bound": 1.0,
+        "lower_inclusive": false,
+        "upper_inclusive": true
+      },
+      {
+        "field_path": "overall_confidence",
+        "kind": "interval",
+        "rule_ids": [
+          "CONF_SUFFICIENT_UNRESTRICTED"
+        ],
+        "lower_bound": 0.5,
+        "upper_bound": 1.0,
+        "lower_inclusive": true,
+        "upper_inclusive": true
+      },
+      {
+        "field_path": "resource_type",
+        "kind": "value_set",
+        "rule_ids": [
+          "PHYSICAL_CAPABILITY_MAP"
+        ],
+        "allowed_values": [
+          "network_gateway"
+        ]
+      },
+      {
+        "field_path": "sla_priority",
+        "kind": "value_set",
+        "rule_ids": [
+          "SLA_AVAILABILITY_POLICY"
+        ],
+        "allowed_values": [
+          "CRITICAL"
+        ]
+      },
+      {
+        "field_path": "hipaa_applicable",
+        "kind": "value_set",
+        "rule_ids": [
+          "HIPAA_SAFEGUARD_MANDATE"
+        ],
+        "allowed_values": [
+          "False"
+        ]
+      },
+      {
+        "field_path": "requires_isolation_with",
+        "kind": "value_set",
+        "rule_ids": [
+          "TRUST_ZONE_CONTAINMENT_COUPLING"
+        ],
+        "allowed_values": [
+          "('scada-plc-01',)"
+        ]
+      },
+      {
+        "field_path": "credential_provider",
+        "kind": "value_set",
+        "rule_ids": [
+          "CREDENTIAL_PROVIDER_COUPLING"
+        ],
+        "allowed_values": [
+          "()"
+        ]
+      }
+    ],
+    "scada-plc-01": [
+      {
+        "field_path": "threat_score",
+        "kind": "interval",
+        "rule_ids": [
+          "BUDGET_HIGH_SCALE",
+          "HIPAA_MANDATE_ACTIVE",
+          "SLA_RESTRICTION_ACTIVE"
+        ],
+        "lower_bound": 0.7,
+        "upper_bound": 1.0,
+        "lower_inclusive": false,
+        "upper_inclusive": true
+      },
+      {
+        "field_path": "overall_confidence",
+        "kind": "interval",
+        "rule_ids": [
+          "CONF_SUFFICIENT_UNRESTRICTED"
+        ],
+        "lower_bound": 0.5,
+        "upper_bound": 1.0,
+        "lower_inclusive": true,
+        "upper_inclusive": true
+      },
+      {
+        "field_path": "resource_type",
+        "kind": "value_set",
+        "rule_ids": [
+          "PHYSICAL_CAPABILITY_MAP"
+        ],
+        "allowed_values": [
+          "plc_controller"
+        ]
+      },
+      {
+        "field_path": "sla_priority",
+        "kind": "value_set",
+        "rule_ids": [
+          "SLA_AVAILABILITY_POLICY"
+        ],
+        "allowed_values": [
+          "CRITICAL"
+        ]
+      },
+      {
+        "field_path": "hipaa_applicable",
+        "kind": "value_set",
+        "rule_ids": [
+          "HIPAA_SAFEGUARD_MANDATE"
+        ],
+        "allowed_values": [
+          "False"
+        ]
+      },
+      {
+        "field_path": "requires_isolation_with",
+        "kind": "value_set",
+        "rule_ids": [
+          "TRUST_ZONE_CONTAINMENT_COUPLING"
+        ],
+        "allowed_values": [
+          "()"
+        ]
+      },
+      {
+        "field_path": "credential_provider",
+        "kind": "value_set",
+        "rule_ids": [
+          "CREDENTIAL_PROVIDER_COUPLING"
+        ],
+        "allowed_values": [
+          "()"
+        ]
+      }
+    ]
+  },
+  "aggregate": [
     {
-      "field_path": "threat_score",
+      "field_path": "mean_threat_score",
       "kind": "interval",
-      "bounds": [0.70, 1.0],
-      "rule_ids": ["threat_budget_high", "critical_sla_threat_gate"]
-    },
-    {
-      "field_path": "overall_confidence",
-      "kind": "interval",
-      "bounds": [0.50, 1.0],
-      "rule_ids": ["confidence_gate_isolate_disable"]
-    },
-    {
-      "field_path": "sla_priority",
-      "kind": "value_set",
-      "values": ["CRITICAL"],
-      "rule_ids": ["sla_critical_policy"]
-    },
-    {
-      "field_path": "hipaa_applicable",
-      "kind": "value_set",
-      "values": [true],
-      "rule_ids": ["hipaa_mandate_rule"]
-    },
-    {
-      "field_path": "business_criticality",
-      "kind": "value_set",
-      "values": ["TIER_1"],
-      "rule_ids": ["criticality_bound_rule"]
+      "rule_ids": [
+        "BUDGET_AGGREGATE_HIGH_SCALE"
+      ],
+      "lower_bound": 0.7,
+      "upper_bound": 1.0,
+      "lower_inclusive": false,
+      "upper_inclusive": true
     }
   ],
-  "res_plc_01": [
-    {
-      "field_path": "threat_score",
-      "kind": "interval",
-      "bounds": [0.70, 1.0],
-      "rule_ids": ["threat_budget_high"]
-    },
-    {
-      "field_path": "overall_confidence",
-      "kind": "interval",
-      "bounds": [0.50, 1.0],
-      "rule_ids": ["confidence_gate_isolate_disable"]
-    },
-    {
-      "field_path": "resource_type",
-      "kind": "value_set",
-      "values": ["plc_controller"],
-      "rule_ids": ["physical_capability_matrix"]
-    },
-    {
-      "field_path": "sla_priority",
-      "kind": "value_set",
-      "values": ["CRITICAL"],
-      "rule_ids": ["sla_critical_policy"]
-    }
-  ]
+  "envelope_digest": "342399835864a351e55d0c24152745fdb097e62d9883dfb40e69439617c349c3"
 }
 ```
 
 ### Soundness-Sampling Verification Results
-Measured in unit test `test_41_envelope_soundness_by_sampling`:
+Measured in unit test `test_41_validity_envelope_soundness_by_sampling`:
 - **Inside-envelope sampling:** 500 state snapshots sampled uniformly within $E_t$:
   - Admissible domains identical: **500 / 500 (100.0%)**
   - Dependency closure graphs identical: **500 / 500 (100.0%)**
   - Hard constraint sets identical: **500 / 500 (100.0%)**
   - Budget within certified bound set: **500 / 500 (100.0%)**
 - **Outside-envelope sampling:** 500 snapshots violating exactly one boundary predicate:
-  - Outcome modified: **452 / 500 (90.4%)**
-  - Outcome identical: **48 / 500 (9.6%)** (demonstrates the envelope is sound, but not minimally tight on non-binding combinations).
+  - Outcome modified: **375 / 500 (75.0%)**
+  - Outcome identical: **125 / 500 (25.0%)** (demonstrates the envelope is sound, but not minimally tight on non-binding combinations).
+
+> **Known limitations:** A reused certificate solves the objective as certified; objective coefficients may have drifted inside the envelope (safe, possibly suboptimal).
 
 ---
 
@@ -280,10 +470,10 @@ In `layer5_constraints/fidelity_proof.py` and `formulation_compiler.py`:
 - **Independent Objective Range Bound:** The maximum possible variation in the linear objective over all binary assignments is computed independently as:
   $$\Delta_{\text{obj}} = \sum_{(i, a) \in \text{variables}} |c_{ia}|$$
 - **Measured values on `scada_industrial_cascade`:**
-  - Objective range bound: $\Delta_{\text{obj}} = 2.4500$
-  - Emitted penalty coefficient: $P = 100.0000$
-  - Dominance ratio: $P / \Delta_{\text{obj}} = 40.81\times$
-  - Penalty gap: Minimum penalty energy for any infeasible assignment is $E_P \ge P \cdot 1.0 = 100.0000 \gg \Delta_{\text{obj}} = 2.4500$, proving mathematically that no infeasible assignment can produce an energy lower than a feasible assignment.
+  - Objective range bound: $\Delta_{\text{obj}} = 1.4138$
+  - Emitted penalty coefficient: $P = 5.0000$
+  - Dominance ratio: $P / \Delta_{\text{obj}} = 3.54\times$
+  - Penalty gap: Minimum penalty energy for any infeasible assignment is $E_P \ge P \cdot 1.0 = 5.0000 \gg \Delta_{\text{obj}} = 1.4138$, proving mathematically that no infeasible assignment can produce an energy lower than a feasible assignment.
 
 ---
 
@@ -300,19 +490,19 @@ In `layer5_constraints/fidelity_proof.py` and `formulation_compiler.py`:
 
 | Claim Element | Prior Code Support (v1) | Invention Candidate v2 Implementation | Supporting Tests & Experiments |
 |---|---|---|---|
-| **Claim 1(a)** Security-decision invariance envelope & state epoch | None (static state version string only) | `runtime_state.py`, `validity_envelope.py`: constructive predicate derivation, fingerprinting, epoch tracking | `test_40`–`test_43`, Exp 14 |
-| **Claim 1(b)** Structural decision-domain transformer & closure | Existed in `dependency_graph.py` | Enhanced with order-independent least fixed-point closure and single-owner bound regeneration | `test_01`–`test_08`, `test_45`, Exp 1, 7 |
-| **Claim 1(c)** Constructive witness & state-envelope certificate | Existed, but witness omitted from integrity digest; no digital signature | `safety_certifier.py`, `keys.py`: witness committed into digest; Ed25519 digital signature with role separation | `test_28`, `test_39`, `test_44`, Exp 2, 8, 16 |
-| **Claim 1(d)** Proof-carrying compiler & independent proof checker | None (compiler emitted model only; brute-force validator used as oracle) | `fidelity_proof.py`, `proof_checker.py`: explicit proof emissions, polynomial proof checker, zero compiler imports | `test_21`–`test_26`, `test_46`, Exp 10, 12, 13 |
-| **Claim 1(e)** Actuation capability verifier & device revision check | Basic check in `executor.py` | `capability_verifier.py`, `SimulatedDeviceInterface`: cryptographic verification, lease, envelope, epoch check, and device revision rejection | `test_37`, `test_48`, `test_49`, Exp 15 |
-| **Claim 2** Least fixed-point closure uniqueness | Converged, but uniqueness unverified | Formal order-independence test across randomized edge insertion orderings | `test_45` |
-| **Claim 3** QUBO dominating penalty bound certification | Fixed penalty constant | Certified objective range bound $\Delta_{\text{obj}}$ and dominating penalty check in fidelity proof | `test_21`–`test_23`, Exp 13 |
-| **Claim 4** Feasibility gate with LP-relaxation conditional repair | None | `feasibility_gate.py`: post-solve check, projection repair with witness fallback, conditional LP relaxation bound | `test_47` |
-| **Claim 5** Asymmetric digital signatures & separated roles | None (digest only) | `keys.py`: `CertifierKey` (private) vs `VerifierKey` (public) | `test_39`, `test_44`, Exp 16 |
-| **Claim 6** Topology-derived typed relations | Existed | Opt-in typed relations; bare `depends_on` derives no prerequisite | `test_35`, `test_38` |
-| **Claim 7** Continuous interval & discrete value set predicates | None | `validity_envelope.py`: single-source constructive intervals and value sets | `test_41`–`test_43` |
-| **Claim 8** Certified incremental lineage & digest invariance | Existed without lineage or digest checks | `incremental_compiler.py`: parent certificate digest chaining, clean subgraph digest invariance check | `test_34`, `test_50`, Exp 9 |
-| **Claim 9** Protocol command builders & revision check | Existed without revision check | Four protocol builders with revision parameter validated by `SimulatedDeviceInterface` | `test_48`, `test_49` |
+| **Claim 1(a)** Security-decision invariance envelope & state epoch | None (static state version string only) | `runtime_state.py`, `validity_envelope.py`: constructive predicate derivation, fingerprinting, epoch tracking | `test_40`–`test_42`, `test_51`, `test_52`, Exp 14 |
+| **Claim 1(b)** Structural decision-domain transformer & closure | Existed in `dependency_graph.py` | Enhanced with order-independent least fixed-point closure and single-owner bound regeneration | `test_01`–`test_08`, `test_20`, `test_35`, `test_36`, `test_38`, `test_54`, Exp 1, 3, 7 |
+| **Claim 1(c)** Constructive witness & state-envelope certificate | Existed, but witness omitted from integrity digest; no digital signature | `safety_certifier.py`, `keys.py`: witness committed into digest; Ed25519 digital signature with role separation | `test_12`, `test_13`, `test_16`, `test_27`, `test_28`, `test_29`, `test_30`, `test_39`, `test_43`, `test_44`, Exp 2, 8, 16 |
+| **Claim 1(d)** Proof-carrying compiler & independent proof checker | None (compiler emitted model only; brute-force validator used as oracle) | `fidelity_proof.py`, `proof_checker.py`: explicit proof emissions, polynomial proof checker, zero compiler imports | `test_09`–`test_13`, `test_17`, `test_21`–`test_26`, `test_47`, `test_53`, Exp 10, 12, 13 |
+| **Claim 1(e)** Actuation capability verifier & device revision check | Basic check in `executor.py` | `capability_verifier.py`, `SimulatedDeviceInterface`: cryptographic verification, lease, envelope, epoch check, and device revision rejection | `test_37`, `test_49`, Exp 15 |
+| **Claim 2** Least fixed-point closure uniqueness | Converged, but uniqueness unverified | Formal order-independence test across randomized edge insertion orderings | `test_01`–`test_04`, `test_54`, Exp 7 |
+| **Claim 3** QUBO dominating penalty bound certification | Fixed penalty constant | Certified objective range bound $\Delta_{\text{obj}}$ and dominating penalty check in fidelity proof | `test_21`–`test_24`, `test_53`, Exp 13 |
+| **Claim 4** Feasibility gate with LP-relaxation conditional repair | None | `feasibility_gate.py`: post-solve check, projection repair with witness fallback, conditional LP relaxation bound | `test_48` |
+| **Claim 5** Asymmetric digital signatures & separated roles | None (digest only) | `keys.py`: `CertifierKey` (private) vs `VerifierKey` (public) | `test_43`–`test_46`, Exp 16 |
+| **Claim 6** Topology-derived typed relations | Existed | Opt-in typed relations; bare `depends_on` derives no prerequisite | `test_02`, `test_05`, `test_31`, `test_35`, `test_38` |
+| **Claim 7** Continuous interval & discrete value set predicates | None | `validity_envelope.py`: single-source constructive intervals and value sets | `test_41`, `test_42`, `test_51`, `test_52` |
+| **Claim 8** Certified incremental lineage & digest invariance | Existed without lineage or digest checks | `incremental_compiler.py`: parent certificate digest chaining, clean subgraph digest invariance check | `test_14`, `test_15`, `test_31`–`test_34`, `test_50`, Exp 9 |
+| **Claim 9** Protocol command builders & revision check | Existed without revision check | Four protocol builders with revision parameter validated by `SimulatedDeviceInterface` | `test_49` |
 
 ---
 

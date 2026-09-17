@@ -24,13 +24,18 @@ import json
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Any, Tuple
 
+from layer5_constraints.policy_thresholds import (
+    THRESHOLD_THREAT_HIGH,
+    THRESHOLD_HIPAA_MANDATE,
+    THRESHOLD_LOW_CONFIDENCE,
+    THRESHOLD_THREAT_LOW,
+    ALL_THREAT_THRESHOLDS,
+    DEFAULT_THREAT_SCORE,
+)
 
-# Single canonical sources of truth for Layer 5 decision thresholds
-THRESHOLD_BUDGET_HIGH = 0.70
-THRESHOLD_HIPAA_MANDATE = 0.60
-THRESHOLD_LOW_CONFIDENCE = 0.50
-THRESHOLD_SLA_CRITICAL = 0.40
-ALL_THREAT_THRESHOLDS = sorted([THRESHOLD_SLA_CRITICAL, THRESHOLD_HIPAA_MANDATE, THRESHOLD_BUDGET_HIGH])
+# Aliases for domain readability
+THRESHOLD_BUDGET_HIGH = THRESHOLD_THREAT_HIGH
+THRESHOLD_SLA_CRITICAL = THRESHOLD_THREAT_LOW
 
 
 class StateEnvelopeViolationError(Exception):
@@ -101,9 +106,10 @@ class FieldPredicate:
 class ValidityEnvelope:
     """
     Security-decision invariance envelope E_t.
-    Conjunction of per-resource field predicates.
+    Conjunction of per-resource field predicates and fleet-level aggregate predicates.
     """
     predicates: Dict[str, List[FieldPredicate]] = field(default_factory=dict)
+    aggregate_predicates: List[FieldPredicate] = field(default_factory=list)
     envelope_digest: str = ""
 
     def __post_init__(self):
@@ -111,15 +117,29 @@ class ValidityEnvelope:
             self.envelope_digest = self.compute_digest()
 
     def compute_digest(self) -> str:
-        canon = {}
+        canon: Dict[str, Any] = {
+            "per_resource": {},
+            "aggregate": sorted([p.to_dict() for p in self.aggregate_predicates], key=lambda x: x["field_path"]),
+        }
         for rid, preds in sorted(self.predicates.items()):
-            canon[rid] = sorted([p.to_dict() for p in preds], key=lambda x: x["field_path"])
+            canon["per_resource"][rid] = sorted([p.to_dict() for p in preds], key=lambda x: x["field_path"])
         payload = json.dumps(canon, sort_keys=True, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(payload).hexdigest()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "per_resource": {
+                rid: [p.to_dict() for p in preds]
+                for rid, preds in sorted(self.predicates.items())
+            },
+            "aggregate": [p.to_dict() for p in self.aggregate_predicates],
+            "envelope_digest": self.envelope_digest,
+        }
 
     def contains(self, snapshot: Any) -> Tuple[bool, List[str]]:
         """
         Validates whether snapshot V lies strictly within E_t.
+        Checks both per-resource predicates and fleet-level aggregate predicates.
         Returns (True, []) or (False, [reasons]).
         """
         violations: List[str] = []
@@ -142,6 +162,22 @@ class ValidityEnvelope:
                         f"(rule={pred.rule_ids}, bounds=[{pred.lower_bound}, {pred.upper_bound}])"
                     )
 
+        # Fleet-level aggregate predicate evaluation (e.g. mean_threat_score)
+        threat_vals = [
+            float(r.threat_score)
+            for r in resources.values()
+            if hasattr(r, "threat_score") and r.threat_score is not None
+        ]
+        mean_threat = sum(threat_vals) / len(threat_vals) if threat_vals else DEFAULT_THREAT_SCORE
+
+        for agg_pred in self.aggregate_predicates:
+            if agg_pred.field_path == "mean_threat_score":
+                if not agg_pred.contains(mean_threat):
+                    violations.append(
+                        f"Aggregate field '{agg_pred.field_path}' value '{mean_threat:.4f}' violates predicate "
+                        f"(rule={agg_pred.rule_ids}, bounds=[{agg_pred.lower_bound}, {agg_pred.upper_bound}])"
+                    )
+
         return (len(violations) == 0), violations
 
 
@@ -153,6 +189,7 @@ def derive_validity_envelope(
 ) -> ValidityEnvelope:
     """
     Constructively derives the widest sound validity envelope for the given scenario state.
+    Emits per-resource predicates and fleet-level aggregate predicates (mean_threat_score).
     """
     resources = scenario.get("resources", []) if scenario else []
     predicates: Dict[str, List[FieldPredicate]] = {}
@@ -165,7 +202,7 @@ def derive_validity_envelope(
         preds: List[FieldPredicate] = []
 
         # 1. Threat Score Invariance Interval
-        s_i = float(threat_scores.get(rid, 0.5))
+        s_i = float(threat_scores.get(rid, DEFAULT_THREAT_SCORE))
         if s_i > THRESHOLD_BUDGET_HIGH:
             preds.append(FieldPredicate(
                 field_path="threat_score",
@@ -174,7 +211,7 @@ def derive_validity_envelope(
                 upper_bound=1.0,
                 lower_inclusive=False,
                 upper_inclusive=True,
-                rule_ids=["BUDGET_HIGH_1.30", "HIPAA_GT_060", "SLA_GE_040"],
+                rule_ids=["BUDGET_HIGH_SCALE", "HIPAA_MANDATE_ACTIVE", "SLA_RESTRICTION_ACTIVE"],
             ))
         elif s_i > THRESHOLD_HIPAA_MANDATE:
             preds.append(FieldPredicate(
@@ -184,7 +221,7 @@ def derive_validity_envelope(
                 upper_bound=THRESHOLD_BUDGET_HIGH,
                 lower_inclusive=False,
                 upper_inclusive=True,
-                rule_ids=["BUDGET_MED_1.00", "HIPAA_GT_060", "SLA_GE_040"],
+                rule_ids=["BUDGET_MED_SCALE", "HIPAA_MANDATE_ACTIVE", "SLA_RESTRICTION_ACTIVE"],
             ))
         elif s_i >= THRESHOLD_SLA_CRITICAL:
             preds.append(FieldPredicate(
@@ -194,7 +231,7 @@ def derive_validity_envelope(
                 upper_bound=THRESHOLD_HIPAA_MANDATE,
                 lower_inclusive=True,
                 upper_inclusive=True,
-                rule_ids=["BUDGET_MED_1.00", "HIPAA_LE_060", "SLA_GE_040"],
+                rule_ids=["BUDGET_MED_SCALE", "HIPAA_MANDATE_INACTIVE", "SLA_RESTRICTION_ACTIVE"],
             ))
         else:
             preds.append(FieldPredicate(
@@ -204,7 +241,7 @@ def derive_validity_envelope(
                 upper_bound=THRESHOLD_SLA_CRITICAL,
                 lower_inclusive=True,
                 upper_inclusive=False,
-                rule_ids=["BUDGET_LOW_0.80", "HIPAA_LE_060", "SLA_LT_040_FORBID_ISOLATE"],
+                rule_ids=["BUDGET_LOW_SCALE", "HIPAA_MANDATE_INACTIVE", "SLA_FORBID_ISOLATE_ACTIVE"],
             ))
 
         # 2. Overall Confidence Invariance Interval
@@ -311,4 +348,40 @@ def derive_validity_envelope(
 
         predicates[rid] = preds
 
-    return ValidityEnvelope(predicates=predicates)
+    # 8. Fleet-wide Aggregate Threat Predicate (governs average threat budget scaling)
+    all_threats = [float(v) for v in threat_scores.values()] if threat_scores else [DEFAULT_THREAT_SCORE]
+    mean_threat = sum(all_threats) / max(len(all_threats), 1)
+    aggregate_predicates: List[FieldPredicate] = []
+
+    if mean_threat > THRESHOLD_THREAT_HIGH:
+        aggregate_predicates.append(FieldPredicate(
+            field_path="mean_threat_score",
+            kind="interval",
+            lower_bound=THRESHOLD_THREAT_HIGH,
+            upper_bound=1.0,
+            lower_inclusive=False,
+            upper_inclusive=True,
+            rule_ids=["BUDGET_AGGREGATE_HIGH_SCALE"],
+        ))
+    elif mean_threat > THRESHOLD_THREAT_LOW:
+        aggregate_predicates.append(FieldPredicate(
+            field_path="mean_threat_score",
+            kind="interval",
+            lower_bound=THRESHOLD_THREAT_LOW,
+            upper_bound=THRESHOLD_THREAT_HIGH,
+            lower_inclusive=False,
+            upper_inclusive=True,
+            rule_ids=["BUDGET_AGGREGATE_MED_SCALE"],
+        ))
+    else:
+        aggregate_predicates.append(FieldPredicate(
+            field_path="mean_threat_score",
+            kind="interval",
+            lower_bound=0.0,
+            upper_bound=THRESHOLD_THREAT_LOW,
+            lower_inclusive=True,
+            upper_inclusive=True,
+            rule_ids=["BUDGET_AGGREGATE_LOW_SCALE"],
+        ))
+
+    return ValidityEnvelope(predicates=predicates, aggregate_predicates=aggregate_predicates)

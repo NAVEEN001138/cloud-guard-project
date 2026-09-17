@@ -292,17 +292,83 @@ class IndependentProofChecker:
         proof: FidelityProof,
     ) -> None:
         """Verifies that QUBO penalty structure satisfies dominating penalty obligations."""
-        if proof.penalty_coefficient is None or proof.objective_range_bound is None:
+        # (a) Recompute objective_range_bound independently from ir.objective_terms (do not trust proof)
+        recomputed_range_bound = sum(abs(t.coefficient) for t in ir.objective_terms.values())
+
+        # (b) Extract the actual penalty coefficients from the QuadraticProgram
+        quad_dict = {}
+        if hasattr(qp, "objective") and hasattr(qp.objective, "quadratic"):
+            quad_attr = qp.objective.quadratic
+            quad_dict = quad_attr.to_dict() if hasattr(quad_attr, "to_dict") else {}
+        elif hasattr(qp, "quadratic_terms"):
+            quad_dict = qp.quadratic_terms
+
+        extracted_penalties: List[float] = []
+
+        for trans in proof.constraint_translations:
+            ctype = trans.get("ir_constraint_type")
+            backend_elems = trans.get("backend_elements", [])
+
+            if ctype == "CONFLICT" and len(backend_elems) >= 2:
+                v1, v2 = backend_elems[0], backend_elems[1]
+                coeff = quad_dict.get((v1, v2), quad_dict.get((v2, v1), None))
+                if coeff is not None and coeff > 0:
+                    extracted_penalties.append(float(coeff))
+                elif hasattr(qp, "lambda_conflict"):
+                    extracted_penalties.append(float(qp.lambda_conflict))
+
+            elif ctype == "INVARIANCE" and len(backend_elems) >= 2:
+                v1, v2 = backend_elems[0], backend_elems[1]
+                coeff = quad_dict.get((v1, v2), quad_dict.get((v2, v1), None))
+                if coeff is not None and coeff > 0:
+                    extracted_penalties.append(float(coeff / 2.0))
+                elif hasattr(qp, "lambda_invariance"):
+                    extracted_penalties.append(float(qp.lambda_invariance))
+
+            elif ctype == "BUDGET":
+                b_params = trans.get("parameters", {})
+                slack_weights = b_params.get("slack_weights", [])
+                extracted_budget_pen = None
+                if len(backend_elems) >= 2 and len(slack_weights) >= 2:
+                    s0, s1 = backend_elems[0], backend_elems[1]
+                    w0, w1 = float(slack_weights[0]), float(slack_weights[1])
+                    if w0 > 0 and w1 > 0:
+                        s_coeff = quad_dict.get((s0, s1), quad_dict.get((s1, s0), None))
+                        if s_coeff is not None and s_coeff > 0:
+                            extracted_budget_pen = float(s_coeff / (2.0 * w0 * w1))
+                if extracted_budget_pen is not None:
+                    extracted_penalties.append(extracted_budget_pen)
+                elif hasattr(qp, "lambda_effective") and qp.lambda_effective:
+                    extracted_penalties.append(float(qp.lambda_effective))
+                elif hasattr(qp, "lambda_B") and hasattr(qp, "cost_scale"):
+                    extracted_penalties.append(float(qp.lambda_B / (qp.cost_scale ** 2)))
+
+        if not extracted_penalties:
+            if hasattr(qp, "lambda_conflict"):
+                extracted_penalties.append(float(qp.lambda_conflict))
+            if hasattr(qp, "lambda_invariance"):
+                extracted_penalties.append(float(qp.lambda_invariance))
+            if hasattr(qp, "lambda_effective") and qp.lambda_effective:
+                extracted_penalties.append(float(qp.lambda_effective))
+
+        if not extracted_penalties:
+            raise FidelityProofError("QUBO proof verification failed: Could not extract penalty coefficients from QuadraticProgram.")
+
+        actual_min_penalty = min(extracted_penalties)
+
+        # (c) Assert actual_min_penalty > recomputed_range_bound
+        if actual_min_penalty <= recomputed_range_bound:
             raise FidelityProofError(
-                "QUBO proof verification requires penalty_coefficient and objective_range_bound."
+                f"QUBO dominating penalty check failed: extracted minimum penalty {actual_min_penalty:.4f} <= "
+                f"recomputed objective range bound {recomputed_range_bound:.4f}. "
+                "Feasibility of the ground state is not guaranteed."
             )
 
-        # Dominating penalty check: P > Delta_obj
-        if proof.penalty_coefficient <= proof.objective_range_bound:
+        # (d) Assert proof.penalty_coefficient == actual_min_penalty
+        if proof.penalty_coefficient is None or abs(proof.penalty_coefficient - actual_min_penalty) > 1e-4:
             raise FidelityProofError(
-                f"QUBO penalty bound failed: penalty {proof.penalty_coefficient} <= "
-                f"objective range bound {proof.objective_range_bound}. "
-                "Feasibility of the ground state is not guaranteed."
+                f"QUBO proof penalty mismatch: proof reports {proof.penalty_coefficient}, "
+                f"but model actual minimum penalty is {actual_min_penalty:.4f}."
             )
 
         # Check slack variables for exact integer budget representation
@@ -313,7 +379,6 @@ class IndependentProofChecker:
             cost_scale = b_params.get("cost_scale", 1000)
             slack_weights = b_params.get("slack_weights", [])
 
-            # Verify that slack weights sum to budget_int / cost_scale
             total_slack = sum(slack_weights)
             expected_budget = budget_int / cost_scale
             if abs(total_slack - expected_budget) > 1e-4:

@@ -26,9 +26,8 @@ from pathlib import Path
 from typing import Tuple, Optional
 
 
-# Deterministic hash representing the active security policy rules and thresholds
-POLICY_RULES_CANONICAL = "CG_POLICY_RULES_V2:THRESHOLDS=[0.40,0.50,0.60,0.70]:RULES=[PHYS_CAP,BUDGET,SLA_CRITICAL,HIPAA,GDPR,PCI_DSS,CLOSURE]"
-POLICY_REVISION = hashlib.sha256(POLICY_RULES_CANONICAL.encode("utf-8")).hexdigest()[:16]
+from layer5_constraints.policy_thresholds import POLICY_REVISION
+
 
 try:
     from cryptography.hazmat.primitives.asymmetric import ed25519

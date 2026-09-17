@@ -300,6 +300,14 @@ class FormulationCompiler:
         quadratic_terms: Dict[Tuple[str, str], float] = {}
         constant: float = 0.0
 
+        # Dominating penalty requirements: compute delta_obj first
+        delta_obj = sum(abs(t.coefficient) for t in ir.objective_terms.values())
+        min_dominating_req = delta_obj + 10.0
+        if lambda_invariance <= delta_obj:
+            lambda_invariance = max(lambda_invariance, min_dominating_req)
+        if lambda_conflict <= delta_obj:
+            lambda_conflict = max(lambda_conflict, min_dominating_req)
+
         # 3. Base Objective Linear Terms from IR
         for (rid, act), term in sorted(ir.objective_terms.items()):
             if (rid, act) in var_lookup:
@@ -356,7 +364,7 @@ class FormulationCompiler:
 
             # Dominating penalty multiplier derivation
             max_obj_gain = sum(abs(t.coefficient) for t in ir.objective_terms.values()) + 10.0
-            lambda_effective = max(2.0, max_obj_gain)
+            lambda_effective = max(2.0, max_obj_gain, min_dominating_req)
             lambda_B = lambda_effective * (cost_scale ** 2)
 
             # Generate binary powers to span [0, B_int] with zero residual error
@@ -408,6 +416,8 @@ class FormulationCompiler:
         qp.budget_max = B_float
         qp.lambda_B = lambda_B
         qp.lambda_invariance = lambda_invariance
+        qp.lambda_conflict = lambda_conflict
+        qp.lambda_effective = lambda_effective if (ir.budget_constraint and ir.budget_constraint.max_budget > 0) else None
         qp.var_lookup = var_lookup
         qp.cost_map = ir.budget_constraint.cost_map.copy() if ir.budget_constraint else {}
 
@@ -499,16 +509,11 @@ class FormulationCompiler:
                 })
 
         delta_obj = sum(abs(t.coefficient) for t in ir.objective_terms.values())
-        min_penalty = min(
-            lambda_invariance,
-            lambda_conflict,
-            (lambda_B / (cost_scale ** 2)) if ir.budget_constraint and ir.budget_constraint.max_budget > 0 else float("inf")
-        )
-        if min_penalty == float("inf"):
-            min_penalty = min(lambda_invariance, lambda_conflict)
-
-        # Ensure dominating penalty P > delta_obj
-        penalty_coeff = max(min_penalty, delta_obj + 10.0)
+        applied_penalties = [lambda_invariance, lambda_conflict]
+        if ir.budget_constraint and ir.budget_constraint.max_budget > 0:
+            applied_penalties.append(lambda_B / (cost_scale ** 2))
+        actual_min_penalty = min(applied_penalties)
+        penalty_coeff = actual_min_penalty
 
         pruned_actions = [
             (r.target_resource, r.target_action)

@@ -49,6 +49,15 @@ from layer5_constraints.constraint_ir import (
     ConstraintRecord,
     ConstraintHardness,
 )
+from layer5_constraints.policy_thresholds import (
+    THRESHOLD_THREAT_HIGH,
+    THRESHOLD_HIPAA_MANDATE,
+    THRESHOLD_LOW_CONFIDENCE,
+    THRESHOLD_THREAT_LOW,
+    DEFAULT_THREAT_SCORE,
+    DEFAULT_BUSINESS_IMPACT_NORMAL,
+    DEFAULT_BUSINESS_IMPACT_LOW,
+)
 
 
 class DependencyRelationType:
@@ -106,17 +115,21 @@ class ClosureResult:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "initial_changes": self.initial_changes,
-            "removed_variables": [f"{r}:{a}" for r, a in self.removed_variables],
-            "removed_edges": self.removed_edges,
-            "affected_constraints": self.affected_constraints,
-            "affected_resources": self.affected_resources,
+            "initial_changes": sorted(self.initial_changes),
+            "removed_variables": sorted([f"{r}:{a}" for r, a in self.removed_variables]),
+            "removed_edges": sorted(self.removed_edges, key=lambda e: (e.get("resource_1", ""), e.get("action_1", ""), e.get("resource_2", ""), e.get("action_2", ""))),
+            "affected_constraints": sorted(self.affected_constraints),
+            "affected_resources": sorted(self.affected_resources),
             "regenerated_bounds": self.regenerated_bounds,
             "propagation_depth": self.propagation_depth,
             "iterations_to_fixed_point": self.iterations_to_fixed_point,
-            "causal_trace": [p.to_dict() for p in self.causal_trace],
+            "causal_trace": sorted([p.to_dict() for p in self.causal_trace], key=lambda x: (x["entity"], x["operation"], x["reason"])),
             "closure_status": self.closure_status,
         }
+
+    def compute_canonical_digest(self) -> str:
+        import hashlib, json
+        return hashlib.sha256(json.dumps(self.to_dict(), sort_keys=True).encode("utf-8")).hexdigest()
 
 
 # Known conflict pairs (within or across resource categories)
@@ -143,7 +156,7 @@ def calculate_action_cost(resource_type: str, action: str, cost_weights=COST_WEI
     """Calculates operational cost for action on specific resource type."""
     w1, w2, w3 = cost_weights
     if action == "isolate":
-        business_impact = 0.9 if resource_type in ("rds_database", "plc_controller", "medical_device") else 0.5
+        business_impact = 0.9 if resource_type in ("rds_database", "plc_controller", "medical_device") else DEFAULT_BUSINESS_IMPACT_NORMAL
         compliance_impact = 0.1
         downtime = 0.8
     elif action == "rotate_credentials":
@@ -155,7 +168,7 @@ def calculate_action_cost(resource_type: str, action: str, cost_weights=COST_WEI
         compliance_impact = 0.2
         downtime = 0.05
     elif action == "disable_user":
-        business_impact = 0.4
+        business_impact = DEFAULT_BUSINESS_IMPACT_LOW
         compliance_impact = 0.3
         downtime = 0.2
     elif action == "snapshot_backup":
@@ -365,15 +378,15 @@ class ConstraintDependencyGraph:
         ] + [f"CONFLICT_{e['rule_id']}" for e in removed_edges]
 
         closure_result = ClosureResult(
-            initial_changes=initial_changes_list,
+            initial_changes=sorted(initial_changes_list),
             removed_variables=sorted(list(removed_vars)),
-            removed_edges=removed_edges,
-            affected_constraints=affected_constraints,
-            affected_resources=affected_resources,
+            removed_edges=sorted(removed_edges, key=lambda e: (e.get("resource_1", ""), e.get("action_1", ""), e.get("resource_2", ""), e.get("action_2", ""))),
+            affected_constraints=sorted(affected_constraints),
+            affected_resources=sorted(affected_resources),
             regenerated_bounds=regenerated_bounds,
             propagation_depth=propagation_depth,
             iterations_to_fixed_point=iteration,
-            causal_trace=causal_trace,
+            causal_trace=sorted(causal_trace, key=lambda p: (p.entity, p.operation, p.reason)),
             closure_status=closure_status,
         )
 
@@ -547,7 +560,7 @@ class ConstraintDependencyGraph:
         for r in resources:
             rid = r["id"]
             conf = confidences.get(rid)
-            if conf and conf.overall_confidence < 0.50:
+            if conf and conf.overall_confidence < THRESHOLD_LOW_CONFIDENCE:
                 for act in ("isolate", "disable_user"):
                     var_tuple = (rid, act)
                     if var_tuple not in initial_removed_set:
@@ -568,10 +581,10 @@ class ConstraintDependencyGraph:
             rid = r["id"]
             rtype = r.get("type", "server")
             ctx = contexts.get(rid)
-            s_i = threat_scores.get(rid, 0.5)
+            s_i = threat_scores.get(rid, DEFAULT_THREAT_SCORE)
 
             # HIPAA 45 CFR § 164.312(a)(1) Access Control Mandate
-            if ctx and ctx.compliance.hipaa_applicable and s_i > 0.60:
+            if ctx and ctx.compliance.hipaa_applicable and s_i > THRESHOLD_HIPAA_MANDATE:
                 # Mandatory strong containment: isolate if available, else rotate credentials
                 allowed_so_far = {a for (res, a) in all_variables_set if res == rid and (res, a) not in initial_removed_set}
                 if "isolate" in allowed_so_far:
@@ -599,11 +612,11 @@ class ConstraintDependencyGraph:
                     constraint_type="MANDATED",
                     origin="HIPAA_45_CFR_164",
                     rule_id="45_CFR_164_312_A1",
-                    rationale="Statutory Technical Safeguards mandate access restriction on ePHI when threat > 0.60",
+                    rationale=f"Statutory Technical Safeguards mandate access restriction on ePHI when threat > {THRESHOLD_HIPAA_MANDATE:.2f}",
                 ))
 
             # SLA Critical Prohibition (protect 99.99% availability)
-            if ctx and ctx.business.sla_priority == "CRITICAL" and s_i < 0.40:
+            if ctx and ctx.business.sla_priority == "CRITICAL" and s_i < THRESHOLD_THREAT_LOW:
                 var_tuple = (rid, "isolate")
                 if var_tuple not in initial_removed_set:
                     initial_removed_set.add(var_tuple)
@@ -613,7 +626,7 @@ class ConstraintDependencyGraph:
                         constraint_type="PRUNED",
                         origin="SLA_TIER",
                         rule_id="SLA_CRIT_AVAILABILITY_01",
-                        rationale="SLA CRITICAL forbids automated network isolation when threat < 0.40",
+                        rationale=f"SLA CRITICAL forbids automated network isolation when threat < {THRESHOLD_THREAT_LOW:.2f}",
                     ))
 
             # Cyber-Physical Industrial Safety Profile (PLC and Medical Devices never automated isolation)
@@ -696,9 +709,9 @@ class ConstraintDependencyGraph:
 
         # Dynamic budget multiplier
         avg_threat = sum(threat_scores.values()) / max(1, len(threat_scores))
-        if avg_threat > 0.70:
+        if avg_threat > THRESHOLD_THREAT_HIGH:
             b_mult = 1.3
-        elif avg_threat > 0.40:
+        elif avg_threat > THRESHOLD_THREAT_LOW:
             b_mult = 1.0
         else:
             b_mult = 0.8
@@ -775,7 +788,7 @@ class ConstraintDependencyGraph:
         ir_cost_map: Dict[Tuple[str, str], float] = {}
         for (rid, act) in sorted(list(active_vars)):
             rtype = ir.variable_domains[rid].resource_type
-            s_i = threat_scores.get(rid, 0.5)
+            s_i = threat_scores.get(rid, DEFAULT_THREAT_SCORE)
             c_i = confidences[rid].overall_confidence if rid in confidences else 1.0
             effective_threat = s_i * c_i
             cost = cost_map[(rid, act)]
