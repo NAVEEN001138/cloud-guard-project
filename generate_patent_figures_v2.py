@@ -11,6 +11,7 @@ Outputs:
   patent_v2_fig3_incremental_recompilation.png
   patent_v2_fig4_certificate_binding.png
   patent_v2_fig5_structural_excision_vs_penalty.png
+  patent_v2_fig6_layer5_patent_core.png
 
 All drawings use black/white/grayscale styling and stable reference numerals.
 """
@@ -566,6 +567,74 @@ def create_figure_5():
 
 
 # -----------------------------------------------------------------------------
+# FIGURE 6 — Layer 5 Patent Core: Certified Decision-Domain Compilation
+# -----------------------------------------------------------------------------
+
+
+def create_figure_6():
+    fig, ax = _setup(
+        13,
+        10.5,
+        "FIG. 6 — LAYER 5 PATENT CORE: CERTIFIED DECISION-DOMAIN COMPILATION",
+        "Claimed subject matter (500-series) versus supporting components (dashed). Safety fixes the domain; optimisation selects within it.",
+    )
+
+    # Supporting inputs (not claimed)
+    _box(ax, 0.04, 0.80, 0.26, 0.10, "Runtime Security State  S_t", ["threat scores, confidence, asset context", "(supplied by Layers 1-4; not claimed)"], face="0.985", linewidth=1.0)
+    _box(ax, 0.70, 0.80, 0.26, 0.10, "Declared Topology & Policy", ["typed relations, safety profiles,", "compliance mandates (inputs; not claimed)"], face="0.985", linewidth=1.0)
+
+    # Trust boundary of the claimed core
+    core = FancyBboxPatch((0.03, 0.135), 0.94, 0.60, boxstyle="round,pad=0.006,rounding_size=0.012",
+                          linewidth=2.2, edgecolor="black", facecolor="none", linestyle=(0, (6, 3)))
+    ax.add_patch(core)
+    ax.text(0.05, 0.725, "LAYER 5 — CLAIMED CORE (500)", fontsize=9.5, fontweight="bold", va="center")
+
+    # Row 1: transformation chain
+    _box(ax, 0.05, 0.575, 0.20, 0.115, "510  Feasibility Evaluation", ["inadmissible (resource, action)", "pairs determined from S_t"], face="0.98")
+    _box(ax, 0.28, 0.575, 0.20, 0.115, "520  Domain Transformation", ["A' = A − {inadmissible}", "variable removed, not penalised"], face="0.94", linewidth=2.0)
+    _box(ax, 0.51, 0.575, 0.20, 0.115, "530  Fixed-Point Closure", ["R_{k+1} = R_k ∪ Dep(R_k)", "until R_{k+1} = R_k  (= R*)"], face="0.98")
+    _box(ax, 0.74, 0.575, 0.21, 0.115, "540  Regeneration", ["conflict topology E'", "bounds B' (budget, min-cost)"], face="0.98")
+    _arrow(ax, 0.25, 0.632, 0.28, 0.632)
+    _arrow(ax, 0.48, 0.632, 0.51, 0.632)
+    _arrow(ax, 0.71, 0.632, 0.74, 0.632)
+
+    # Row 2: IR + certifier + certificate
+    _box(ax, 0.05, 0.37, 0.27, 0.135, "550  Versioned SC-IR", ["solver-independent canonical model", "domains, conflicts, budget, objective,", "provenance, ir_version, state_version"], face="0.94", linewidth=2.0)
+    _box(ax, 0.365, 0.37, 0.27, 0.135, "560  Pre-Solve Certifier", ["7 invariants over the IR", "constructive joint-feasible witness", "runs BEFORE any solver exists"], face="0.94", linewidth=2.0)
+    _box(ax, 0.68, 0.37, 0.27, 0.135, "570  Safety Certificate", ["digest(IR), digest(closure),", "ir_version, state_version,", "invariant results, witness"], face="0.94", linewidth=2.0)
+    _arrow(ax, 0.845, 0.575, 0.845, 0.505)          # 540 -> 570 column (visual), real flow below
+    _arrow(ax, 0.185, 0.575, 0.185, 0.505)          # 540 chain -> 550 (via row drop)
+    _arrow(ax, 0.32, 0.437, 0.365, 0.437)
+    _arrow(ax, 0.635, 0.437, 0.68, 0.437)
+
+    # Row 3: gate + compiler + fidelity
+    _box(ax, 0.05, 0.16, 0.27, 0.15, "580  Certificate-Bound Gate", ["REFUSE if certificate absent, failed,", "digest mismatch, or", "state_version ≠ current  (stale)"], face="0.90", linewidth=2.2)
+    _box(ax, 0.365, 0.16, 0.27, 0.15, "585  Multi-Target Compiler", ["same certified IR →", "ILP  |  QUBO  |  future backend", "emitted only after 580 passes"], face="0.94", linewidth=2.0)
+    _box(ax, 0.68, 0.16, 0.27, 0.15, "590  Semantic Fidelity Check", ["exhaustive: backend model ≡ IR", "over all binary assignments", "before the solver is invoked"], face="0.94", linewidth=2.0)
+    _arrow(ax, 0.815, 0.37, 0.815, 0.31)            # 570 -> gate row
+    ax.plot([0.815, 0.185], [0.34, 0.34], color="black", linewidth=1.3)
+    _arrow(ax, 0.185, 0.34, 0.185, 0.31)
+    _arrow(ax, 0.32, 0.235, 0.365, 0.235)
+    _arrow(ax, 0.635, 0.235, 0.68, 0.235)
+
+    # Inputs into the core
+    _arrow(ax, 0.17, 0.80, 0.15, 0.69)
+    _arrow(ax, 0.83, 0.80, 0.845, 0.69)
+
+    # Downstream (not claimed) + actuation-boundary re-check (dependent claim)
+    _box(ax, 0.05, 0.005, 0.27, 0.11, "Solver (ILP / QUBO)", ["selects the best option WITHIN A'", "(backend; not claimed)"], face="0.985", linewidth=1.0)
+    _box(ax, 0.365, 0.005, 0.27, 0.11, "595  Actuation-Boundary Re-check", ["plan ⊆ certified admissible domain", "and budget  (dependent claim)"], face="0.96", linewidth=1.6)
+    _box(ax, 0.68, 0.005, 0.27, 0.11, "Actuation Interfaces", ["Modbus / OPC-UA / OpenFlow / cloud", "(embodiments; not claimed)"], face="0.985", linewidth=1.0)
+    _arrow(ax, 0.815, 0.16, 0.815, 0.128)
+    ax.plot([0.815, 0.185], [0.128, 0.128], color="black", linewidth=1.3)
+    _arrow(ax, 0.185, 0.128, 0.185, 0.115)
+    _arrow(ax, 0.32, 0.06, 0.365, 0.06)
+    _arrow(ax, 0.635, 0.06, 0.68, 0.06)
+
+    _save(fig, "patent_v2_fig6_layer5_patent_core.png")
+
+
+# -----------------------------------------------------------------------------
 # Entry point
 # -----------------------------------------------------------------------------
 
@@ -576,6 +645,7 @@ def main():
     create_figure_3()
     create_figure_4()
     create_figure_5()
+    create_figure_6()
     print("[DONE] Patent Figure Set V2 generated.")
 
 
