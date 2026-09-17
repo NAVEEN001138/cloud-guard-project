@@ -125,19 +125,9 @@ def generate_adaptive_constraints(
     """
     weights = (base_weights or UTILITY_WEIGHTS).copy()
 
-    avg_threat = sum(ctx.threat.threat_score for ctx in contexts.values()) / max(1, len(contexts))
     avg_conf = sum(conf.overall_confidence for conf in confidences.values()) / max(1, len(confidences))
 
-    # --- 1. Budget Scaling ---
-    if avg_threat > 0.7:
-        budget_multiplier = 1.3
-    elif avg_threat > 0.4:
-        budget_multiplier = 1.0
-    else:
-        budget_multiplier = 0.8
-    adjusted_budget = base_max_budget * budget_multiplier
-
-    # --- 2. Dynamic Weight Adaptation ---
+    # --- 1. Dynamic Weight Adaptation ---
     if time_of_day == "business_hours":
         weights["business_impact"] *= 1.3
         weights["downtime"] *= 1.2
@@ -149,7 +139,7 @@ def generate_adaptive_constraints(
         weights["containment_effectiveness"] *= 0.75
         weights["business_impact"] *= 1.25
 
-    # --- 3. Feasible Action Matrix, Profiles & Provenance Matrix ---
+    # --- 2. Feasible Action Matrix, Profiles & Provenance Matrix ---
     feasible = {}
     profiles = {}
     required = {}
@@ -267,7 +257,7 @@ def generate_adaptive_constraints(
         threat_scores=eff_scores,
         contexts=contexts,
         confidences=confidences,
-        base_budget=adjusted_budget,
+        base_budget=base_max_budget,
         switching_penalty=0.15,
         previous_plan=previous_plan,
         learned_rules=learned_rules,
@@ -276,8 +266,13 @@ def generate_adaptive_constraints(
     # Execute Pre-Solve Formal Safety Certification
     cert = PreSolveSafetyCertifier.certify(sc_ir)
 
+    # Threat-adaptive budget scaling is owned solely by the compiler's bound
+    # regeneration stage; reading it back keeps the outer container and the
+    # certified IR structurally incapable of diverging.
+    effective_budget = sc_ir.budget_constraint.max_budget
+
     return OptimizationConstraints(
-        max_budget=round(adjusted_budget, 2),
+        max_budget=effective_budget,
         utility_weights=weights,
         required_actions=required,
         forbidden_actions=forbidden,

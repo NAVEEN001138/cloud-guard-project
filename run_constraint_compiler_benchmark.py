@@ -87,11 +87,158 @@ def make_mock_confidence(rid: str, conf: float = 0.92) -> ConfidenceScores:
         allowed_actions=["isolate", "block_ip", "rate_limit", "quarantine_file", "rotate_credentials", "disable_user", "monitor", "increase_logging"],
         confidence_tier=tier,
     )
-from layer5_constraints.dependency_graph import ConstraintDependencyGraph
+from layer5_constraints.dependency_graph import ConstraintDependencyGraph, calculate_action_cost
 from layer5_constraints.safety_certifier import PreSolveSafetyCertifier
 from layer5_constraints.formulation_compiler import FormulationCompiler
+from layer5_constraints.adaptive_constraints import FEASIBLE_ACTION_MATRIX, RESOURCE_PROFILES
 from layer6_optimization.baseline_greedy import solve_with_ilp
 from layer9_feedback.feedback_learner import FeedbackLearner
+from config import ACTIONS, LAMBDA_PENALTY
+
+
+# =============================================================================
+# EXPERIMENT 6 SUPPORT: EXECUTED DEGRADED ARCHITECTURE VARIANTS
+# Each variant below is actually run; no result in the ablation table is asserted.
+# =============================================================================
+
+def _violates_policy(rtype: str, action: str) -> bool:
+    """Ground-truth policy oracle, independent of any variant's own machinery."""
+    prof = RESOURCE_PROFILES.get(rtype)
+    if action == "isolate" and prof is not None and not prof.auto_isolate_allowed:
+        return True
+    return action not in FEASIBLE_ACTION_MATRIX.get(rtype, list(ACTIONS.keys()))
+
+
+def run_soft_penalty_variant(assets: List[dict], lam: float, threat: float = 0.90,
+                             conf: float = 0.93, budget: float = 10.0):
+    """
+    Variant B: no structural adaptation. Every action stays a live binary variable and
+    policy is encoded only as an additive penalty `lam`. Returns (violations, selections).
+    """
+    all_actions = list(ACTIONS.keys())
+    violations = 0
+    selections = []
+
+    for a in assets:
+        rtype = a["type"]
+        effective_threat = threat * conf
+        prob = pulp.LpProblem(f"soft_{a['res_id']}", pulp.LpMinimize)
+        x = {act: pulp.LpVariable(f"x_{act}", cat="Binary") for act in all_actions}
+
+        objective = []
+        for act in all_actions:
+            cost = calculate_action_cost(rtype, act)
+            coeff = -ACTIONS[act] * effective_threat + cost
+            if _violates_policy(rtype, act):
+                coeff += lam
+            objective.append(coeff * x[act])
+
+        prob += pulp.lpSum(objective)
+        prob += pulp.lpSum(x.values()) == 1
+        prob += pulp.lpSum(calculate_action_cost(rtype, act) * x[act] for act in all_actions) <= budget
+        prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+        chosen = next((act for act in all_actions if x[act].value() and x[act].value() > 0.5), "")
+        selections.append(f"{rtype.split('_')[0]}:{chosen}")
+        if _violates_policy(rtype, chosen):
+            violations += 1
+
+    return violations, selections
+
+
+def run_no_closure_variant():
+    """
+    Variant C: direct prunes only, fixed-point closure disabled.
+
+    Uses a 3-tier dependency chain. With closure, an unsatisfiable prerequisite
+    cascades and removes dependents. Without it, dependents survive with a REQUIRES
+    prerequisite that no longer exists. Returns (dangling, dependents_total, depth).
+    """
+    scenario = {
+        "scenario": "ablation_no_closure",
+        "resources": [
+            {"id": "tier1_plc", "type": "plc_controller"},
+            {
+                "id": "tier2_app",
+                "type": "server",
+                "depends_on": ["tier1_plc"],
+                "requires_isolation_with": ["tier1_plc"],
+            },
+            {
+                "id": "tier3_web",
+                "type": "server",
+                "depends_on": ["tier2_app"],
+                "requires_isolation_with": ["tier2_app"],
+            },
+        ],
+    }
+    threats = {r["id"]: 0.90 for r in scenario["resources"]}
+    ctxs = {r["id"]: make_mock_context(r["id"], r["type"], threat=0.90, sla="HIGH")
+            for r in scenario["resources"]}
+    confs = {r["id"]: make_mock_confidence(r["id"], conf=0.93) for r in scenario["resources"]}
+
+    dag = ConstraintDependencyGraph(incident_id="ablation_C")
+    ir = dag.resolve(scenario, threats, ctxs, confs, base_budget=10.0)
+    depth = ir.dependency_closure_metadata.propagation_depth
+
+    # Prerequisite edges the compiler derived from the declared topology.
+    edges = ConstraintDependencyGraph.extract_scenario_dependencies(scenario)
+    isolate_edges = [e for e in edges if e.source_entity.endswith(":isolate")]
+
+    # Without closure only tier1's direct safety prune applies; every dependent
+    # 'isolate' variable would survive while its prerequisite is unavailable.
+    dangling = 0
+    for edge in isolate_edges:
+        target_res, target_act = edge.target_entity.split(":", 1)
+        target_domain = ir.variable_domains.get(target_res)
+        if target_domain is not None and target_act in target_domain.pruned_actions:
+            dangling += 1
+
+    return dangling, len(isolate_edges), depth
+
+
+def run_no_certification_variant():
+    """
+    Variant D: certificate gate bypassed. Applies tampering vectors to a certified IR
+    and counts how many the *ungated* path detects (structurally zero, since it runs
+    no verification at all). Returns (detected_by_variant_D, total_vectors).
+    """
+    scenario = {"scenario": "ablation_no_cert", "resources": [{"id": "srv-01", "type": "server"}]}
+    threats = {"srv-01": 0.90}
+    ctxs = {"srv-01": make_mock_context("srv-01", "server", threat=0.90, sla="HIGH")}
+    confs = {"srv-01": make_mock_confidence("srv-01", conf=0.93)}
+
+    tamper_vectors = ["mutate_budget", "inject_forbidden_action", "bump_ir_version", "strip_certificate"]
+    detected_without_gate = 0  # no verification is performed on this path at all
+
+    # Confirm the gated path (Variant A) actually rejects each vector.
+    detected_with_gate = 0
+    for vector in tamper_vectors:
+        dag = ConstraintDependencyGraph(incident_id=f"ablation_D_{vector}")
+        ir = dag.resolve(scenario, threats, ctxs, confs, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        if vector == "mutate_budget":
+            ir.budget_constraint.max_budget += 7.5
+        elif vector == "inject_forbidden_action":
+            ir.variable_domains["srv-01"].admissible_actions.append("unauthorized_wipe")
+        elif vector == "bump_ir_version":
+            ir.ir_version += 1
+        elif vector == "strip_certificate":
+            cert = None
+
+        try:
+            FormulationCompiler.verify_binding(ir, cert)
+        except Exception:
+            detected_with_gate += 1
+
+    if detected_with_gate != len(tamper_vectors):
+        raise AssertionError(
+            f"Ablation integrity failure: gated path detected only "
+            f"{detected_with_gate}/{len(tamper_vectors)} tampering vectors."
+        )
+
+    return detected_without_gate, len(tamper_vectors)
 
 
 def run_benchmark():
@@ -429,61 +576,84 @@ def run_benchmark():
         "status": "PASS (Optimal Safety)",
     })
 
-    # 2. Variant B: No Structural Adaptation (Static Parameter-Only Baseline)
-    # Variables are NOT pruned from domain; instead, soft penalties are added to objective.
-    # At Threat=0.90, the threat-containment utility dominates soft penalties,
-    # causing the optimizer to illegally select 'isolate' on SCADA PLC and Camera!
-    v_b_forbidden = 2  # SCADA and Camera both get 'isolate' selected
-    v_b_policy_ok = 3  # Fails policy consistency on 2 assets
+    # 2. Variant B: No Structural Adaptation (Parameter-Only Soft-Penalty Baseline)
+    # Every action remains a live variable; policy is expressed only as an additive
+    # penalty lambda on the objective. Executed, not assumed.
+    v_b_forbidden, v_b_chosen = run_soft_penalty_variant(ablation_assets, lam=LAMBDA_PENALTY)
+    v_b_zero_pen_forbidden, _ = run_soft_penalty_variant(ablation_assets, lam=0.0)
     ablation_summary.append({
-        "variant": "B. No Structural Adaptation (Parameter-Only Weights)",
-        "forbidden_rate": "40.0%",
-        "policy_consistency": "60.0%",
+        "variant": f"B. Parameter-Only Soft Penalty (lambda={LAMBDA_PENALTY:g})",
+        "forbidden_rate": f"{(v_b_forbidden / len(ablation_assets))*100:.1f}%",
+        "policy_consistency": f"{((len(ablation_assets)-v_b_forbidden) / len(ablation_assets))*100:.1f}%",
         "infeasible_rate": "0.0%",
-        "unresolved_conflicts": 8,
-        "avg_vars": "7.0",
+        "unresolved_conflicts": 0,
+        "avg_vars": f"{len(ACTIONS):.1f}",
+        "status": "CALIBRATION-DEPENDENT",
+    })
+    ablation_summary.append({
+        "variant": "B0. Parameter-Only, No Policy Encoding (lambda=0)",
+        "forbidden_rate": f"{(v_b_zero_pen_forbidden / len(ablation_assets))*100:.1f}%",
+        "policy_consistency": f"{((len(ablation_assets)-v_b_zero_pen_forbidden) / len(ablation_assets))*100:.1f}%",
+        "infeasible_rate": "0.0%",
+        "unresolved_conflicts": 0,
+        "avg_vars": f"{len(ACTIONS):.1f}",
         "status": "FAIL (Safety Violations)",
     })
 
-    # 3. Variant C: No Dependency Propagation (Disconnected Pruning)
-    # Pruning actions without cascading hyperedges leaves dangling conflict terms
-    # and unadjusted budget boundaries, resulting in solver infeasibility in 20% of models.
+    # 3. Variant C: No Dependency Propagation (direct prunes only, closure skipped)
+    v_c_dangling, v_c_total, v_c_depth = run_no_closure_variant()
     ablation_summary.append({
-        "variant": "C. No Dependency Propagation (Disconnected Pruning)",
-        "forbidden_rate": "0.0%",
-        "policy_consistency": "80.0%",
-        "infeasible_rate": "20.0%",
-        "unresolved_conflicts": 5,
-        "avg_vars": f"{v_a_vars / len(ablation_assets):.1f}",
-        "status": "FAIL (Model Infeasibility)",
+        "variant": "C. No Dependency Propagation (Closure Disabled)",
+        "forbidden_rate": "n/a",
+        "policy_consistency": "n/a",
+        "infeasible_rate": "n/a",
+        "unresolved_conflicts": f"{v_c_dangling}/{v_c_total}",
+        "avg_vars": "n/a",
+        "status": "FAIL (Dangling Prerequisites)",
     })
 
-    # 4. Variant D: No Pre-Solve Invariant Verification (Direct Unchecked Solve)
-    # Any malformed constraint specification or impossible budget slips through to solver,
-    # leading to unverified runtime executions and undetectable invariant breaches.
+    # 4. Variant D: No Pre-Solve Invariant Verification (certificate gate bypassed)
+    v_d_detected, v_d_total = run_no_certification_variant()
     ablation_summary.append({
-        "variant": "D. No Pre-Solve Safety Verification (Unchecked Solve)",
-        "forbidden_rate": "20.0%",
-        "policy_consistency": "60.0%",
-        "infeasible_rate": "20.0%",
-        "unresolved_conflicts": 4,
-        "avg_vars": f"{v_a_vars / len(ablation_assets):.1f}",
-        "status": "FAIL (Zero Safety Assurance)",
+        "variant": "D. No Pre-Solve Verification (Gate Bypassed)",
+        "forbidden_rate": "n/a",
+        "policy_consistency": "n/a",
+        "infeasible_rate": "n/a",
+        "unresolved_conflicts": f"{v_d_total - v_d_detected}/{v_d_total}",
+        "avg_vars": "n/a",
+        "status": "FAIL (Zero Tamper Detection)",
     })
 
-    print(f"  {'Architecture Variant':<48} {'Forbidden %':>11} {'Policy %':>9} {'Infeasible %':>12} {'Dangling Conflicts':>18} {'Avg |V|':>8}")
+    print(f"  {'Architecture Variant':<50} {'Forbidden %':>11} {'Policy %':>9} {'Infeasible %':>12} {'Unresolved':>11} {'Avg |V|':>8}")
+    print("  (n/a = metric not applicable to that variant's failure mode)")
     print("  " + "-" * 112)
     for row in ablation_summary:
-        print(f"  {row['variant']:<48} {row['forbidden_rate']:>11} {row['policy_consistency']:>9} {row['infeasible_rate']:>12} {row['unresolved_conflicts']:>18} {row['avg_vars']:>8}")
+        print(f"  {row['variant']:<50} {row['forbidden_rate']:>11} {row['policy_consistency']:>9} {row['infeasible_rate']:>12} {row['unresolved_conflicts']:>11} {row['avg_vars']:>8}")
+
+    # Penalty-calibration sweep: locate the smallest lambda restoring full compliance.
+    print("\n  [B] Soft-Penalty Calibration Sweep (threat=0.90, conf=0.93):")
+    print(f"      {'lambda':>10} {'Forbidden %':>13}   Selected plan")
+    sweep_lambdas = [0.0, 0.1, 0.25, 0.5, 1.0, LAMBDA_PENALTY]
+    lambda_star = None
+    for lam in sweep_lambdas:
+        n_viol, chosen = run_soft_penalty_variant(ablation_assets, lam=lam)
+        if n_viol == 0 and lambda_star is None:
+            lambda_star = lam
+        print(f"      {lam:>10.2f} {(n_viol/len(ablation_assets))*100:>12.1f}%   {', '.join(chosen)}")
 
     print("\n  [Key Empirical Takeaway from Ablation]:")
-    print("    - Removing Structural Adaptation (Variant B) results in a 40.0% Forbidden Action Rate")
-    print("      because soft penalties cannot enforce invariant safety when threat utility dominates penalty weights.")
-    print("    - Removing Dependency Propagation (Variant C) causes dangling hyperedges and 20.0% solver infeasibility.")
-    print("    - Removing Pre-Solve Verification (Variant D) eliminates mathematical safety assurance.")
-    print("    - Direct Head-to-Head Comparison (Variant A vs. Variant B): Proves that zero violations occur because")
-    print("      the optimization problem is dynamically reconstructed prior to solving, not by fragile numerical balancing.")
-    print("  => THE FULL COMPILER ARCHITECTURE (VARIANT A) IS MATHEMATICALLY NECESSARY AND SUFFICIENT.")
+    print(f"    - Variant B0 (no policy encoding) selects forbidden actions on "
+          f"{(v_b_zero_pen_forbidden/len(ablation_assets))*100:.1f}% of assets.")
+    print(f"    - A soft penalty restores compliance once lambda >= {lambda_star:g} in THIS configuration,")
+    print("      so the parameter-only baseline is not unsafe per se - it is CALIBRATION-DEPENDENT.")
+    print("      Its safe region must be re-derived whenever utilities, costs or threat scaling change,")
+    print("      and no certificate attests that the deployed lambda is still inside that region.")
+    print(f"    - Variant C leaves {v_c_dangling} variable(s) whose REQUIRES prerequisite was removed,")
+    print("      i.e. dangling prerequisites that fixed-point closure eliminates (Variant A: 0).")
+    print(f"    - Variant D detects {v_d_detected}/{v_d_total} tampering vectors; Variant A detects {v_d_total}/{v_d_total}.")
+    print("    - Structural claim: Variant A's forbidden rate is 0% independent of lambda and of threat")
+    print("      magnitude, because the forbidden variable is ABSENT from the model rather than penalised.")
+    print("  => SAFETY IS OBTAINED AS A STRUCTURAL INVARIANT, NOT AS A NUMERICAL TUNING OUTCOME.")
 
     print("\n" + "=" * 96)
     print("  ALL 6 EMPIRICAL BENCHMARKS COMPLETED WITH 100% MATHEMATICAL & LOGICAL INTEGRITY!")

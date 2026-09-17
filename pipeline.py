@@ -291,5 +291,9 @@ if __name__ == "__main__":
 
     best = result.result_by_name("ilp")
     if best:
-        logs = execute_plan(best.plan)
-        print(f"\nExecuted ILP plan ({len(logs)} actions)")
+        logs = execute_plan(
+            best.plan,
+            sc_ir=result.constraint_ir,
+            certificate=result.safety_certificate,
+        )
+        print(f"\nExecuted ILP plan ({len(logs)} actions), certified-domain gate enforced")

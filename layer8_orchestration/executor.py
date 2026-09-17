@@ -16,8 +16,15 @@ Problem Solved:
   (e.g. Strategy A: snapshot → block → rotate → notify SOC).
   Solves automated response orchestration with timestamped audit logs.
 
+  Pre-Actuation Certified-Domain Gate:
+    The Layer 5 certificate gates SC-IR -> solver compilation. This module closes
+    the loop on the far side of the solver: a solver-produced plan is re-validated
+    against the certified admissible domain and regenerated budget before any
+    actuation command is emitted, so a plan that drifted from the certified
+    decision domain cannot reach a physical or cloud interface.
+
 Inputs:  Action plan dictionary {resource_id: action}, optional resource metadata,
-         and optional strategy name.
+         optional certified SC-IR + safety certificate, and optional strategy name.
 Outputs: List of timestamped execution log records containing protocol-level
          actuation commands for each mitigation action.
 =============================================================================
@@ -27,6 +34,9 @@ import datetime
 import time
 from typing import Dict, List, Optional, Any
 from config import RESPONSE_STRATEGIES
+from layer5_constraints.constraint_ir import SecurityConstraintIR
+from layer5_constraints.safety_certifier import ConstraintSafetyCertificate
+from layer5_constraints.formulation_compiler import FormulationCompiler
 
 
 ACTION_DESCRIPTIONS = {
@@ -42,8 +52,99 @@ ACTION_DESCRIPTIONS = {
 }
 
 
+# Orchestration-only actions that are not part of the optimizer's decision domain
+# and therefore carry no certified variable (they emit no device-level command).
+NON_DOMAIN_ACTIONS = frozenset({"notify_soc", "human_approval"})
+
+
+# =============================================================================
+# PRE-ACTUATION CERTIFIED-DOMAIN GATE
+# =============================================================================
+
+class UncertifiedActuationError(Exception):
+    """Raised when actuation is attempted without a valid SC-IR/certificate binding."""
+
+
+class InadmissibleActionError(Exception):
+    """Raised when a plan contains an action outside the certified admissible domain."""
+
+
+class ActuationBudgetExceededError(Exception):
+    """Raised when a plan's total cost exceeds the certified regenerated budget."""
+
+
+def validate_plan_against_certified_ir(
+    plan: Dict[str, str],
+    sc_ir: SecurityConstraintIR,
+    certificate: Optional[ConstraintSafetyCertificate],
+) -> Dict[str, Any]:
+    """
+    Post-solve, pre-actuation verification gate.
+
+    Re-establishes the cryptographic certificate binding and confirms every action
+    in the solver-produced plan lies inside the certified admissible domain and
+    within the certified regenerated budget. Raises on any violation.
+    """
+    if sc_ir is None:
+        raise UncertifiedActuationError(
+            "Actuation rejected: no SecurityConstraintIR supplied for plan validation."
+        )
+
+    # Reuse the canonical Layer 5 binding verifier (status, versions, digests).
+    FormulationCompiler.verify_binding(sc_ir, certificate)
+
+    validated: Dict[str, str] = {}
+    for rid, action in plan.items():
+        if action in NON_DOMAIN_ACTIONS:
+            continue
+
+        domain = sc_ir.variable_domains.get(rid)
+        if domain is None:
+            raise InadmissibleActionError(
+                f"Actuation rejected: resource '{rid}' has no certified variable domain in the SC-IR."
+            )
+        if action not in domain.admissible_actions:
+            raise InadmissibleActionError(
+                f"Actuation rejected: action '{action}' on '{rid}' is outside the certified "
+                f"admissible domain {sorted(domain.admissible_actions)}. "
+                f"Pruned actions for this resource: {sorted(domain.pruned_actions)}."
+            )
+        validated[rid] = action
+
+    total_cost = 0.0
+    if sc_ir.budget_constraint:
+        cost_map = sc_ir.budget_constraint.cost_map or {}
+        total_cost = sum(cost_map.get((rid, act), 0.0) for rid, act in validated.items())
+        if total_cost > sc_ir.budget_constraint.max_budget:
+            raise ActuationBudgetExceededError(
+                f"Actuation rejected: plan cost {total_cost:.4f} exceeds certified "
+                f"regenerated budget {sc_ir.budget_constraint.max_budget:.4f}."
+            )
+
+    return {
+        "validated_actions": len(validated),
+        "skipped_non_domain_actions": len(plan) - len(validated),
+        "total_plan_cost": round(total_cost, 4),
+        "certified_budget": sc_ir.budget_constraint.max_budget if sc_ir.budget_constraint else None,
+        "certificate_id": certificate.certificate_id if certificate else None,
+        "ir_digest": sc_ir.compute_canonical_digest(),
+    }
+
+
 # =============================================================================
 # HARDWARE & CLOUD ACTUATION INTERFACES (Patent Claim 1 Actuation Grounding)
+# -----------------------------------------------------------------------------
+# SCOPE: these classes are protocol-specific COMMAND BUILDERS. They construct the
+# control payload each interface would carry and return it for audit; they open no
+# socket, establish no session, and perform no device authentication. Every record
+# is therefore reported with status "simulated_success".
+#
+# Register addresses, node identifiers and match fields below are REPRESENTATIVE
+# vendor mappings, not protocol-mandated constants: Modbus defines function codes
+# (0x03/0x06/0x10) but assigns no meaning to specific holding registers, and OPC-UA
+# node identifiers are server-defined. A live deployment binds these to a device
+# profile. Substituting a real adapter means implementing dispatch() against the
+# corresponding client library while preserving these return keys.
 # =============================================================================
 
 class ModbusActuator:
@@ -173,7 +274,10 @@ class NetworkSwitchActuator:
                 "flow_mod_command": "OFPFC_ADD",
                 "table_id": 0,
                 "priority": 50000,
-                "match": {"in_port": 1, "metadata": resource_id},
+                # OXM metadata is a 64-bit masked field, so the resource identifier is
+                # carried as an annotation rather than stuffed into the match.
+                "match": {"in_port": 1},
+                "target_resource": resource_id,
                 "instructions": [{"type": "OFPIT_APPLY_ACTIONS", "actions": [{"type": "OFPAT_DROP"}]}],
                 "action_effect": f"Flow-mod rule injected: Complete network isolation (DROP) for {resource_id}",
             }
@@ -233,13 +337,27 @@ class CloudHypervisorActuator:
                 "action_effect": f"Detached standard security groups and attached quarantine security group",
             }
         elif action == "rotate_credentials":
+            # IAM key rotation is a sequence, not a single call: the new key must exist
+            # and be distributed before the compromised key is deactivated. UpdateAccessKey
+            # additionally requires AccessKeyId - UserName alone is not a valid request.
             return {
                 "protocol": cls.PROTOCOL,
                 "interface": cls.INTERFACE_TYPE,
                 "service": "iam",
-                "api_call": "UpdateAccessKey",
-                "parameters": {"UserName": resource_id, "Status": "Inactive"},
-                "action_effect": f"Deactivated suspect IAM access keys and provisioned fresh key pair",
+                "api_call": "CreateAccessKey -> UpdateAccessKey",
+                "call_sequence": [
+                    {"api_call": "ListAccessKeys", "parameters": {"UserName": resource_id}},
+                    {"api_call": "CreateAccessKey", "parameters": {"UserName": resource_id}},
+                    {
+                        "api_call": "UpdateAccessKey",
+                        "parameters": {
+                            "UserName": resource_id,
+                            "AccessKeyId": "<compromised-key-id from ListAccessKeys>",
+                            "Status": "Inactive",
+                        },
+                    },
+                ],
+                "action_effect": "Issued replacement IAM access key, then deactivated the compromised key",
             }
         elif action == "snapshot_backup":
             return {
@@ -251,13 +369,34 @@ class CloudHypervisorActuator:
                 "action_effect": f"Triggered point-in-time snapshot to immutable backup storage",
             }
         elif action == "disable_user":
+            # PasswordResetRequired only forces a change at NEXT sign-in; it does not
+            # terminate sessions already in flight. Revoking those requires a deny policy
+            # conditioned on aws:TokenIssueTime (the AWSRevokeOlderSessions pattern).
             return {
                 "protocol": cls.PROTOCOL,
                 "interface": cls.INTERFACE_TYPE,
                 "service": "iam",
-                "api_call": "UpdateLoginProfile",
-                "parameters": {"UserName": resource_id, "PasswordResetRequired": True},
-                "action_effect": f"Revoked active web console sessions and forced credential reset",
+                "api_call": "PutUserPolicy + UpdateLoginProfile",
+                "call_sequence": [
+                    {
+                        "api_call": "PutUserPolicy",
+                        "parameters": {
+                            "UserName": resource_id,
+                            "PolicyName": "AWSRevokeOlderSessions",
+                            "PolicyDocument": {
+                                "Effect": "Deny",
+                                "Action": "*",
+                                "Resource": "*",
+                                "Condition": {"DateLessThan": {"aws:TokenIssueTime": "<revocation-timestamp>"}},
+                            },
+                        },
+                    },
+                    {
+                        "api_call": "UpdateLoginProfile",
+                        "parameters": {"UserName": resource_id, "PasswordResetRequired": True},
+                    },
+                ],
+                "action_effect": "Denied credentials issued before revocation time, then forced password reset",
             }
         else:
             return {
@@ -338,14 +477,25 @@ def _execute_action(
 def execute_plan(
     plan: dict,
     resource_metadata: Optional[Dict[str, Dict[str, Any]]] = None,
+    sc_ir: Optional[SecurityConstraintIR] = None,
+    certificate: Optional[ConstraintSafetyCertificate] = None,
 ) -> list:
     """
     plan: {resource_id: action}
     resource_metadata: optional {resource_id: {type: ...}}
+    sc_ir / certificate: when supplied, the plan is validated against the certified
+        admissible domain and budget before any actuation command is emitted.
     Returns list of execution log records with protocol-level actuation commands.
     """
     meta_map = resource_metadata or {}
-    return [_execute_action(rid, action, resource_meta=meta_map.get(rid)) for rid, action in plan.items()]
+    certified = sc_ir is not None
+    if certified:
+        validate_plan_against_certified_ir(plan, sc_ir, certificate)
+
+    logs = [_execute_action(rid, action, resource_meta=meta_map.get(rid)) for rid, action in plan.items()]
+    for log in logs:
+        log["domain_certified"] = certified
+    return logs
 
 
 def execute_strategy(
@@ -353,19 +503,30 @@ def execute_strategy(
     plan: dict,
     step_delay: float = 0.5,
     resource_metadata: Optional[Dict[str, Dict[str, Any]]] = None,
+    sc_ir: Optional[SecurityConstraintIR] = None,
+    certificate: Optional[ConstraintSafetyCertificate] = None,
 ) -> list:
     """
     Executes a multi-step response strategy across physical and cloud actuation interfaces.
+    When sc_ir is supplied, every (resource, action) the strategy would apply is validated
+    against the certified admissible domain first, so a strategy step cannot actuate an
+    action that was pruned for that resource.
     Returns a list of all log records from all steps.
     """
     all_logs = []
     strategy = RESPONSE_STRATEGIES.get(strategy_name, [])
     meta_map = resource_metadata or {}
+    certified = sc_ir is not None
     step_num = 1
 
     for action in strategy:
+        if certified:
+            validate_plan_against_certified_ir(
+                {rid: action for rid in plan}, sc_ir, certificate
+            )
         for resource_id in plan:
             log = _execute_action(resource_id, action, step_num, resource_meta=meta_map.get(resource_id))
+            log["domain_certified"] = certified
             all_logs.append(log)
         step_num += 1
         time.sleep(step_delay)

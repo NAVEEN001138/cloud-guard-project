@@ -404,32 +404,53 @@ class ConstraintDependencyGraph:
                         description=dep.get("description", "Explicit scenario dependency relation"),
                     ))
 
-        # 2. Resource-level 'depends_on' hierarchy (parent/upstream service links)
+        # 2. Typed resource-level topology relations.
+        #
+        # An action-level prerequisite is only derived from a relation whose semantics
+        # actually imply it. A bare 'depends_on' states that a service needs another to
+        # function; it does NOT by itself imply that isolating the dependent requires
+        # isolating its provider, nor that their credentials rotate together. Those are
+        # separate operational doctrines and must be declared:
+        #
+        #   requires_isolation_with : segment-level containment - the pair may only be
+        #                             isolated together (SCADA cell / trust zone doctrine)
+        #   credential_provider     : the parent issues or vaults the child's credentials
+        #   depends_on              : generic service dependency - recorded as topology
+        #                             context, derives no action prerequisite on its own
         resources = scenario.get("resources", [])
+
+        def _as_list(value) -> List[str]:
+            if not value:
+                return []
+            return [value] if isinstance(value, str) else list(value)
+
         for r in resources:
             rid = r.get("id")
             if not rid:
                 continue
-            parents = r.get("depends_on", [])
-            if isinstance(parents, str):
-                parents = [parents]
 
-            for parent_id in parents:
-                # Containment dependency: isolating child requires coordinated isolation with parent
+            for parent_id in _as_list(r.get("requires_isolation_with")):
                 edges.append(TypedDependencyEdge(
                     source_entity=f"{rid}:isolate",
                     target_entity=f"{parent_id}:isolate",
                     relation_type=DependencyRelationType.REQUIRES,
                     rule_id=f"DEP_CONTAIN_{rid}_ON_{parent_id}",
-                    description=f"Automated network isolation of subordinate '{rid}' requires coordinated upstream isolation of '{parent_id}'",
+                    description=(
+                        f"Declared containment coupling: '{rid}' resides in the same isolation "
+                        f"segment as '{parent_id}' and may only be isolated jointly with it"
+                    ),
                 ))
-                # Credential dependency: rotating client credentials requires upstream key provider rotation
+
+            for parent_id in _as_list(r.get("credential_provider")):
                 edges.append(TypedDependencyEdge(
                     source_entity=f"{rid}:rotate_credentials",
                     target_entity=f"{parent_id}:rotate_credentials",
                     relation_type=DependencyRelationType.REQUIRES,
                     rule_id=f"DEP_CREDS_{rid}_ON_{parent_id}",
-                    description=f"Credential rotation of '{rid}' requires upstream identity/vault provider '{parent_id}'",
+                    description=(
+                        f"Declared credential chain: credentials for '{rid}' are issued by "
+                        f"upstream identity/vault provider '{parent_id}'"
+                    ),
                 ))
 
         return edges

@@ -87,6 +87,13 @@ from layer9_feedback.feedback_learner import (
     FeedbackLearner,
     RuleAdmissionEvidence,
 )
+from layer5_constraints.adaptive_constraints import generate_adaptive_constraints
+from layer8_orchestration.executor import (
+    execute_plan,
+    validate_plan_against_certified_ir,
+    InadmissibleActionError,
+    ActuationBudgetExceededError,
+)
 
 
 def create_test_context(rid: str, rtype: str, threat: float = 0.85, sla: str = "CRITICAL", hipaa: bool = False) -> AggregatedContext:
@@ -785,8 +792,18 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
             "scenario": "multi_tier_closure_test",
             "resources": [
                 {"id": "tier1_plc", "type": "plc_controller"},
-                {"id": "tier2_app", "type": "server", "depends_on": ["tier1_plc"]},
-                {"id": "tier3_web", "type": "server", "depends_on": ["tier2_app"]},
+                {
+                    "id": "tier2_app",
+                    "type": "server",
+                    "depends_on": ["tier1_plc"],
+                    "requires_isolation_with": ["tier1_plc"],
+                },
+                {
+                    "id": "tier3_web",
+                    "type": "server",
+                    "depends_on": ["tier2_app"],
+                    "requires_isolation_with": ["tier2_app"],
+                },
             ],
         }
         threats = {"tier1_plc": 0.85, "tier2_app": 0.85, "tier3_web": 0.85}
@@ -837,6 +854,90 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         # 7. Certificate verification succeeds
         cert = PreSolveSafetyCertifier.certify(ir)
         self.assertTrue(cert.is_valid())
+
+    # 36. Budget scaling has exactly one owner (no compounding across layers)
+    def test_36_budget_scaling_applied_exactly_once(self):
+        resources = [{"id": "srv1", "type": "server"}, {"id": "srv2", "type": "server"}]
+        scenario = {"scenario": "budget_single_owner", "resources": resources}
+
+        for threat, expected_multiplier in [(0.90, 1.3), (0.55, 1.0), (0.20, 0.8)]:
+            with self.subTest(threat=threat):
+                threats = {r["id"]: threat for r in resources}
+                ctxs = {r["id"]: create_test_context(r["id"], r["type"], threat=threat, sla="HIGH")
+                        for r in resources}
+                confs = {r["id"]: create_test_confidence(r["id"], 0.92) for r in resources}
+
+                constraints = generate_adaptive_constraints(
+                    ctxs, confs, base_max_budget=5.0, scenario=scenario, threat_scores=threats
+                )
+                expected = round(5.0 * expected_multiplier, 2)
+
+                self.assertAlmostEqual(constraints.max_budget, expected, places=4)
+                self.assertAlmostEqual(
+                    constraints.constraint_ir.budget_constraint.max_budget, expected, places=4
+                )
+                self.assertAlmostEqual(
+                    constraints.constraint_ir.regenerated_bounds["effective_budget"], expected, places=4
+                )
+
+    # 37. Certified-domain gate blocks actuation of a pruned action
+    def test_37_actuation_gate_rejects_inadmissible_action(self):
+        resources = [{"id": "plc1", "type": "plc_controller"}, {"id": "srv1", "type": "server"}]
+        scenario = {"scenario": "actuation_gate", "resources": resources}
+        threats = {"plc1": 0.90, "srv1": 0.90}
+        ctxs = {r["id"]: create_test_context(r["id"], r["type"], threat=0.90, sla="HIGH")
+                for r in resources}
+        confs = {r["id"]: create_test_confidence(r["id"], 0.92) for r in resources}
+
+        constraints = generate_adaptive_constraints(
+            ctxs, confs, base_max_budget=5.0, scenario=scenario, threat_scores=threats
+        )
+        ir, cert = constraints.constraint_ir, constraints.safety_certificate
+
+        # isolate is pruned on a PLC by the physical safety profile
+        self.assertNotIn("isolate", ir.variable_domains["plc1"].admissible_actions)
+
+        # A plan drawn from the certified domain passes the gate
+        admissible = {"plc1": "monitor", "srv1": "monitor"}
+        report = validate_plan_against_certified_ir(admissible, ir, cert)
+        self.assertEqual(report["validated_actions"], 2)
+
+        # A plan that drifted outside the certified domain is refused
+        with self.assertRaises(InadmissibleActionError):
+            validate_plan_against_certified_ir({"plc1": "isolate"}, ir, cert)
+
+        # ...and no actuation command is emitted for it
+        with self.assertRaises(InadmissibleActionError):
+            execute_plan({"plc1": "isolate"}, sc_ir=ir, certificate=cert)
+
+        # An unknown resource has no certified domain and is refused
+        with self.assertRaises(InadmissibleActionError):
+            validate_plan_against_certified_ir({"unknown_res": "monitor"}, ir, cert)
+
+    # 38. A bare 'depends_on' derives no action-level prerequisite on its own
+    def test_38_generic_dependency_does_not_imply_action_prerequisite(self):
+        generic = {
+            "scenario": "generic_dependency",
+            "resources": [
+                {"id": "db", "type": "rds_database"},
+                {"id": "web", "type": "server", "depends_on": ["db"]},
+            ],
+        }
+        edges = ConstraintDependencyGraph.extract_scenario_dependencies(generic)
+        self.assertEqual(
+            edges, [],
+            "A generic service dependency must not imply that isolating or re-keying "
+            "the dependent requires the same action on its provider.",
+        )
+
+        typed = copy.deepcopy(generic)
+        typed["resources"][1]["requires_isolation_with"] = ["db"]
+        typed["resources"][1]["credential_provider"] = ["db"]
+        typed_edges = ConstraintDependencyGraph.extract_scenario_dependencies(typed)
+
+        derived = {(e.source_entity, e.target_entity) for e in typed_edges}
+        self.assertIn(("web:isolate", "db:isolate"), derived)
+        self.assertIn(("web:rotate_credentials", "db:rotate_credentials"), derived)
 
 
 if __name__ == "__main__":

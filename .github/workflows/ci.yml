@@ -28,7 +28,7 @@ jobs:
         pip install -r requirements.txt
         pip install pylint flake8
 
-    - name: Run Patent Strengthening Unit Tests (34/34 Tests)
+    - name: Run Patent Strengthening Unit Tests (38/38 Tests)
       run: |
         python test_patent_strengthening.py
 

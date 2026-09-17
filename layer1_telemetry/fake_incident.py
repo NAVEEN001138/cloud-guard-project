@@ -230,6 +230,8 @@ SCENARIOS = {
                 "name": "Industrial Edge Field Gateway",
                 "type": "network_gateway",
                 "depends_on": ["scada-plc-01"],
+                # Same Purdue-level cell as the PLC: containment is segment-scoped.
+                "requires_isolation_with": ["scada-plc-01"],
                 "raw_signal": {
                     "failed_logins": 18.0,
                     "unusual_outbound_bytes": 150_000.0,
@@ -241,6 +243,8 @@ SCENARIOS = {
                 "name": "Supervisory SCADA HMI Host",
                 "type": "server",
                 "depends_on": ["scada-gw-02"],
+                # HMI shares the gateway's containment segment, extending the cascade to 2 hops.
+                "requires_isolation_with": ["scada-gw-02"],
                 "raw_signal": {
                     "failed_logins": 25.0,
                     "unusual_outbound_bytes": 450_000.0,
