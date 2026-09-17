@@ -1,7 +1,7 @@
 {
   "benchmark_metadata": {
     "title": "System and Method for Runtime Security Constraint Compilation and Pre-Solve Safety Certification of Automated Infrastructure Response",
-    "timestamp": "2026-09-10T01:26:34.959609",
+    "timestamp": "2026-09-17T20:39:54.643468",
     "python_version": "3.14.0",
     "platform": "win32"
   },
@@ -14,7 +14,7 @@
         "transitively_affected_entities": 0,
         "dangling_dependencies": 1,
         "stale_conflicts": 1,
-        "runtime_ms": 0.0054,
+        "runtime_ms": 0.0055,
         "solver_infeasibility_risk": "HIGH (Unsatisfied prerequisites active in model)"
       },
       "fixed_point_closure": {
@@ -24,7 +24,7 @@
         "closure_iterations": 3,
         "dangling_dependencies": 0,
         "stale_conflicts": 0,
-        "runtime_ms": 0.0766,
+        "runtime_ms": 0.0768,
         "closure_status": "CONVERGED"
       },
       "technical_effect": "Eliminates 100% of dangling dependency references across multi-hop topological chains."
@@ -84,76 +84,76 @@
     "experiment_9_incremental_vs_full_compilation": [
       {
         "fleet_size_assets": 10,
-        "full_compile_ms": 1.032,
-        "full_compile_std_ms": 0.142,
-        "full_compile_p95_ms": 1.368,
-        "incremental_compile_ms": 0.997,
-        "incremental_compile_std_ms": 0.162,
-        "incremental_compile_p95_ms": 1.403,
+        "full_compile_ms": 2.162,
+        "full_compile_std_ms": 0.147,
+        "full_compile_p95_ms": 2.521,
+        "incremental_compile_ms": 2.262,
+        "incremental_compile_std_ms": 0.457,
+        "incremental_compile_p95_ms": 3.243,
         "trials": 30,
         "total_nodes": 10,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 43,
         "node_recompute_ratio": 0.1,
-        "latency_reduction_pct": 3.36,
+        "latency_reduction_pct": -4.59,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 50,
-        "full_compile_ms": 6.577,
-        "full_compile_std_ms": 2.229,
-        "full_compile_p95_ms": 9.111,
-        "incremental_compile_ms": 5.195,
-        "incremental_compile_std_ms": 0.533,
-        "incremental_compile_p95_ms": 5.816,
+        "full_compile_ms": 11.884,
+        "full_compile_std_ms": 0.163,
+        "full_compile_p95_ms": 12.22,
+        "incremental_compile_ms": 11.377,
+        "incremental_compile_std_ms": 0.367,
+        "incremental_compile_p95_ms": 11.855,
         "trials": 30,
         "total_nodes": 50,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 233,
         "node_recompute_ratio": 0.02,
-        "latency_reduction_pct": 21.01,
+        "latency_reduction_pct": 4.26,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 100,
-        "full_compile_ms": 17.877,
-        "full_compile_std_ms": 3.169,
-        "full_compile_p95_ms": 19.768,
-        "incremental_compile_ms": 11.622,
-        "incremental_compile_std_ms": 1.23,
-        "incremental_compile_p95_ms": 14.421,
+        "full_compile_ms": 29.987,
+        "full_compile_std_ms": 4.474,
+        "full_compile_p95_ms": 42.598,
+        "incremental_compile_ms": 25.02,
+        "incremental_compile_std_ms": 3.128,
+        "incremental_compile_p95_ms": 29.378,
         "trials": 30,
         "total_nodes": 100,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 471,
         "node_recompute_ratio": 0.01,
-        "latency_reduction_pct": 34.99,
+        "latency_reduction_pct": 16.56,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
       },
       {
         "fleet_size_assets": 250,
-        "full_compile_ms": 199.875,
-        "full_compile_std_ms": 28.546,
-        "full_compile_p95_ms": 263.713,
-        "incremental_compile_ms": 80.175,
-        "incremental_compile_std_ms": 11.962,
-        "incremental_compile_p95_ms": 100.646,
+        "full_compile_ms": 131.308,
+        "full_compile_std_ms": 11.382,
+        "full_compile_p95_ms": 154.039,
+        "incremental_compile_ms": 83.733,
+        "incremental_compile_std_ms": 8.059,
+        "incremental_compile_p95_ms": 101.843,
         "trials": 30,
         "total_nodes": 250,
         "affected_nodes": 1,
         "recomputed_constraints": 4,
         "reused_constraints": 1183,
         "node_recompute_ratio": 0.004,
-        "latency_reduction_pct": 59.89,
+        "latency_reduction_pct": 36.23,
         "semantic_fingerprint_equivalent": true,
         "domain_equivalent": true,
         "hard_constraints_equivalent": true
@@ -214,6 +214,188 @@
         }
       ],
       "target_property": "Zero Unsafe Rules Admitted",
+      "verdict": "PASS"
+    },
+    "experiment_12_adversarial_compiler_suite": {
+      "experiment_name": "Experiment 12: Adversarial Compiler Suite",
+      "total_corrupted_backends": 4,
+      "checker_rejected_count": 4,
+      "oracle_detected_count": 2,
+      "agreement_rate_pct": 0.0,
+      "cases": [
+        {
+          "corruption_type": "Omitted Conflict",
+          "checker_rejected": true,
+          "checker_reason": "PuLP conflict constraint 'Conflict_0_s1_isolate' missing from model.",
+          "oracle_detected": true,
+          "oracle_mismatches": 1,
+          "oracle_fidelity_pct": 93.75
+        },
+        {
+          "corruption_type": "Altered Budget",
+          "checker_rejected": true,
+          "checker_reason": "PuLP budget constraint 'Operational_Budget_Ceiling' RHS mismatch: expected 13.0, got 1000.0.",
+          "oracle_detected": false,
+          "oracle_mismatches": 0,
+          "oracle_fidelity_pct": 100.0
+        },
+        {
+          "corruption_type": "Reintroduced Pruned Variable",
+          "checker_rejected": true,
+          "checker_reason": "Proof rejected: Excised action (p1, isolate) reintroduced in backend model as 'x_p1_isolate'.",
+          "oracle_detected": false,
+          "oracle_mismatches": 0,
+          "oracle_fidelity_pct": 100.0
+        },
+        {
+          "corruption_type": "Altered Mandate",
+          "checker_rejected": true,
+          "checker_reason": "PuLP constraint 'Invariance_s1' target value mismatch.",
+          "oracle_detected": true,
+          "oracle_mismatches": 2,
+          "oracle_fidelity_pct": 87.5
+        }
+      ],
+      "verdict": "FAIL"
+    },
+    "experiment_13_witness_preservation": {
+      "experiment_name": "Experiment 13: Witness-to-Backend Preservation",
+      "witness_assignment": {
+        "p1": "increase_logging",
+        "s1": "isolate"
+      },
+      "witness_cost": 0.465,
+      "witness_in_F_IR": true,
+      "witness_in_F_ILP": true,
+      "auxiliary_slack_z": {
+        "slack_13": 1.0,
+        "slack_12": 1.0,
+        "slack_11": 1.0,
+        "slack_10": 1.0,
+        "slack_9": 1.0,
+        "slack_8": 0.0,
+        "slack_7": 0.0,
+        "slack_6": 0.0,
+        "slack_5": 1.0,
+        "slack_4": 0.0,
+        "slack_3": 1.0,
+        "slack_2": 1.0,
+        "slack_1": 1.0,
+        "slack_0": 0.0
+      },
+      "qubo_penalty_energy": 5.645751952609857e-07,
+      "witness_in_F_QUBO": true,
+      "verdict": "PASS"
+    },
+    "experiment_14_envelope_telemetry_churn": {
+      "experiment_name": "Experiment 14: Validity Envelope Reuse Under Continuous Telemetry Churn",
+      "total_perturbation_samples": 1000,
+      "dist_a_samples": 500,
+      "dist_a_reused": 500,
+      "dist_a_invalidated": 0,
+      "dist_b_samples": 500,
+      "dist_b_reused": 48,
+      "dist_b_invalidated": 452,
+      "total_certificates_reused": 548,
+      "total_certificates_invalidated": 452,
+      "recompilations_avoided_pct": 54.8,
+      "fingerprint_equality_reuse_pct": 0.0,
+      "safety_violations_in_reused_cases": 0,
+      "verdict": "PASS"
+    },
+    "experiment_15_toctou_suite": {
+      "experiment_name": "Experiment 15: Time-of-Check to Time-of-Use (TOCTOU) Gating Suite",
+      "total_cases_evaluated": 3,
+      "cases": [
+        {
+          "case_id": "TOCTOU_1_RELEVANT_CHANGE",
+          "description": "Validity-relevant threat score crossed SLA threshold (0.85 -> 0.20)",
+          "expected": "REFUSE (StateEnvelopeViolationError)",
+          "compilation_refused": true,
+          "actuation_refused": true,
+          "status": "PASS"
+        },
+        {
+          "case_id": "TOCTOU_2_IRRELEVANT_CHANGE",
+          "description": "Non-decision mutation (sampled_at +3600s, threat 0.85 -> 0.88 inside E_t)",
+          "expected": "ACCEPT (Zero Recompile Required)",
+          "compilation_accepted": true,
+          "actuation_accepted": true,
+          "status": "PASS"
+        },
+        {
+          "case_id": "TOCTOU_3_DEVICE_REVISION_RACE",
+          "description": "Device revision mutated asynchronously (device rev=2 != command expected=1)",
+          "expected": "DEVICE_REJECT (State Revision Race)",
+          "device_rejected": true,
+          "epoch_regression_refused": true,
+          "status": "PASS"
+        }
+      ],
+      "all_toctou_gates_passed": true,
+      "verdict": "PASS"
+    },
+    "experiment_16_tuple_mutation_replay": {
+      "experiment_name": "Experiment 16: Certificate Payload Tuple-Mutation and Replay Attack Suite",
+      "total_attack_vectors": 9,
+      "false_accepts": 0,
+      "rejection_rate_pct": 100.0,
+      "cases": [
+        {
+          "vector_name": "TAMPERED_IR_DIGEST",
+          "rejected": true,
+          "exception": "IntegrityBindingError",
+          "status": "PASS"
+        },
+        {
+          "vector_name": "TAMPERED_CLOSURE_DIGEST",
+          "rejected": true,
+          "exception": "IntegrityBindingError",
+          "status": "PASS"
+        },
+        {
+          "vector_name": "TAMPERED_WITNESS_DIGEST",
+          "rejected": true,
+          "exception": "IntegrityBindingError",
+          "status": "PASS"
+        },
+        {
+          "vector_name": "TAMPERED_ENVELOPE_DIGEST",
+          "rejected": true,
+          "exception": "IntegrityBindingError",
+          "status": "PASS"
+        },
+        {
+          "vector_name": "TAMPERED_ASSET_SCOPE",
+          "rejected": true,
+          "exception": "IntegrityBindingError",
+          "status": "PASS"
+        },
+        {
+          "vector_name": "TAMPERED_POLICY_REVISION",
+          "rejected": true,
+          "exception": "IntegrityBindingError",
+          "status": "PASS"
+        },
+        {
+          "vector_name": "TAMPERED_STATE_EPOCH",
+          "rejected": true,
+          "exception": "IntegrityBindingError",
+          "status": "PASS"
+        },
+        {
+          "vector_name": "UNAUTHORIZED_SIGNATURE",
+          "rejected": true,
+          "exception": "IntegrityBindingError",
+          "status": "PASS"
+        },
+        {
+          "vector_name": "INCIDENT_SCOPE_REPLAY",
+          "rejected": true,
+          "exception": "IntegrityBindingError",
+          "status": "PASS"
+        }
+      ],
       "verdict": "PASS"
     }
   }

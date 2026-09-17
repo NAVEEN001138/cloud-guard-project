@@ -28,7 +28,7 @@ jobs:
         pip install -r requirements.txt
         pip install pylint flake8
 
-    - name: Run Patent Strengthening Unit Tests (38/38 Tests)
+    - name: Run Patent Strengthening Unit Tests (50/50 Tests)
       run: |
         python test_patent_strengthening.py
 
@@ -40,13 +40,14 @@ jobs:
       run: |
         python run_constraint_compiler_benchmark.py
 
-    - name: Run Layer 5 Patent Strengthening Benchmark Suite (Experiments 7 to 11)
+    - name: Run Layer 5 Patent Strengthening Benchmark Suite (Experiments 7 to 16)
       run: |
         python run_patent_strengthening_benchmark.py
 
     - name: Generate Publication & Patent Diagram Figures (300 DPI)
       run: |
         python generate_diagram_images.py
+        python generate_patent_figures_v2.py
 
     - name: Code Quality & Syntax Verification (Lint)
       run: |

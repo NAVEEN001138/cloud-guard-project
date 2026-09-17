@@ -12,6 +12,7 @@ Outputs:
   patent_v2_fig4_certificate_binding.png
   patent_v2_fig5_structural_excision_vs_penalty.png
   patent_v2_fig6_layer5_patent_core.png
+  patent_v2_fig7_v2_chain_and_incremental_loop.png
 
 All drawings use black/white/grayscale styling and stable reference numerals.
 """
@@ -635,6 +636,73 @@ def create_figure_6():
 
 
 # -----------------------------------------------------------------------------
+# FIGURE 7 — Invention Candidate v2 Chain & Incremental Lineage Loop
+# -----------------------------------------------------------------------------
+
+
+def create_figure_7():
+    fig, ax = _setup(
+        13.0,
+        10.5,
+        "FIG. 7 — STATE-ENVELOPED PROOF-CARRYING SECURITY COMPILER & INCREMENTAL LINEAGE LOOP",
+        "Architecture of Invention Candidate v2: Envelope Gating, Proof-Carrying Compilation, Independent Checking, and Closed-Loop Incremental Lineage",
+    )
+
+    # Top Row: State Ingestion, Envelope Derivation & Reconstruction
+    _box(ax, 0.04, 0.81, 0.28, 0.125, "602  Measured Runtime State S_t", ["Validity-relevant vector V(S_t)", "Fingerprint F_t = H(canon(V_t))", "State epoch n  (monotonic)"], face="0.94", linewidth=2.0)
+    _box(ax, 0.36, 0.81, 0.28, 0.125, "604  Validity Envelope E_t", ["Conjunction of per-field predicates", "Sound invariance region for A', R*,", "hard constraints, and budget bounds"], face="0.90", linewidth=2.2)
+    _box(ax, 0.68, 0.81, 0.28, 0.125, "606  Structural Transformer", ["Structural excision A'_t (no rogue vars)", "Least fixed-point closure R*_t", "Order-independent convergence"], face="0.94", linewidth=2.0)
+    _arrow(ax, 0.32, 0.872, 0.36, 0.872)
+    _arrow(ax, 0.64, 0.872, 0.68, 0.872)
+
+    # Row 2: SC-IR, Constructive Witness, State-Envelope Certificate
+    _box(ax, 0.04, 0.62, 0.28, 0.125, "608  SC-IR Formulation", ["Carries F_t, E_t, state_epoch n", "Hard invariants & soft preferences", "Deterministic canonical digest"], face="0.94", linewidth=2.0)
+    _box(ax, 0.36, 0.62, 0.28, 0.125, "610  Pre-Solve Certifier", ["7 unique safety invariant checks", "Constructive feasibility witness W_t", "Joint-feasible (assignment, slack)"], face="0.94", linewidth=2.0)
+    _box(ax, 0.68, 0.62, 0.28, 0.125, "612  State-Envelope Certificate C_t", ["Sign_K( H(IR), H(R*), H(W_t), E_t,", "AssetScope, PolicyRev, Epoch, Lease )", "Ed25519 digital signature"], face="0.90", linewidth=2.2)
+    _arrow(ax, 0.82, 0.81, 0.82, 0.77)
+    ax.plot([0.82, 0.18], [0.77, 0.77], color="black", linewidth=1.3)
+    _arrow(ax, 0.18, 0.77, 0.18, 0.745)
+    _arrow(ax, 0.32, 0.682, 0.36, 0.682)
+    _arrow(ax, 0.64, 0.682, 0.68, 0.682)
+
+    # Row 3: Certificate-Bound Compiler, Proof-Carrying Model, Independent Checker
+    _box(ax, 0.04, 0.43, 0.28, 0.125, "614  Bound Formulation Compiler", ["Refuse unless C_t signature verifies", "AND measured state V_now in E_t", "(Zero false accepts)"], face="0.90", linewidth=2.2)
+    _box(ax, 0.36, 0.43, 0.28, 0.125, "616  Proof-Carrying Model (M_b, Π_b)", ["Model M_b + Fidelity proof Π_b", "Obligation: x in F(IR) <=> Ez:(x,z) in F(M_b)", "Dominating penalty bound P > Delta_obj"], face="0.94", linewidth=2.0)
+    _box(ax, 0.68, 0.43, 0.28, 0.125, "618  Independent Proof Checker", ["Imports NO compiler internals", "Polynomial in size of proof", "Solver execution denied if proof fails"], face="0.90", linewidth=2.2)
+    _arrow(ax, 0.82, 0.62, 0.82, 0.58)
+    ax.plot([0.82, 0.18], [0.58, 0.58], color="black", linewidth=1.3)
+    _arrow(ax, 0.18, 0.58, 0.18, 0.555)
+    _arrow(ax, 0.32, 0.492, 0.36, 0.492)
+    _arrow(ax, 0.64, 0.492, 0.68, 0.492)
+
+    # Row 4: Untrusted Solver, Feasibility Gate, Actuation Capability Verifier
+    _box(ax, 0.04, 0.24, 0.28, 0.125, "620  Solver Backend (Untrusted)", ["Classical ILP / Quantum QUBO / QAOA", "Computes raw candidate decision x*", "(Solver is outside trusted computing base)"], face="0.98", linewidth=1.2)
+    _box(ax, 0.36, 0.24, 0.28, 0.125, "622  Feasibility Gate", ["Check x* in F(IR) else repair/reject", "Witness fallback W_t projection", "Conditional loss bound delta_opt"], face="0.94", linewidth=2.0)
+    _box(ax, 0.68, 0.24, 0.28, 0.125, "624  Capability Verifier", ["Role-separated verification (public key)", "Verify: sig, lease, V_now in E_t,", "epoch n, plan in certified domain, budget"], face="0.90", linewidth=2.2)
+    _arrow(ax, 0.82, 0.43, 0.82, 0.39)
+    ax.plot([0.82, 0.18], [0.39, 0.39], color="black", linewidth=1.3)
+    _arrow(ax, 0.18, 0.39, 0.18, 0.365)
+    _arrow(ax, 0.32, 0.302, 0.36, 0.302)
+    _arrow(ax, 0.64, 0.302, 0.68, 0.302)
+
+    # Row 5: Actuator Dispatch, Device Interface Simulator, Closed-Loop / Incremental Loop
+    _box(ax, 0.04, 0.04, 0.28, 0.13, "626  Actuator Command Builder", ["Commands carry expected_state_revision", "Modbus / OPC-UA / OpenFlow / Cloud", "status='simulated_success'"], face="0.96", linewidth=1.6)
+    _box(ax, 0.36, 0.04, 0.28, 0.13, "628  Simulated Device Interface", ["Device-side state revision check", "Rejects command if expected_rev != current", "Prevents TOCTOU device race conditions"], face="0.90", linewidth=2.2)
+    _box(ax, 0.68, 0.04, 0.28, 0.13, "630  Certified Incremental Lineage", ["Delta S -> Minimal affected subgraph", "Reuse ONLY if subgraph digest unchanged", "C_{t+1} with parent_digest = H(C_t)"], face="0.94", linewidth=2.0)
+    _arrow(ax, 0.82, 0.24, 0.82, 0.20)
+    ax.plot([0.82, 0.18], [0.20, 0.20], color="black", linewidth=1.3)
+    _arrow(ax, 0.18, 0.20, 0.18, 0.17)
+    _arrow(ax, 0.32, 0.105, 0.36, 0.105)
+
+    # Side loop arrow: Incremental feedback loop back to SC-IR / Compilation
+    ax.plot([0.82, 0.98, 0.98, 0.82], [0.17, 0.17, 0.70, 0.70], color="black", linestyle="--", linewidth=1.4)
+    _arrow(ax, 0.98, 0.70, 0.96, 0.70)
+    ax.text(0.975, 0.45, "632  Incremental Lineage Loop\n(Parent digest chain C_t -> C_{t+1})", ha="right", va="center", fontsize=7.2, fontweight="bold", rotation=90)
+
+    _save(fig, "patent_v2_fig7_v2_chain_and_incremental_loop.png")
+
+
+# -----------------------------------------------------------------------------
 # Entry point
 # -----------------------------------------------------------------------------
 
@@ -646,6 +714,7 @@ def main():
     create_figure_4()
     create_figure_5()
     create_figure_6()
+    create_figure_7()
     print("[DONE] Patent Figure Set V2 generated.")
 
 
