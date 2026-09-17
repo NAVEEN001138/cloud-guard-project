@@ -109,7 +109,11 @@ An **independent proof checker** (a standalone module importing no compiler inte
 
 ### 3.7 Feasibility gate and conditional repair (650)
 
-The solver is treated as untrusted. Upon receiving solver output $x^*$, a feasibility gate checks $x^* \in F(\text{SC-IR})$. If satisfied, $x^*$ passes through. If violated, a deterministic projection repair onto $F(\text{SC-IR})$ is attempted, with the certified witness $W_t$ serving as an infallible fallback. A certified loss bound $\delta$ is computed conditionally when an independently verifiable LP relaxation bound is available; otherwise, no universal bound is claimed.
+The solver is treated as untrusted. The formal feasibility semantics enforced by the compiler and independent checker are:
+- **ILP:** $x \in F(\text{IR}) \iff \exists z: (x, z) \text{ satisfies all backend hard constraints}$.
+- **QUBO:** $x \in F(\text{IR}) \iff \exists z: P_{\text{hard}}(x, z) = 0$, where $P_{\text{hard}}$ is the reconstructed penalty polynomial. (The expression "feasible set of the QUBO" is never used unqualified.)
+
+Upon receiving solver output $x^*$, a feasibility gate checks $x^* \in F(\text{SC-IR})$. If satisfied, $x^*$ passes through. If violated, a deterministic projection repair onto $F(\text{SC-IR})$ is attempted, with the certified witness $W_t$ serving as an infallible fallback. A certified loss bound $\delta$ is computed conditionally when an independently verifiable LP relaxation bound is available; otherwise, no universal bound is claimed.
 
 ### 3.8 Actuation capability verifier and device revision check (660 / 595)
 

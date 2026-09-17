@@ -488,11 +488,6 @@ class FormulationCompiler:
                     "cost_scale": cost_scale,
                     "slack_weights": slack_weights,
                     "slack_powers": [iw for _, _, iw in slack_info],
-                    "variable_costs": {
-                        var_lookup[(rid, act)]: int(round(float(ir.budget_constraint.cost_map.get((rid, act), 0.0)) * cost_scale))
-                        for (rid, act) in ir.get_all_variables()
-                        if (rid, act) in var_lookup
-                    },
                     "penalty": lambda_effective,
                 },
             })
