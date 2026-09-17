@@ -19,6 +19,9 @@ from typing import Dict
 
 
 def _deterministic_float(seed_key: str, low: float, high: float) -> float:
+    """Deterministic DEMONSTRATION fallback: a reproducible pseudo-value in
+    [low, high] derived from a seed string. Used ONLY when a resource does not
+    supply a real, measured context field. Not a security primitive."""
     digest = hashlib.md5(seed_key.encode()).hexdigest()
     ratio = int(digest[:8], 16) / 0xFFFFFFFF
     return low + ratio * (high - low)
@@ -92,6 +95,13 @@ def aggregate_context_for_resource(
     else:
         criticality = _deterministic_float(f"{key}-crit", 0.5, 0.9)
         sensitivity = _deterministic_float(f"{key}-sens", 0.4, 0.8)
+
+    # Real-context override: prefer measured / inventory-provided asset attributes
+    # (e.g. from a CMDB) over the deterministic demonstration fallback above.
+    if resource.get("business_criticality") is not None:
+        criticality = float(resource["business_criticality"])
+    if resource.get("data_sensitivity") is not None:
+        sensitivity = float(resource["data_sensitivity"])
     asset = AssetContext(criticality, sensitivity, rtype, resource_type=rtype)
 
     # Business dimensions
@@ -105,6 +115,12 @@ def aggregate_context_for_resource(
         sla = "MEDIUM"
         downtime_cost = _deterministic_float(f"{key}-dt", 20.0, 100.0)
 
+    # Real-context override for business attributes when supplied.
+    if resource.get("sla_priority") is not None:
+        sla = str(resource["sla_priority"])
+    if resource.get("downtime_cost_per_min") is not None:
+        downtime_cost = float(resource["downtime_cost_per_min"])
+
     rec_cost = downtime_cost * _deterministic_float(f"{key}-rec", 2.0, 5.0)
     business = BusinessContext(sla, downtime_cost, rec_cost)
 
@@ -114,6 +130,13 @@ def aggregate_context_for_resource(
     gdpr = sensitivity > 0.6
     hipaa = rtype in HEALTHCARE_TYPES and sensitivity > 0.7
     pci = rtype in PCI_TYPES and criticality > 0.7
+
+    # Real-context override: explicit compliance flags from the asset inventory
+    # take precedence over type-derived defaults.
+    explicit = resource.get("compliance") or {}
+    gdpr = bool(explicit.get("gdpr", gdpr))
+    hipaa = bool(explicit.get("hipaa", hipaa))
+    pci = bool(explicit.get("pci", pci))
     compliance = ComplianceContext(gdpr, hipaa, pci)
 
     return AggregatedContext(rid, threat, asset, business, compliance)

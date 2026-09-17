@@ -58,43 +58,11 @@ from layer4_confidence.confidence_evaluator import ConfidenceScores
 
 
 def action_cost(resource_type: str, action: str, cost_weights=COST_WEIGHTS) -> float:
-    w1, w2, w3 = cost_weights
-    base = ACTIONS.get(action, 0.1)
-
-    if action == "isolate":
-        business_impact = 0.9 if resource_type == "rds_database" else 0.5
-        compliance_impact = 0.1
-        downtime = 0.8
-    elif action == "rotate_credentials":
-        business_impact = 0.2
-        compliance_impact = 0.1
-        downtime = 0.1
-    elif action == "block_ip":
-        business_impact = 0.3
-        compliance_impact = 0.2
-        downtime = 0.05
-    elif action == "disable_user":
-        business_impact = 0.4
-        compliance_impact = 0.3
-        downtime = 0.2
-    elif action == "snapshot_backup":
-        business_impact = 0.1
-        compliance_impact = 0.05
-        downtime = 0.1
-    elif action == "monitor":
-        business_impact = 0.01
-        compliance_impact = 0.0
-        downtime = 0.0
-    elif action == "increase_logging":
-        business_impact = 0.05
-        compliance_impact = 0.0
-        downtime = 0.0
-    else:
-        business_impact = 0.2
-        compliance_impact = 0.1
-        downtime = 0.1
-
-    return w1 * business_impact + w2 * compliance_impact + w3 * downtime
+    # Single source of truth: delegate to the canonical Layer 5 cost model, which
+    # correctly handles cyber-physical assets (PLCs, medical devices). Kept as a
+    # thin backward-compatible wrapper for the legacy QUBO builder path.
+    from layer5_constraints.dependency_graph import calculate_action_cost
+    return calculate_action_cost(resource_type, action, cost_weights)
 
 
 def build_qubo(
