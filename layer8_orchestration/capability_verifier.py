@@ -58,13 +58,15 @@ class ActuationBudgetExceededError(ActuationVerificationError):
 class ActuationAuthorization:
     """
     Cryptographically and semantically verified authorization ticket for Layer 8 actuation.
+    Invariant: is_authorized => domain_authenticated.
     """
     is_authorized: bool
     expected_state_revision: int
     certificate_id: str
     authorized_actions: Dict[str, str]
     auth_timestamp: float
-    domain_certified: bool = True
+    domain_authenticated: bool = True
+    domain_certified: bool = True  # Backward compatibility alias
     envelope_valid: bool = True
     epoch_valid: bool = True
     details: Dict[str, Any] = field(default_factory=dict)
@@ -73,6 +75,8 @@ class ActuationAuthorization:
 class ActuationCapabilityVerifier:
     """
     Independent pre-actuation verification gate.
+    Certificate-only actuation: Domain, budget, envelope, and epoch decisions
+    come ONLY from the authenticated manifest within the certificate.
     """
 
     @classmethod
@@ -82,23 +86,44 @@ class ActuationCapabilityVerifier:
         certificate: Optional[ConstraintSafetyCertificate],
         current_snapshot: Optional[StateSnapshot] = None,
         public_key: Optional[VerifierKey] = None,
-        sc_ir: Optional[SecurityConstraintIR] = None,
     ) -> ActuationAuthorization:
         """
         Enforces complete pre-actuation verification sequence.
+        Domain and budget decisions come ONLY from the authenticated manifest.
         Raises ActuationVerificationError on any refusal.
         """
         if certificate is None:
             raise ActuationVerificationError("Actuation refused: Missing safety certificate.")
 
-        # 1. Signature Verification
+        # 1. Manifest Presence and Integrity
+        manifest = getattr(certificate, "execution_manifest", None)
+        if manifest is None:
+            raise ActuationVerificationError("Actuation refused: Certificate has no CertifiedExecutionManifest.")
+
+        expected_manifest_digest = getattr(certificate, "manifest_digest", "")
+        computed_manifest_digest = manifest.compute_digest()
+        if expected_manifest_digest and computed_manifest_digest != expected_manifest_digest:
+            raise ActuationVerificationError(
+                f"Actuation refused: Execution manifest digest mismatch. "
+                f"Expected '{expected_manifest_digest[:16]}...', computed '{computed_manifest_digest[:16]}...'."
+            )
+
+        # 2. Signature Verification
         vk = public_key or get_verifier_key()
         if not certificate.verify_signature(vk):
             raise ActuationVerificationError(
                 "Actuation refused: Invalid certificate cryptographic signature."
             )
 
-        # 2. Lease Policy Check (Max age seconds)
+        # 3. Policy Revision Verification against verifier's own deployed POLICY_REVISION
+        from layer5_constraints.policy_thresholds import POLICY_REVISION as DEPLOYED_POLICY_REVISION
+        if manifest.policy_revision != DEPLOYED_POLICY_REVISION:
+            raise ActuationVerificationError(
+                f"Actuation refused: Policy revision mismatch. Manifest has '{manifest.policy_revision}', "
+                f"deployed system requires '{DEPLOYED_POLICY_REVISION}'."
+            )
+
+        # 4. Lease Policy Check (Max age seconds)
         lease_policy = getattr(certificate, "lease_policy", 300)
         cert_time = getattr(certificate, "timestamp", 0.0)
         now = time.time()
@@ -107,8 +132,8 @@ class ActuationCapabilityVerifier:
                 f"Actuation refused: Certificate lease expired ({now - cert_time:.1f}s > {lease_policy}s allowed)."
             )
 
-        # 3. Validity Envelope Check
-        envelope = getattr(certificate, "validity_envelope", None)
+        # 5. Validity Envelope Check
+        envelope = manifest.envelope or getattr(certificate, "validity_envelope", None)
         envelope_valid = True
         if current_snapshot is not None and envelope is not None:
             is_inside, violations = envelope.contains(current_snapshot)
@@ -119,50 +144,54 @@ class ActuationCapabilityVerifier:
                     f"Violations: {'; '.join(violations)}"
                 )
 
-        # 4. State Epoch Monotonicity Check
+        # 6. State Epoch Monotonicity Check
         epoch_valid = True
-        cert_epoch = int(getattr(certificate, "state_epoch", 1))
-        expected_revision = cert_epoch
+        manifest_epoch = int(getattr(manifest, "state_epoch", getattr(certificate, "state_epoch", 1)))
+        expected_revision = manifest_epoch
         if current_snapshot is not None:
             snap_epoch = int(getattr(current_snapshot, "epoch", 1))
-            if snap_epoch < cert_epoch:
+            if snap_epoch < manifest_epoch:
                 epoch_valid = False
                 raise ActuationVerificationError(
-                    f"Actuation refused: State epoch regression. Snapshot epoch {snap_epoch} < Certificate epoch {cert_epoch}."
+                    f"Actuation refused: State epoch regression. Snapshot epoch {snap_epoch} < Manifest epoch {manifest_epoch}."
                 )
             expected_revision = snap_epoch
 
-        # 5. Plan Admissible Domain Containment
-        domain_certified = False
-        if sc_ir is not None:
-            domain_certified = True
+        # 7. Plan Admissible Domain Containment (from authenticated manifest ONLY)
+        for rid, action in plan.items():
+            if action in NON_DOMAIN_ACTIONS:
+                continue
+            if rid not in manifest.admissible_domains:
+                raise InadmissibleActionError(
+                    f"Actuation refused: Resource '{rid}' has no certified domain in manifest."
+                )
+            admissible = manifest.admissible_domains[rid]
+            if action not in admissible:
+                raise InadmissibleActionError(
+                    f"Actuation refused: Action '{action}' on '{rid}' is inadmissible (excised). "
+                    f"Admissible actions: {sorted(admissible)}."
+                )
+
+        # 8. Budget Ceiling Check (from authenticated manifest ONLY)
+        if manifest.effective_budget and manifest.effective_budget > 0:
+            plan_cost = 0.0
             for rid, action in plan.items():
                 if action in NON_DOMAIN_ACTIONS:
                     continue
-                domain = sc_ir.variable_domains.get(rid)
-                if domain is None:
-                    raise InadmissibleActionError(
-                        f"Actuation refused: Resource '{rid}' has no certified domain in SC-IR."
-                    )
-                if action not in domain.admissible_actions:
-                    raise InadmissibleActionError(
-                        f"Actuation refused: Action '{action}' on '{rid}' is inadmissible (excised). "
-                        f"Admissible actions: {sorted(domain.admissible_actions)}."
-                    )
+                cost = manifest.cost_map.get((rid, action))
+                if cost is None:
+                    cost = manifest.cost_map.get(f"{rid}:{action}", 0.0)
+                plan_cost += float(cost)
 
-            # 6. Budget Ceiling Check
-            if sc_ir.budget_constraint and sc_ir.budget_constraint.max_budget > 0:
-                cost_map = sc_ir.budget_constraint.cost_map
-                plan_cost = sum(cost_map.get((r, a), 0.0) for r, a in plan.items() if a not in NON_DOMAIN_ACTIONS)
-                if plan_cost > sc_ir.budget_constraint.max_budget + 1e-5:
-                    raise ActuationBudgetExceededError(
-                        f"Actuation refused: Plan cost {plan_cost:.3f} exceeds certified budget {sc_ir.budget_constraint.max_budget:.3f}."
-                    )
+            if plan_cost > manifest.effective_budget + 1e-5:
+                raise ActuationBudgetExceededError(
+                    f"Actuation refused: Plan cost {plan_cost:.3f} exceeds certified budget {manifest.effective_budget:.3f}."
+                )
 
-        # Scope check against certificate asset scope
-        if getattr(certificate, "asset_scope", None):
+        # 9. Scope check against authenticated manifest asset scope
+        if manifest.asset_scope:
             for rid, action in plan.items():
-                if action not in NON_DOMAIN_ACTIONS and rid not in certificate.asset_scope:
+                if action not in NON_DOMAIN_ACTIONS and rid not in manifest.asset_scope:
                     raise InadmissibleActionError(
                         f"Actuation refused: Resource '{rid}' outside certified asset scope."
                     )
@@ -173,12 +202,14 @@ class ActuationCapabilityVerifier:
             certificate_id=certificate.certificate_id,
             authorized_actions=dict(plan),
             auth_timestamp=now,
-            domain_certified=domain_certified,
+            domain_authenticated=True,
+            domain_certified=True,
             envelope_valid=envelope_valid,
             epoch_valid=epoch_valid,
             details={
                 "state_epoch": expected_revision,
-                "asset_scope": certificate.asset_scope,
+                "asset_scope": manifest.asset_scope,
+                "manifest_digest": computed_manifest_digest,
                 "auth_mechanism": getattr(certificate, "auth_mechanism", "unknown"),
             },
         )

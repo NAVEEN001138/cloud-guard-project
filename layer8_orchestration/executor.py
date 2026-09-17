@@ -556,7 +556,6 @@ def execute_plan(
             certificate=certificate,
             current_snapshot=current_snapshot,
             public_key=public_key,
-            sc_ir=sc_ir,
         )
         domain_certified = auth.domain_certified
         envelope_valid = auth.envelope_valid

@@ -1437,9 +1437,10 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         plan = {"s1": "isolate", "p1": "monitor"}
 
         # 1. Authorize actuation with matching snapshot
-        auth = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap_initial, sc_ir=ir)
+        auth = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap_initial)
         self.assertTrue(auth.is_authorized)
         self.assertEqual(auth.expected_state_revision, 1)
+        self.assertTrue(auth.domain_authenticated)
         self.assertTrue(auth.domain_certified)
         self.assertTrue(auth.envelope_valid)
         self.assertTrue(auth.epoch_valid)
@@ -1480,7 +1481,7 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
 
         # Actuation refused on old certificate
         with self.assertRaises(ActuationVerificationError):
-            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap_mutated, sc_ir=ir)
+            ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap_mutated)
 
         # Closed-loop reconstruction & recertification
         new_ir, new_cert, new_snap = reconstruct_and_recertify(
@@ -1791,6 +1792,93 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
             self.assertEqual(vars_i, base_vars)
             self.assertEqual(confs_i, base_confs)
             self.assertEqual(res_i.compute_canonical_digest(), base_digest)
+
+    def test_55_certificate_only_actuation_manifest_and_invariant(self):
+        """
+        Hardening Item B: Certificate-only actuation via CertifiedExecutionManifest.
+        1. Invariant: is_authorized => domain_authenticated by construction (no code path returns False).
+        2. Authorize method has NO sc_ir parameter.
+        3. Authorize succeeds with valid cert, mock sc_ir=None, verifying manifest alone.
+        4. Certificate without manifest -> rejected.
+        5. Tampered manifest -> rejected.
+        6. Deployed POLICY_REVISION mismatch -> rejected.
+        """
+        import inspect
+        import ast
+        from layer8_orchestration.capability_verifier import (
+            ActuationCapabilityVerifier,
+            ActuationVerificationError,
+            ActuationAuthorization,
+        )
+        from layer5_constraints.safety_certifier import CertifiedExecutionManifest, PreSolveSafetyCertifier
+        from layer5_constraints import policy_thresholds
+
+        # 1. Structural Invariant: Verify by AST analysis that authorize has NO code path returning domain_authenticated=False
+        import textwrap
+        auth_src = textwrap.dedent(inspect.getsource(ActuationCapabilityVerifier.authorize))
+        tree = ast.parse(auth_src)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Return) and isinstance(node.value, ast.Call):
+                for kw in node.value.keywords:
+                    if kw.arg in ("domain_authenticated", "domain_certified"):
+                        if isinstance(kw.value, ast.Constant):
+                            self.assertTrue(kw.value.value, "domain_authenticated must never be False on authorized return")
+
+        # 2. Verify signature of authorize() has NO sc_ir parameter
+        sig = inspect.signature(ActuationCapabilityVerifier.authorize)
+        self.assertNotIn("sc_ir", sig.parameters, "authorize() must not accept sc_ir parameter")
+
+        # 3. Valid authorization with manifest alone (provably no IR access)
+        scen = {
+            "incident_id": "manifest_test",
+            "scenario": "manifest_test",
+            "resources": [
+                {"id": "s1", "type": "server"},
+                {"id": "p1", "type": "plc_controller"},
+            ],
+        }
+        threat = {"s1": 0.85, "p1": 0.85}
+        ctx = {
+            "s1": create_test_context("s1", "server", threat=0.85, sla="HIGH", hipaa=True),
+            "p1": create_test_context("p1", "plc_controller", threat=0.85, sla="CRITICAL", hipaa=False),
+        }
+        conf = {"s1": create_test_confidence("s1"), "p1": create_test_confidence("p1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1)
+
+        dag = ConstraintDependencyGraph(incident_id="manifest_test")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        self.assertIsNotNone(cert.execution_manifest)
+        self.assertIsInstance(cert.execution_manifest, CertifiedExecutionManifest)
+        self.assertEqual(cert.manifest_digest, cert.execution_manifest.compute_digest())
+
+        plan = {"s1": "isolate", "p1": "monitor"}
+        auth = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+        self.assertTrue(auth.is_authorized)
+        self.assertTrue(auth.domain_authenticated)
+        self.assertTrue(auth.domain_certified)
+
+        # 4. Certificate without manifest -> ActuationVerificationError
+        bad_cert = copy.deepcopy(cert)
+        bad_cert.execution_manifest = None
+        with self.assertRaises(ActuationVerificationError):
+            ActuationCapabilityVerifier.authorize(plan, bad_cert, current_snapshot=snap)
+
+        # 5. Tampered manifest -> digest mismatch or signature mismatch
+        bad_cert2 = copy.deepcopy(cert)
+        bad_cert2.execution_manifest.effective_budget = 0.001
+        with self.assertRaises(ActuationVerificationError):
+            ActuationCapabilityVerifier.authorize(plan, bad_cert2, current_snapshot=snap)
+
+        # 6. Deployed POLICY_REVISION mismatch -> ActuationVerificationError
+        orig_rev = policy_thresholds.POLICY_REVISION
+        try:
+            policy_thresholds.POLICY_REVISION = "tampered_policy_rev_9999"
+            with self.assertRaises(ActuationVerificationError):
+                ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+        finally:
+            policy_thresholds.POLICY_REVISION = orig_rev
 
 
 if __name__ == "__main__":

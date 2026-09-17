@@ -1005,7 +1005,7 @@ def run_all_experiments():
     except StateEnvelopeViolationError:
         compilation_refused_15 = True
     try:
-        ActuationCapabilityVerifier.authorize(plan_15, cert_t1_15, current_snapshot=snap_drift_15, sc_ir=ir_t1_15)
+        ActuationCapabilityVerifier.authorize(plan_15, cert_t1_15, current_snapshot=snap_drift_15)
     except (ActuationEnvelopeViolationError, StateEnvelopeViolationError, ActuationVerificationError):
         actuation_refused_15 = True
 
@@ -1030,7 +1030,7 @@ def run_all_experiments():
     except Exception:
         compilation_accepted_15 = False
     try:
-        auth_ok = ActuationCapabilityVerifier.authorize(plan_15, cert_t1_15, current_snapshot=snap_irrel_15, sc_ir=ir_t1_15)
+        auth_ok = ActuationCapabilityVerifier.authorize(plan_15, cert_t1_15, current_snapshot=snap_irrel_15)
         actuation_accepted_15 = auth_ok.is_authorized
     except Exception:
         actuation_accepted_15 = False
@@ -1046,7 +1046,7 @@ def run_all_experiments():
 
     # Case 3: State Device Revision Race
     sim_dev_15 = SimulatedDeviceInterface(device_id="core_plc", initial_revision=1)
-    auth_t1_15 = ActuationCapabilityVerifier.authorize(plan_15, cert_t1_15, current_snapshot=snap_t1_15, sc_ir=ir_t1_15)
+    auth_t1_15 = ActuationCapabilityVerifier.authorize(plan_15, cert_t1_15, current_snapshot=snap_t1_15)
     cmd_15 = {
         "resource_id": "core_plc",
         "action": "monitor",
@@ -1069,7 +1069,7 @@ def run_all_experiments():
     snap_regress_15.epoch = 0
     epoch_regression_refused_15 = False
     try:
-        ActuationCapabilityVerifier.authorize(plan_15, cert_t1_15, current_snapshot=snap_regress_15, sc_ir=ir_t1_15)
+        ActuationCapabilityVerifier.authorize(plan_15, cert_t1_15, current_snapshot=snap_regress_15)
     except ActuationVerificationError:
         epoch_regression_refused_15 = True
 

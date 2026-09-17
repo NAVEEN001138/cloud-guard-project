@@ -14,8 +14,16 @@ Problem Solved:
     6. Policy and statutory mandate satisfaction (HIPAA 45 CFR § 164.312, etc.).
     7. 100% Provenance completeness for all pruned or mandated elements.
 
+Three-Way Revocation Invariant:
+  Execution authority is cryptographically and semantically bound to the tuple:
+    (H(SC-IR), Envelope E_t, PolicyRevision).
+  Revocation Rule:
+    IR changed OR state not in E_t OR policy revision changed => authority revoked.
+  If any one of these three conditions holds, all actuation authority is immediately
+  revoked, necessitating pipeline reconstruction and recertification.
+
   Emits a versioned, tamper-evident Pre-Solve Safety Certificate cryptographically
-  binding the certified SC-IR state to formulation compilers.
+  binding the certified SC-IR state to formulation compilers and actuation capability verifiers.
 =============================================================================
 """
 
@@ -26,6 +34,55 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Optional, Any
 
 from layer5_constraints.constraint_ir import SecurityConstraintIR
+
+
+@dataclass
+class CertifiedExecutionManifest:
+    """
+    Authenticated execution manifest embedded in the signed certificate payload.
+    Provides complete domain, budget, envelope, and epoch bounds directly to the
+    actuation capability verifier without requiring access to the unauthenticated IR.
+    """
+    asset_scope: List[str]
+    admissible_domains: Dict[str, List[str]]
+    cost_map: Dict[Any, float]
+    effective_budget: float
+    envelope: Any
+    state_epoch: int
+    policy_revision: str
+
+    def compute_digest(self) -> str:
+        canonical_dict = self.to_dict()
+        serialized = json.dumps(canonical_dict, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+    def to_dict(self) -> Dict[str, Any]:
+        env_dict = None
+        if self.envelope is not None:
+            if hasattr(self.envelope, "to_dict"):
+                env_dict = self.envelope.to_dict()
+            elif hasattr(self.envelope, "envelope_digest"):
+                env_dict = {"envelope_digest": self.envelope.envelope_digest}
+            else:
+                env_dict = str(self.envelope)
+
+        norm_cost_map = {}
+        for k, v in sorted(self.cost_map.items(), key=lambda item: str(item[0])):
+            if isinstance(k, (tuple, list)):
+                norm_key = f"{k[0]}:{k[1]}"
+            else:
+                norm_key = str(k)
+            norm_cost_map[norm_key] = float(v)
+
+        return {
+            "asset_scope": sorted(self.asset_scope or []),
+            "admissible_domains": {r: sorted(acts) for r, acts in sorted(self.admissible_domains.items())},
+            "cost_map": norm_cost_map,
+            "effective_budget": float(self.effective_budget),
+            "envelope": env_dict,
+            "state_epoch": int(self.state_epoch),
+            "policy_revision": str(self.policy_revision),
+        }
 
 
 @dataclass
@@ -64,6 +121,10 @@ class ConstraintSafetyCertificate:
     certifier_id: str = "certifier-node-primary"
     canonical_payload_bytes: bytes = b""
 
+    # Certified Execution Manifest (Phase 8 Hardening)
+    execution_manifest: Optional[CertifiedExecutionManifest] = None
+    manifest_digest: str = ""
+
     # Certified Incremental Lineage (Phase 7)
     parent_certificate_digest: Optional[str] = None
     subgraph_digests: Dict[str, str] = field(default_factory=dict)
@@ -72,7 +133,11 @@ class ConstraintSafetyCertificate:
     def compute_canonical_payload(self) -> bytes:
         """
         Recomputes the canonical payload bytes committed under the certificate signature.
+        Includes H(manifest) AND the manifest itself in the signed canonical payload.
         """
+        manifest_dict = self.execution_manifest.to_dict() if self.execution_manifest else {}
+        manifest_digest = self.manifest_digest or (self.execution_manifest.compute_digest() if self.execution_manifest else "")
+
         payload_obj = {
             "certificate_id": self.certificate_id,
             "ir_sha256": self.ir_sha256,
@@ -94,6 +159,8 @@ class ConstraintSafetyCertificate:
                 if self.incremental_equivalence_check else ""
             ),
             "verification_checks": self.verification_checks,
+            "manifest_digest": manifest_digest,
+            "execution_manifest": manifest_dict,
         }
         return json.dumps(payload_obj, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
@@ -397,6 +464,28 @@ class PreSolveSafetyCertifier:
             ir.compute_all_subgraph_digests() if hasattr(ir, "compute_all_subgraph_digests") else {}
         )
 
+        # Certified Execution Manifest (Item B)
+        admissible_domains = {
+            r: sorted(list(dom.admissible_actions))
+            for r, dom in ir.variable_domains.items()
+        }
+        cost_map = {
+            (r, a): float(c)
+            for (r, a), c in (ir.budget_constraint.cost_map.items() if ir.budget_constraint else [].__iter__())
+        }
+        effective_budget = float(ir.budget_constraint.max_budget) if ir.budget_constraint else 0.0
+
+        manifest = CertifiedExecutionManifest(
+            asset_scope=asset_scope,
+            admissible_domains=admissible_domains,
+            cost_map=cost_map,
+            effective_budget=effective_budget,
+            envelope=envelope,
+            state_epoch=state_epoch,
+            policy_revision=policy_revision,
+        )
+        manifest_digest = manifest.compute_digest()
+
         cert = ConstraintSafetyCertificate(
             certificate_id=cert_id,
             incident_id=ir.incident_id,
@@ -422,6 +511,8 @@ class PreSolveSafetyCertifier:
             state_epoch=state_epoch,
             lease_policy=lease_policy,
             certifier_id=certifier_id,
+            execution_manifest=manifest,
+            manifest_digest=manifest_digest,
             parent_certificate_digest=p_digest,
             subgraph_digests=subgraph_digests,
             incremental_equivalence_check=incremental_equivalence_check,
