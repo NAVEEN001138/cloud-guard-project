@@ -74,13 +74,21 @@ def aggregate_context_for_resource(
     velocity = _deterministic_float(f"{key}-vel", 0.2, 1.0)
     threat = ThreatContext(threat_score, severity, velocity)
 
-    # Asset dimensions
-    if rtype in {"rds_database", "iam_role"}:
+    # Asset dimensions (canonical asset-type tiers; see ASSET_TYPES in config)
+    if rtype in {"rds_database", "iam_role", "medical_device"}:
+        # High-value data / healthcare assets: elevated criticality and sensitivity
         criticality = _deterministic_float(f"{key}-crit", 0.8, 1.0)
         sensitivity = _deterministic_float(f"{key}-sens", 0.8, 1.0)
+    elif rtype == "plc_controller":
+        # Cyber-physical controllers: maximal availability criticality
+        criticality = _deterministic_float(f"{key}-crit", 0.9, 1.0)
+        sensitivity = _deterministic_float(f"{key}-sens", 0.5, 0.8)
     elif rtype == "ec2_instance":
         criticality = _deterministic_float(f"{key}-crit", 0.4, 0.8)
         sensitivity = _deterministic_float(f"{key}-sens", 0.3, 0.7)
+    elif rtype in {"camera_sensor", "network_gateway"}:
+        criticality = _deterministic_float(f"{key}-crit", 0.5, 0.8)
+        sensitivity = _deterministic_float(f"{key}-sens", 0.3, 0.6)
     else:
         criticality = _deterministic_float(f"{key}-crit", 0.5, 0.9)
         sensitivity = _deterministic_float(f"{key}-sens", 0.4, 0.8)
@@ -100,10 +108,12 @@ def aggregate_context_for_resource(
     rec_cost = downtime_cost * _deterministic_float(f"{key}-rec", 2.0, 5.0)
     business = BusinessContext(sla, downtime_cost, rec_cost)
 
-    # Compliance dimensions
+    # Compliance dimensions (canonical asset-type domains)
+    HEALTHCARE_TYPES = {"rds_database", "medical_device"}
+    PCI_TYPES = {"ec2_instance", "network_gateway"}
     gdpr = sensitivity > 0.6
-    hipaa = rtype == "rds_database" and sensitivity > 0.7
-    pci = rtype in {"ec2_instance", "api_gateway"} and criticality > 0.7
+    hipaa = rtype in HEALTHCARE_TYPES and sensitivity > 0.7
+    pci = rtype in PCI_TYPES and criticality > 0.7
     compliance = ComplianceContext(gdpr, hipaa, pci)
 
     return AggregatedContext(rid, threat, asset, business, compliance)

@@ -32,3 +32,6 @@ archive.zip
 .DS_Store
 Thumbs.db
 *.log
+
+# Large third-party exports
+patentlens_*.md
