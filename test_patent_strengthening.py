@@ -1330,8 +1330,65 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         )
         self.assertGreater(sem_rep_corrupt.ir_vs_ilp_mismatches, 0)
 
+    # 48. Post-solve feasibility gate filters and conditionally repairs infeasible plan
+    def test_48_feasibility_gate_filters_and_repairs_infeasible_plan(self):
+        from layer6_optimization.feasibility_gate import FeasibilityGate, InfeasiblePlanRejectionError
+
+        scen = {
+            "scenario": "gate_test",
+            "resources": [
+                {"id": "s1", "type": "server"},
+                {"id": "p1", "type": "plc_controller"},
+            ],
+        }
+        threat = {"s1": 0.85, "p1": 0.85}
+        ctx = {
+            "s1": create_test_context("s1", "server", threat=0.85, sla="HIGH", hipaa=True),
+            "p1": create_test_context("p1", "plc_controller", threat=0.85, sla="CRITICAL", hipaa=False),
+        }
+        conf = {"s1": create_test_confidence("s1"), "p1": create_test_confidence("p1")}
+
+        dag = ConstraintDependencyGraph(incident_id="gate_test")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # 1. Valid plan passes through unrepaired
+        valid_plan = {"s1": "isolate", "p1": "monitor"}
+        res_valid = FeasibilityGate.filter_and_repair(valid_plan, ir, certificate=cert)
+        self.assertTrue(res_valid.is_feasible)
+        self.assertFalse(res_valid.was_repaired)
+        self.assertEqual(res_valid.plan, valid_plan)
+
+        # 2. Infeasible plan (excised action 'isolate' on plc_controller) is repaired
+        infeasible_plan = {"s1": "isolate", "p1": "isolate"}
+        is_mem, viol = FeasibilityGate.check_membership(infeasible_plan, ir)
+        self.assertFalse(is_mem)
+        self.assertGreater(len(viol), 0)
+
+        res_repaired = FeasibilityGate.filter_and_repair(infeasible_plan, ir, certificate=cert)
+        self.assertTrue(res_repaired.is_feasible)
+        self.assertTrue(res_repaired.was_repaired)
+        # Repaired plan must NEVER contain the excised action
+        self.assertNotEqual(res_repaired.plan["p1"], "isolate")
+        self.assertIn(res_repaired.plan["p1"], ir.variable_domains["p1"].admissible_actions)
+
+        # Invariant: Every plan exiting the gate is in F(IR)
+        is_repaired_mem, _ = FeasibilityGate.check_membership(res_repaired.plan, ir)
+        self.assertTrue(is_repaired_mem)
+
+        # 3. Conditional delta-optimality loss bound
+        # When LP lower bound is provided: returns real loss bound >= 0.0
+        bound = FeasibilityGate.compute_certified_loss_bound(res_repaired.plan, ir, lp_relaxation_lower_bound=-5.0)
+        self.assertIsNotNone(bound)
+        self.assertGreaterEqual(bound, 0.0)
+
+        # When no LP bound is provided: returns None (no universal bound claimed)
+        none_bound = FeasibilityGate.compute_certified_loss_bound(res_repaired.plan, ir, lp_relaxation_lower_bound=None)
+        self.assertIsNone(none_bound)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 
 

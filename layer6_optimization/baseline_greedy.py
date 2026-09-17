@@ -180,6 +180,10 @@ def solve_with_ilp(
                         break
                 plan[rid] = best_k
 
+            from layer6_optimization.feasibility_gate import FeasibilityGate
+            gate_res = FeasibilityGate.filter_and_repair(plan, ir, certificate=cert)
+            plan = gate_res.plan
+
             return plan, calculate_objective(plan, scenario, threat_scores)
 
         prob = pulp.LpProblem("ILP_Incident_Response", pulp.LpMinimize)

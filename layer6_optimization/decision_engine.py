@@ -430,6 +430,11 @@ def decode_action_plan(qp: QuadraticProgram, var_lookup: dict, solve_result: dic
                     best_action = k
         plan[r] = best_action or "monitor"
 
+    if getattr(qp, "ir", None) is not None:
+        from layer6_optimization.feasibility_gate import FeasibilityGate
+        gate_res = FeasibilityGate.filter_and_repair(plan, qp.ir, certificate=getattr(qp, "certificate", None))
+        plan = gate_res.plan
+
     return plan
 
 
