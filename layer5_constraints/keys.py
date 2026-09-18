@@ -28,8 +28,6 @@ from typing import Tuple, Optional, Set
 
 logger = logging.getLogger(__name__)
 
-from layer5_constraints.policy_thresholds import POLICY_REVISION
-
 # Cryptographic configuration
 ALLOW_HMAC_FALLBACK: bool = os.environ.get("ALLOW_HMAC_FALLBACK", "false").lower() in ("true", "1")
 

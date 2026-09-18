@@ -109,8 +109,8 @@ from layer5_constraints.keys import (
     VerifierKey,
     get_certifier_key,
     get_verifier_key,
-    POLICY_REVISION,
 )
+from layer5_constraints.policy_thresholds import POLICY_REVISION
 from layer8_orchestration.executor import (
     execute_plan,
     validate_plan_against_certified_ir,
