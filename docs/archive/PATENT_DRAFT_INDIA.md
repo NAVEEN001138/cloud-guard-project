@@ -96,7 +96,7 @@ Modern industrial IoT, cyber-physical automation (SCADA/ICS), and enterprise clo
 
 ### FIG. 1: 9-Layer System Architecture Diagram
 
-![FIG. 1: 9-Layer System Architecture Diagram](../../architecture_diagram_white.png)
+![FIG. 1: 9-Layer System Architecture Diagram](../../images/architecture_diagram_white.png)
 
 ```mermaid
 graph TD
@@ -168,13 +168,13 @@ graph TD
 
 ### FIG. 2: Patent Core Process Flow & Constraint Compilation Pipeline
 
-![FIG. 2: Patent Core Process Flow & Constraint Compilation Pipeline](../../patent_figure_2_process_flow_white.png)
+![FIG. 2: Patent Core Process Flow & Constraint Compilation Pipeline](../../images/patent_figure_2_process_flow_white.png)
 
 ---
 
 ### FIG. 3: Runtime Incremental Constraint Compilation & Subgraph Reuse Flow
 
-![FIG. 3: Runtime Incremental Constraint Compilation & Subgraph Reuse](../../patent_figure_3_incremental_white.png)
+![FIG. 3: Runtime Incremental Constraint Compilation & Subgraph Reuse](../../images/patent_figure_3_incremental_white.png)
 
 ---
 

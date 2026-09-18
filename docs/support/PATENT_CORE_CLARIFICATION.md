@@ -3,8 +3,8 @@
 **For:** patent agent, technical reviewers, faculty examiners  
 **Subject:** precise statement of the claimed subject matter, its mechanism, its support in code, and its position against the closest prior art  
 **Reference drawings:**  
-- FIG. 6, `patent_v2_fig6_layer5_patent_core.png` (reference numerals 500–595)  
-- FIG. 7, `patent_v2_fig7_v2_chain_and_incremental_loop.png` (reference numerals 600–680)  
+- FIG. 6, `../../images/patent_v2_fig6_layer5_patent_core.png` (reference numerals 500–595)  
+- FIG. 7, `../../images/patent_v2_fig7_v2_chain_and_incremental_loop.png` (reference numerals 600–680)  
 **Companion documents:** `PRIOR_ART_LAYER5_CORE.md` (prior-art search), `INDEPENDENT_CODE_AUDIT_REFERENCE.md` (code audit reference), `V2_IMPLEMENTATION_REPORT.md` (v2 implementation and empirical verification report)  
 **Date:** 2026-09-17  
 

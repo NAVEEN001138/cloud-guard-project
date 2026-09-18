@@ -179,10 +179,10 @@ python run_patent_strengthening_benchmark.py
 ```bash
 python generate_diagram_images.py
 ```
-*Generates 6 publication-ready images:*
-- `architecture_diagram.png` (Dark) & `architecture_diagram_white.png` (Patent White)
-- `process_flow_diagram.png` (Dark) & `patent_figure_2_process_flow_white.png` (Patent White with Reference Numerals 100–190)
-- `incremental_compilation_diagram.png` (Dark) & `patent_figure_3_incremental_white.png` (Patent White)
+*Generates 6 publication-ready images in `images/`:*
+- `images/architecture_diagram.png` (Dark) & `images/architecture_diagram_white.png` (Patent White)
+- `images/process_flow_diagram.png` (Dark) & `images/patent_figure_2_process_flow_white.png` (Patent White with Reference Numerals 100–190)
+- `images/incremental_compilation_diagram.png` (Dark) & `images/patent_figure_3_incremental_white.png` (Patent White)
 
 ### 8. Run Unvarnished Evidentiary Verification Report
 ```bash
@@ -254,8 +254,7 @@ cloud-guard-project/
 ├── run_data_scaling_trials.py         # Multi-scale empirical trials harness (2k to 100k samples)
 ├── run_detailed_verification_evidence.py# Evidentiary report with unvarnished logs & metrics
 ├── streamlit_app.py                   # Interactive SOC dashboard & patent inspection UI
-├── architecture_diagram.png           # High-resolution 9-layer system architecture diagram
-├── process_flow_diagram.png           # High-resolution end-to-end execution sequence diagram
+├── images/                            # System architecture, process flow & patent figures (300 DPI)
 ├── docs/                              # Comprehensive documentation repository
 │   ├── support/                       # Patent claim-support and evidentiary disclosures
 │   ├── auxiliary/                     # Academic manuscripts, technical dossiers & guides

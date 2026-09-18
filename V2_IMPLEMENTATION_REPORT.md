@@ -96,7 +96,7 @@ All metrics were directly measured by executing the test suite and benchmark run
 
 ### Phase 8 — Experiments 12–16, Visualizations, and CI
 - **Benchmarks implemented:** Added Experiments 12–16 in `run_patent_strengthening_benchmark.py`.
-- **Visualizations:** Added FIG. 7 (`create_figure_7()`, `patent_v2_fig7_v2_chain_and_incremental_loop.png`) to `generate_patent_figures_v2.py`.
+- **Visualizations:** Added FIG. 7 (`create_figure_7()`, `images/patent_v2_fig7_v2_chain_and_incremental_loop.png`) to `generate_patent_figures_v2.py`.
 - **CI configuration:** Updated `.github/workflows/ci.yml` step names to reflect 77/77 tests and Experiments 7–16.
 - **Deviations:** None.
 

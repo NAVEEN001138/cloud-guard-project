@@ -21,6 +21,8 @@ import matplotlib.patches as patches
 
 plt.rcParams["font.family"] = "sans-serif"
 
+os.makedirs("images", exist_ok=True)
+
 
 def load_benchmark_data():
     json_path = "patent_strengthening_results.json"
@@ -215,7 +217,7 @@ def create_architecture_diagram(white_bg: bool = False):
         fontsize=8.5, color="#333333" if white_bg else "#94a3b8", ha="center", va="center"
     )
 
-    filename = "architecture_diagram_white.png" if white_bg else "architecture_diagram.png"
+    filename = os.path.join("images", "architecture_diagram_white.png" if white_bg else "architecture_diagram.png")
     plt.savefig(filename, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close()
     print(f"[OK] Generated: {os.path.abspath(filename)}")
@@ -480,7 +482,7 @@ def create_process_flow_diagram(white_bg: bool = False):
     ax.add_patch(arr_fb2)
     ax.add_patch(arr_fb3)
 
-    filename = "patent_figure_2_process_flow_white.png" if white_bg else "process_flow_diagram.png"
+    filename = os.path.join("images", "patent_figure_2_process_flow_white.png" if white_bg else "process_flow_diagram.png")
     plt.savefig(filename, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close()
     print(f"[OK] Generated: {os.path.abspath(filename)}")
@@ -699,7 +701,7 @@ def create_incremental_diagram(white_bg: bool = False):
         fontsize=8.5, color="#333333" if white_bg else "#94a3b8", ha="center", va="center"
     )
 
-    filename = "patent_figure_3_incremental_white.png" if white_bg else "incremental_compilation_diagram.png"
+    filename = os.path.join("images", "patent_figure_3_incremental_white.png" if white_bg else "incremental_compilation_diagram.png")
     plt.savefig(filename, dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close()
     print(f"[OK] Generated: {os.path.abspath(filename)}")

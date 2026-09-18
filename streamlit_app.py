@@ -558,9 +558,10 @@ with tab_arch:
 
     col_fig1, col_fig2 = st.columns(2)
     with col_fig1:
-        if os.path.exists("architecture_diagram.png"):
+        img1_path = os.path.join("images", "architecture_diagram.png") if os.path.exists(os.path.join("images", "architecture_diagram.png")) else "architecture_diagram.png"
+        if os.path.exists(img1_path):
             st.image(
-                "architecture_diagram.png",
+                img1_path,
                 caption="FIG. 1: 9-Layer Security Constraint Compiler Architecture (300 DPI)",
                 use_container_width=True
             )
@@ -568,9 +569,10 @@ with tab_arch:
             st.warning("architecture_diagram.png not found.")
 
     with col_fig2:
-        if os.path.exists("process_flow_diagram.png"):
+        img2_path = os.path.join("images", "process_flow_diagram.png") if os.path.exists(os.path.join("images", "process_flow_diagram.png")) else "process_flow_diagram.png"
+        if os.path.exists(img2_path):
             st.image(
-                "process_flow_diagram.png",
+                img2_path,
                 caption="FIG. 2: Runtime Security Constraint Compilation Pipeline (300 DPI)",
                 use_container_width=True
             )

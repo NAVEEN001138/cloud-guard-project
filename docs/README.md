@@ -37,7 +37,8 @@ Historical documentation kept for revision tracking, auditability, and preservat
 
 - **[`PATENT_DRAFT_INDIA.md`](archive/PATENT_DRAFT_INDIA.md)**: Superseded by `docs/support/PATENT_DRAFT_INDIA_V2.md`; retained as the historical baseline draft of the initial Form 2 complete specification.
 - **[`CLOUD_GUARDIAN_MASTER_TECHNICAL_REFERENCE.md`](archive/CLOUD_GUARDIAN_MASTER_TECHNICAL_REFERENCE.md)**: Superseded by `docs/auxiliary/CLOUD_GUARDIAN_MASTER_TECHNICAL_REFERENCE_V2.md`; retained as the historical v1.0 master technical specification baseline.
+- **[`images/`](archive/images/README.md)**: Archive directory for superseded patent drawings and figures (retained for patent evidentiary history).
 
 ---
 
-*(Note: Live benchmark artifacts `PATENT_STRENGTHENING_RESULTS.md` and `V2_IMPLEMENTATION_REPORT.md` remain at repository root as active output targets for automated benchmark scripts).*
+*(Note: Live benchmark artifacts `PATENT_STRENGTHENING_RESULTS.md` and `V2_IMPLEMENTATION_REPORT.md` remain at repository root as active output targets for automated benchmark scripts; all active figures and diagrams reside in [`images/`](../images/)).*

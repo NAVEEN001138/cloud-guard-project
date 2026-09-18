@@ -19,8 +19,11 @@ All drawings use black/white/grayscale styling and stable reference numerals.
 
 from __future__ import annotations
 
+import os
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
+
+os.makedirs("images", exist_ok=True)
 
 
 # -----------------------------------------------------------------------------
@@ -144,9 +147,10 @@ def _arrow(ax, x1, y1, x2, y2, dashed=False, label=None, label_dx=0, label_dy=0)
 
 
 def _save(fig, filename: str):
-    plt.savefig(filename, dpi=FIG_DPI, bbox_inches="tight", facecolor="white")
+    out_path = os.path.join("images", filename)
+    plt.savefig(out_path, dpi=FIG_DPI, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    print(f"[OK] Generated {filename}")
+    print(f"[OK] Generated {out_path}")
 
 
 # -----------------------------------------------------------------------------
