@@ -2806,6 +2806,68 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         self.assertFalse(cert_med.verification_checks["1_forbidden_action_elimination"])
         self.assertTrue(any("medical device" in v.lower() and "allows 'isolate'" in v for v in cert_med.forbidden_action_violations))
 
+    # 76. Compiler rejects legacy digest downgrade attack
+    def test_76_compiler_rejects_legacy_digest_downgrade(self):
+        """
+        Closure Item 2:
+        Attack: erase signature, erase canonical_payload_bytes, set integrity_digest to
+        sha256 of the legacy string format -> both compile_to_ilp and compile_to_qubo
+        raise IntegrityBindingError.
+        Also: erase ONLY canonical_payload_bytes with signature intact -> must still be
+        authenticated (accepted if digest recomputes correctly; rejected if integrity_digest
+        was altered).
+        """
+        import json
+        scen = {"scenario": "test_76", "resources": [{"id": "srv1", "type": "server"}]}
+        threat = {"srv1": 0.85}
+        ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+        conf = {"srv1": create_test_confidence("srv1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+
+        dag = ConstraintDependencyGraph(incident_id="test_76")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # 1. Attack: erase signature, erase canonical_payload_bytes, synthesize legacy digest
+        attack_cert = copy.deepcopy(cert)
+        attack_cert.signature = ""
+        attack_cert.canonical_payload_bytes = b""
+        witness_part = f":{attack_cert.witness_digest}" if attack_cert.witness_digest else ""
+        envelope_part = f":{attack_cert.envelope_digest}" if getattr(attack_cert, "envelope_digest", "") else ""
+        legacy_payload = (
+            f"{attack_cert.certificate_id}:{attack_cert.ir_sha256}:{attack_cert.ir_version}:{attack_cert.runtime_state_version}:"
+            f"{attack_cert.status}:{json.dumps(attack_cert.verification_checks, sort_keys=True)}:{attack_cert.closure_digest}"
+            f"{witness_part}{envelope_part}"
+        )
+        attack_cert.integrity_digest = hashlib.sha256(legacy_payload.encode("utf-8")).hexdigest()
+
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.compile_to_ilp(ir, attack_cert, current_snapshot=snap)
+
+        if HAS_QISKIT:
+            with self.assertRaises(IntegrityBindingError):
+                FormulationCompiler.compile_to_qubo(ir, attack_cert, current_snapshot=snap)
+
+        # 2. Erase ONLY canonical_payload_bytes with signature intact -> accepted
+        cert_no_bytes = copy.deepcopy(cert)
+        cert_no_bytes.canonical_payload_bytes = b""
+        prob, _ = FormulationCompiler.compile_to_ilp(ir, cert_no_bytes, current_snapshot=snap)
+        self.assertIsNotNone(prob)
+
+        if HAS_QISKIT:
+            qp, _ = FormulationCompiler.compile_to_qubo(ir, cert_no_bytes, current_snapshot=snap)
+            self.assertIsNotNone(qp)
+
+        # 3. Erase ONLY canonical_payload_bytes with altered integrity_digest -> rejected
+        cert_no_bytes_altered = copy.deepcopy(cert_no_bytes)
+        cert_no_bytes_altered.integrity_digest = "0" * 64
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.compile_to_ilp(ir, cert_no_bytes_altered, current_snapshot=snap)
+
+        if HAS_QISKIT:
+            with self.assertRaises(IntegrityBindingError):
+                FormulationCompiler.compile_to_qubo(ir, cert_no_bytes_altered, current_snapshot=snap)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

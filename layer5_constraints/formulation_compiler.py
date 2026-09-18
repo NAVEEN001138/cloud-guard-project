@@ -186,39 +186,23 @@ class FormulationCompiler:
                     )
 
         # Recompute and verify certificate's own integrity digest and digital signature
-        if hasattr(certificate, "compute_canonical_payload") and getattr(certificate, "canonical_payload_bytes", b""):
-            expected_payload_bytes = certificate.compute_canonical_payload()
-            expected_cert_hash = hashlib.sha256(expected_payload_bytes).hexdigest()
-            if certificate.integrity_digest and certificate.integrity_digest != expected_cert_hash:
-                raise IntegrityBindingError(
-                    f"Compilation rejected: Certificate integrity digest mismatch. "
-                    f"Expected {expected_cert_hash[:16]}..., got {certificate.integrity_digest[:16]}... "
-                    "The safety certificate payload was altered after issuance."
-                )
-
-            # Digital signature verification using VerifierKey (public key only)
-            from layer5_constraints.keys import get_verifier_key
-            vk = verifier_key or get_verifier_key()
-            if not certificate.verify_signature(vk):
-                raise IntegrityBindingError(
-                    "Compilation rejected: Digital signature verification failed. "
-                    "Certificate signature is invalid, missing, was signed by an unauthorized key, or payload was tampered."
-                )
-        elif certificate.integrity_digest:
-            witness_part = f":{certificate.witness_digest}" if certificate.witness_digest else ""
-            envelope_part = f":{certificate.envelope_digest}" if getattr(certificate, "envelope_digest", "") else ""
-            expected_cert_payload = (
-                f"{certificate.certificate_id}:{certificate.ir_sha256}:{certificate.ir_version}:{certificate.runtime_state_version}:"
-                f"{certificate.status}:{json.dumps(certificate.verification_checks, sort_keys=True)}:{certificate.closure_digest}"
-                f"{witness_part}{envelope_part}"
+        from layer5_constraints.keys import get_verifier_key
+        payload = certificate.compute_canonical_payload()
+        expected_cert_hash = hashlib.sha256(payload).hexdigest()
+        if certificate.integrity_digest != expected_cert_hash:
+            raise IntegrityBindingError(
+                f"Compilation rejected: Certificate integrity digest mismatch. "
+                f"Expected {expected_cert_hash[:16]}..., got {certificate.integrity_digest[:16]}... "
+                "The safety certificate payload was altered after issuance."
             )
-            expected_cert_hash = hashlib.sha256(expected_cert_payload.encode("utf-8")).hexdigest()
-            if certificate.integrity_digest != expected_cert_hash:
-                raise IntegrityBindingError(
-                    f"Compilation rejected: Certificate integrity digest mismatch. "
-                    f"Expected {expected_cert_hash[:16]}..., got {certificate.integrity_digest[:16]}... "
-                    "The safety certificate payload was altered after issuance."
-                )
+
+        # Digital signature verification using VerifierKey (public key only)
+        vk = verifier_key or get_verifier_key()
+        if not certificate.verify_signature(vk):
+            raise IntegrityBindingError(
+                "Compilation rejected: Digital signature verification failed. "
+                "Certificate signature is invalid, missing, was signed by an unauthorized key, or payload was tampered."
+            )
 
         # Policy Revision Verification against active deployed policy revision
         from layer5_constraints.policy_thresholds import get_active_policy_revision
