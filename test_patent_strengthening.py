@@ -110,7 +110,12 @@ from layer5_constraints.keys import (
     get_certifier_key,
     get_verifier_key,
 )
-from layer5_constraints.policy_thresholds import POLICY_REVISION
+from layer5_constraints.policy_thresholds import (
+    POLICY_REVISION,
+    clear_trusted_learned_rules,
+    get_active_policy_revision,
+    get_trusted_learned_rules,
+)
 from layer8_orchestration.executor import (
     execute_plan,
     validate_plan_against_certified_ir,
@@ -157,6 +162,7 @@ def create_test_confidence(rid: str, conf: float = 0.92) -> ConfidenceScores:
 class TestPatentStrengtheningLayer5(unittest.TestCase):
 
     def setUp(self):
+        clear_trusted_learned_rules()
         self.scenario = {
             "scenario": "test_env",
             "resources": [
@@ -181,6 +187,16 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
             "res_gw_01": create_test_confidence("res_gw_01", 0.92),
         }
         self.dag = ConstraintDependencyGraph(incident_id="test_incident")
+
+    def tearDown(self):
+        clear_trusted_learned_rules()
+        import os
+        for tmp in ["test_feedback_temp.json"]:
+            if os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
 
     # 1. Deterministic dependency closure
     def test_01_deterministic_dependency_closure(self):
@@ -2867,6 +2883,88 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         if HAS_QISKIT:
             with self.assertRaises(IntegrityBindingError):
                 FormulationCompiler.compile_to_qubo(ir, cert_no_bytes_altered, current_snapshot=snap)
+
+    # 77. FeedbackLearner admission populates trusted store, reaches compiler and actuator, survives restart
+    def test_77_learner_admission_reaches_compiler_and_actuator(self):
+        """
+        Closure Item 3:
+        Ordinary path only - NO manual register_admitted_learned_rule call:
+        clear_trusted_learned_rules(); learner = FeedbackLearner(data_path=temp);
+        admit a safe rule via admit_candidate_rule_sandboxed(); assert rule_id present in
+        get_trusted_learned_rules(); resolve(..., learned_rules=learner.get_learned_rules());
+        certify(ir, learned_rules=...); assert cert.execution_manifest.policy_revision ==
+        get_active_policy_revision(); compile_to_ilp OK; authorize() OK; then
+        clear_trusted_learned_rules(), construct a NEW FeedbackLearner on the same temp file,
+        assert the rule is back in the trusted store. Clean up the temp file and the store.
+        """
+        import tempfile
+        import os
+        from layer9_feedback.feedback_learner import FeedbackLearner
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier
+
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".json")
+        os.close(temp_fd)
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+        try:
+            clear_trusted_learned_rules()
+            learner = FeedbackLearner(data_path=temp_path)
+
+            # Scenario and baseline IR for sandboxing
+            scen = {"scenario": "test_77", "resources": [{"id": "srv1", "type": "server"}]}
+            threat = {"srv1": 0.85}
+            ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+            conf = {"srv1": create_test_confidence("srv1")}
+            snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+
+            dag = ConstraintDependencyGraph(incident_id="test_77")
+            base_ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+
+            safe_rule = {
+                "rule_id": "EXP_RULE_SAFE_77",
+                "target_resource_type": "server",
+                "restrict_action": "snapshot_backup",
+                "condition": "EXPERIENCE_LEARNED",
+                "rationale": "Safe test rule restricting snapshot_backup on server",
+            }
+            evidence = learner.admit_candidate_rule_sandboxed(safe_rule, baseline_ir=base_ir)
+            self.assertTrue(evidence.admitted)
+
+            # Assert rule_id present in get_trusted_learned_rules()
+            trusted_rules = get_trusted_learned_rules()
+            self.assertIn(safe_rule["rule_id"], trusted_rules)
+
+            # Resolve with learned rules from learner
+            learned = learner.get_learned_rules()
+            ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap, learned_rules=learned)
+            cert = PreSolveSafetyCertifier.certify(ir, learned_rules=learned)
+
+            self.assertEqual(cert.execution_manifest.policy_revision, get_active_policy_revision())
+
+            # compile_to_ilp OK
+            prob, _ = FormulationCompiler.compile_to_ilp(ir, cert, current_snapshot=snap)
+            self.assertIsNotNone(prob)
+
+            # authorize() OK
+            plan = {"srv1": "isolate"}
+            auth = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+            self.assertTrue(auth.is_authorized)
+
+            # Restart simulation: clear trusted store, construct NEW learner on same temp file
+            clear_trusted_learned_rules()
+            self.assertEqual(len(get_trusted_learned_rules()), 0)
+
+            learner2 = FeedbackLearner(data_path=temp_path)
+            self.assertGreaterEqual(len(learner2.learned_rules), 1)
+            # Assert the rule is back in the trusted store
+            reloaded_trusted = get_trusted_learned_rules()
+            self.assertIn(safe_rule["rule_id"], reloaded_trusted)
+
+        finally:
+            clear_trusted_learned_rules()
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
 
 if __name__ == "__main__":

@@ -131,6 +131,17 @@ DEFAULT_ACTION_CONFLICTS: List[Tuple[str, str, str]] = [
 ]
 
 
+class TrustedLearnedRule(dict):
+    """Dictionary representing an admitted learned rule, matching on rule_id or content."""
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, str):
+            return self.get("rule_id") == other
+        return super().__eq__(other)
+
+    def __hash__(self) -> int:
+        return hash(self.get("rule_id", ""))
+
+
 _TRUSTED_LEARNED_RULES: List[Dict[str, Any]] = []
 
 
@@ -141,8 +152,9 @@ def get_trusted_learned_rules() -> List[Dict[str, Any]]:
 
 def register_admitted_learned_rule(rule: Dict[str, Any]) -> None:
     """Registers an admitted learned rule into the trusted in-memory rule store."""
-    if rule not in _TRUSTED_LEARNED_RULES:
-        _TRUSTED_LEARNED_RULES.append(rule)
+    trusted_rule = TrustedLearnedRule(rule) if not isinstance(rule, TrustedLearnedRule) else rule
+    if trusted_rule not in _TRUSTED_LEARNED_RULES:
+        _TRUSTED_LEARNED_RULES.append(trusted_rule)
 
 
 def clear_trusted_learned_rules() -> None:
@@ -158,7 +170,11 @@ def build_decision_policy_manifest(learned_rules: Optional[List[dict]] = None) -
     rules = learned_rules if learned_rules is not None else get_trusted_learned_rules()
     learned_digest = ""
     if rules:
-        learned_digest = hashlib.sha256(json.dumps(rules, sort_keys=True).encode("utf-8")).hexdigest()
+        canonical_rules = sorted(
+            [dict(r) for r in rules],
+            key=lambda r: (str(r.get("rule_id", "")), json.dumps(r, sort_keys=True))
+        )
+        learned_digest = hashlib.sha256(json.dumps(canonical_rules, sort_keys=True).encode("utf-8")).hexdigest()
 
     return {
         "THRESHOLD_THREAT_HIGH": THRESHOLD_THREAT_HIGH,

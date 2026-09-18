@@ -111,7 +111,8 @@ class FeedbackLearner:
                     items = data
                 elif isinstance(data, dict):
                     items = data.get("history", [])
-                    self.learned_rules = data.get("learned_rules", [])
+                    for rule in data.get("learned_rules", []):
+                        self._admit_rule(rule, persist=False)
                 else:
                     items = []
 
@@ -132,6 +133,18 @@ class FeedbackLearner:
                 "learned_rules": self.learned_rules,
             }
             json.dump(payload, f, indent=2)
+
+    def _admit_rule(self, rule: Dict[str, Any], persist: bool = True) -> None:
+        """
+        Appends rule to self.learned_rules if absent, registers it with the trusted
+        rule store in policy_thresholds, and optionally saves feedback.
+        """
+        if rule not in self.learned_rules:
+            self.learned_rules.append(rule)
+        from layer5_constraints import policy_thresholds
+        policy_thresholds.register_admitted_learned_rule(rule)
+        if persist:
+            self.save_feedback()
 
     def _recalculate_ema(self):
         """Recalculates Exponential Moving Averages across history."""
@@ -208,7 +221,7 @@ class FeedbackLearner:
             candidate["validation_status"] = "APPROVED" if is_valid else "REJECTED"
             candidate["validation_reason"] = reason
             if is_valid:
-                self.learned_rules.append(candidate)
+                self._admit_rule(candidate, persist=False)
         
         # Save updated weights into metrics dict for auditability
         feedback.outcome_metrics["current_weights"] = self.current_weights.copy()
@@ -322,8 +335,7 @@ class FeedbackLearner:
         candidate["validation_reason"] = reason
 
         if is_valid:
-            self.learned_rules.append(candidate)
-            self.save_feedback()
+            self._admit_rule(candidate, persist=True)
             return candidate, reason
         return None, reason
 
@@ -447,8 +459,7 @@ class FeedbackLearner:
                 # All checks passed in sandbox! Admit rule
                 candidate_rule["validation_status"] = "APPROVED"
                 candidate_rule["validation_reason"] = "Passed formal sandboxed pre-solve safety certification"
-                self.learned_rules.append(candidate_rule)
-                self.save_feedback()
+                self._admit_rule(candidate_rule, persist=True)
 
                 return RuleAdmissionEvidence(
                     candidate_rule_id=rule_id,
@@ -478,8 +489,7 @@ class FeedbackLearner:
         candidate_rule["validation_status"] = "APPROVED" if is_valid else "REJECTED"
         candidate_rule["validation_reason"] = reason
         if is_valid:
-            self.learned_rules.append(candidate_rule)
-            self.save_feedback()
+            self._admit_rule(candidate_rule, persist=True)
 
         return RuleAdmissionEvidence(
             candidate_rule_id=rule_id,
