@@ -155,7 +155,7 @@ python run_constraint_compiler_benchmark.py
 ```bash
 python run_data_scaling_trials.py
 ```
-*Executes throttled empirical scaling trials across $N \in [2k, 4k, 10k, 50k, 100k, 1M]$ samples, verifying 0.0% forbidden action violations, 7/7 unique safety invariant checks passed, and 100.00% Constraint Compliance Rate (CCR) across all data scales under CPU throttling. See [`EMPIRICAL_SCALING_TRIALS.md`](EMPIRICAL_SCALING_TRIALS.md).*
+*Executes throttled empirical scaling trials across $N \in [2k, 4k, 10k, 50k, 100k, 1M]$ samples, verifying 0.0% forbidden action violations, 7/7 unique safety invariant checks passed, and 100.00% Constraint Compliance Rate (CCR) across all data scales under CPU throttling. See [`EMPIRICAL_SCALING_TRIALS.md`](docs/auxiliary/EMPIRICAL_SCALING_TRIALS.md).*
 
 ### 5. Run Automated Patent Strengthening Test Suite (38 Tests)
 ```bash
@@ -256,9 +256,11 @@ cloud-guard-project/
 ├── streamlit_app.py                   # Interactive SOC dashboard & patent inspection UI
 ├── architecture_diagram.png           # High-resolution 9-layer system architecture diagram
 ├── process_flow_diagram.png           # High-resolution end-to-end execution sequence diagram
-├── EMPIRICAL_SCALING_TRIALS.md        # Comprehensive multi-scale empirical benchmark report
-├── PATENT_INNOVATION.md               # Patent innovation disclosure & 12-dimension prior art matrix
-├── PATENT_DRAFT_INDIA.md              # Form 2 Complete Specification patent draft (India)
-├── IEEE_RESEARCH_PAPER.md             # Formal research paper manuscript
-└── COMPLIANCE_AND_PROTOCOLS_GUIDE.md  # Software design & regulatory compliance guide
+├── docs/                              # Comprehensive documentation repository
+│   ├── support/                       # Patent claim-support and evidentiary disclosures
+│   ├── auxiliary/                     # Academic manuscripts, technical dossiers & guides
+│   ├── archive/                       # Superseded historical drafts & specifications
+│   └── README.md                      # Documentation directory index and inventory
+├── PATENT_STRENGTHENING_RESULTS.md    # Generated empirical evidence report (Rule 4 root artifact)
+└── V2_IMPLEMENTATION_REPORT.md        # Generated execution and claim-support report (Rule 4 root artifact)
 ```

@@ -14,7 +14,7 @@ This specification documents the software architecture, coding standards, regula
 ### 1.1 CUSTOM INTELLECTUAL PROPERTY VS. THIRD-PARTY LIBRARIES
 
 For a dedicated, standalone breakdown of **Custom-Coded Intellectual Property** versus **Third-Party Open-Source Computational Libraries** (`Qiskit`, `PyTorch`, `scikit-learn`, `PuLP`), please refer to the dedicated specification guide:
-📄 **[CUSTOM_CODE_VS_LIBRARIES_GUIDE.md](file:///e:/networks/adaptive%20constraint%20patent/cloud-guard-project/CUSTOM_CODE_VS_LIBRARIES_GUIDE.md)**.
+📄 **[CUSTOM_CODE_VS_LIBRARIES_GUIDE.md](CUSTOM_CODE_VS_LIBRARIES_GUIDE.md)**.
 
 Key Summary:
 - **Compliance Policy Encodings (HIPAA, GDPR, DPDP Act 2023, PCI-DSS)**: Custom-coded domain logic in `layer3_context` and `layer5_constraints` encoding domain-specific technical safeguard policy rules (no external `import hipaa` library exists).

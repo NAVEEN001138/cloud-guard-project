@@ -40,7 +40,7 @@ The platform is organized into nine specialized operational layers, establishing
 
 ### Figure 1: 9-Layer System Architecture Diagram
 
-![Figure 1: 9-Layer System Architecture Diagram](architecture_diagram.png)
+![Figure 1: 9-Layer System Architecture Diagram](../../architecture_diagram.png)
 
 ```mermaid
 graph TD
@@ -118,7 +118,7 @@ $$\mathcal{S} \xrightarrow{\quad} \mathcal{A} \xrightarrow{\quad} \mathcal{F}(\m
 
 ### Figure 2: Runtime Security Constraint Compilation & Decision Pipeline
 
-![Figure 2: Runtime Security Constraint Compilation & Decision Pipeline](process_flow_diagram.png)
+![Figure 2: Runtime Security Constraint Compilation & Decision Pipeline](../../process_flow_diagram.png)
 
 ### A. Worked Implementation Example: SCADA PLC Causal Chain Transformation
 To demonstrate the physical causal chain in practice, consider an industrial SCADA Programmable Logic Controller (PLC) under high threat ($s_i = 0.85$, $c_i = 0.92$):
