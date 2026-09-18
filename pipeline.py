@@ -24,7 +24,7 @@ Outputs: PipelineResult containing threat scores, solver plans, explanations, an
 import time
 import json
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 from config import MAX_BUDGET, MAX_QUANTUM_RESOURCES, QUANTUM_METHOD
 
