@@ -131,14 +131,34 @@ DEFAULT_ACTION_CONFLICTS: List[Tuple[str, str, str]] = [
 ]
 
 
+_TRUSTED_LEARNED_RULES: List[Dict[str, Any]] = []
+
+
+def get_trusted_learned_rules() -> List[Dict[str, Any]]:
+    """Returns currently admitted learned rules from the trusted store."""
+    return list(_TRUSTED_LEARNED_RULES)
+
+
+def register_admitted_learned_rule(rule: Dict[str, Any]) -> None:
+    """Registers an admitted learned rule into the trusted in-memory rule store."""
+    if rule not in _TRUSTED_LEARNED_RULES:
+        _TRUSTED_LEARNED_RULES.append(rule)
+
+
+def clear_trusted_learned_rules() -> None:
+    """Clears admitted learned rules from the trusted store (for testing/reset)."""
+    _TRUSTED_LEARNED_RULES.clear()
+
+
 def build_decision_policy_manifest(learned_rules: Optional[List[dict]] = None) -> Dict[str, Any]:
     """
     Constructs the canonical DECISION_POLICY_MANIFEST encompassing all decision-affecting
     thresholds, matrices, profiles, conflict rules, PLC mode constants, and learned rules.
     """
+    rules = learned_rules if learned_rules is not None else get_trusted_learned_rules()
     learned_digest = ""
-    if learned_rules:
-        learned_digest = hashlib.sha256(json.dumps(learned_rules, sort_keys=True).encode("utf-8")).hexdigest()
+    if rules:
+        learned_digest = hashlib.sha256(json.dumps(rules, sort_keys=True).encode("utf-8")).hexdigest()
 
     return {
         "THRESHOLD_THREAT_HIGH": THRESHOLD_THREAT_HIGH,
@@ -174,18 +194,30 @@ POLICY_THRESHOLDS_DICT = {
 }
 
 
-def compute_policy_revision(learned_rules: Optional[List[dict]] = None) -> str:
-    """
-    Computes 16-character canonical hex digest identifying the active decision policy revision
-    across the entire DECISION_POLICY_MANIFEST.
-    """
-    manifest = build_decision_policy_manifest(learned_rules)
+def _raw_active_revision(learned_rules: Optional[List[dict]] = None) -> str:
+    rules = learned_rules if learned_rules is not None else get_trusted_learned_rules()
+    manifest = build_decision_policy_manifest(rules)
     raw = json.dumps(manifest, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
+def get_active_policy_revision(learned_rules: Optional[List[dict]] = None) -> str:
+    """
+    Computes 16-character canonical hex digest over DECISION_POLICY_MANIFEST
+    and currently admitted learned-rule digests from the trusted rule store.
+    """
+    mod = sys.modules.get(__name__)
+    if mod is not None and getattr(mod, "_override", None) is not None:
+        return mod._override
+    return _raw_active_revision(learned_rules)
+
+
+def compute_policy_revision(learned_rules: Optional[List[dict]] = None) -> str:
+    return get_active_policy_revision(learned_rules)
+
+
 def get_policy_revision(learned_rules: Optional[List[dict]] = None) -> str:
-    return compute_policy_revision(learned_rules)
+    return get_active_policy_revision(learned_rules)
 
 
 import sys
@@ -199,11 +231,11 @@ class _PolicyThresholdsModule(types.ModuleType):
     def POLICY_REVISION(self) -> str:
         if self._override is not None:
             return self._override
-        return compute_policy_revision()
+        return get_active_policy_revision()
 
     @POLICY_REVISION.setter
     def POLICY_REVISION(self, val: Any) -> None:
-        if val == compute_policy_revision() or val is None:
+        if val is None or val == _raw_active_revision():
             self._override = None
         else:
             self._override = str(val)

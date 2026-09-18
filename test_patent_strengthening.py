@@ -31,6 +31,7 @@ mandatory patent strengthening verification criteria:
 import sys
 import copy
 import time
+import hashlib
 import unittest
 
 if sys.platform == "win32":
@@ -2603,6 +2604,207 @@ class TestPatentStrengtheningLayer5(unittest.TestCase):
         self.assertTrue(auth.domain_authenticated)
         self.assertTrue(auth.envelope_valid)
         self.assertTrue(auth.epoch_valid)
+
+    # 73. Verify binding signature erasure and mechanism tampering checks
+    def test_73_compiler_verify_binding_signature_and_mechanism_checks(self):
+        """
+        Item 2: Valid cert -> erase signature -> compile_to_ilp AND compile_to_qubo both raise IntegrityBindingError.
+        Also: alter auth_mechanism post-sign -> both raise IntegrityBindingError.
+        """
+        scen = {"scenario": "test_73", "resources": [{"id": "srv1", "type": "server"}]}
+        threat = {"srv1": 0.85}
+        ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+        conf = {"srv1": create_test_confidence("srv1")}
+        snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+
+        dag = ConstraintDependencyGraph(incident_id="test_73")
+        ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+        cert = PreSolveSafetyCertifier.certify(ir)
+
+        # Baseline: compiles cleanly
+        prob_ilp, _ = FormulationCompiler.compile_to_ilp(ir, cert, current_snapshot=snap)
+        self.assertIsNotNone(prob_ilp)
+        if HAS_QISKIT:
+            qp, _, _ = FormulationCompiler.compile_to_qubo(ir, cert, current_snapshot=snap, return_manifest=True)
+            self.assertIsNotNone(qp)
+
+        # 1. Erase signature -> compile_to_ilp AND compile_to_qubo both raise IntegrityBindingError
+        cert_erased = copy.deepcopy(cert)
+        cert_erased.signature = ""
+        with self.assertRaises(IntegrityBindingError) as cm_ilp:
+            FormulationCompiler.compile_to_ilp(ir, cert_erased, current_snapshot=snap)
+        self.assertIn("Digital signature verification failed", str(cm_ilp.exception))
+
+        if HAS_QISKIT:
+            with self.assertRaises(IntegrityBindingError) as cm_qubo:
+                FormulationCompiler.compile_to_qubo(ir, cert_erased, current_snapshot=snap)
+            self.assertIn("Digital signature verification failed", str(cm_qubo.exception))
+
+        # 2. Alter auth_mechanism post-sign -> both raise IntegrityBindingError
+        cert_altered = copy.deepcopy(cert)
+        cert_altered.auth_mechanism = "unapproved_custom_hmac"
+        with self.assertRaises(IntegrityBindingError):
+            FormulationCompiler.compile_to_ilp(ir, cert_altered, current_snapshot=snap)
+
+        if HAS_QISKIT:
+            with self.assertRaises(IntegrityBindingError):
+                FormulationCompiler.compile_to_qubo(ir, cert_altered, current_snapshot=snap)
+
+        # 2b. Alter auth_mechanism and recompute digest -> signature check raises IntegrityBindingError
+        cert_altered2 = copy.deepcopy(cert)
+        cert_altered2.auth_mechanism = "unapproved_custom_hmac"
+        cert_altered2.integrity_digest = hashlib.sha256(cert_altered2.compute_canonical_payload()).hexdigest()
+        with self.assertRaises(IntegrityBindingError) as cm_ilp2:
+            FormulationCompiler.compile_to_ilp(ir, cert_altered2, current_snapshot=snap)
+        self.assertIn("Digital signature verification failed", str(cm_ilp2.exception))
+
+        if HAS_QISKIT:
+            with self.assertRaises(IntegrityBindingError) as cm_qubo2:
+                FormulationCompiler.compile_to_qubo(ir, cert_altered2, current_snapshot=snap)
+            self.assertIn("Digital signature verification failed", str(cm_qubo2.exception))
+
+    # 74. Active policy revision: learned rules and dual boundary refusal
+    def test_74_active_policy_revision_boundaries_and_learned_rules(self):
+        """
+        Item 3:
+        (a) certificate issued under admitted learned rules is accepted at both boundaries;
+        (b) a base-policy change refuses at BOTH compiler and actuator;
+        (c) admitting a new learned rule after certification refuses at both boundaries.
+        """
+        import layer5_constraints.policy_thresholds as pt
+        from layer8_orchestration.capability_verifier import ActuationCapabilityVerifier, ActuationVerificationError
+
+        pt.clear_trusted_learned_rules()
+        orig_caps = copy.deepcopy(pt.PHYSICAL_CAPABILITY_MAP)
+        try:
+            # (a) Certificate issued under admitted learned rules is accepted at both boundaries
+            rule_a = {"rule_id": "LEARNED_RULE_A", "target_resource_type": "server", "restrict_action": "monitor"}
+            pt.register_admitted_learned_rule(rule_a)
+
+            scen = {"scenario": "test_74", "resources": [{"id": "srv1", "type": "server"}]}
+            threat = {"srv1": 0.85}
+            ctx = {"srv1": create_test_context("srv1", "server", threat=0.85)}
+            conf = {"srv1": create_test_confidence("srv1")}
+            snap = snapshot_from_contexts(ctx, conf, scen, epoch=1, threat_scores=threat)
+
+            dag = ConstraintDependencyGraph(incident_id="test_74")
+            ir = dag.resolve(scen, threat, ctx, conf, base_budget=10.0, state_snapshot=snap)
+            cert = PreSolveSafetyCertifier.certify(ir)
+
+            # Compiler boundary: ACCEPT
+            prob, _ = FormulationCompiler.compile_to_ilp(ir, cert, current_snapshot=snap)
+            self.assertIsNotNone(prob)
+
+            # Actuator boundary: ACCEPT
+            plan = {"srv1": "isolate"}
+            auth = ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+            self.assertTrue(auth.is_authorized)
+
+            # (b) Base-policy change refuses at BOTH compiler and actuator
+            pt.PHYSICAL_CAPABILITY_MAP["server"] = ["isolate"]
+            # Compiler refuses
+            with self.assertRaises(IntegrityBindingError) as cm_comp:
+                FormulationCompiler.compile_to_ilp(ir, cert, current_snapshot=snap)
+            self.assertIn("Policy revision mismatch", str(cm_comp.exception))
+
+            # Actuator refuses
+            with self.assertRaises(ActuationVerificationError) as cm_act:
+                ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+            self.assertIn("Policy revision mismatch", str(cm_act.exception))
+
+            # Restore base policy
+            pt.PHYSICAL_CAPABILITY_MAP.clear()
+            pt.PHYSICAL_CAPABILITY_MAP.update(orig_caps)
+
+            # (c) Admitting a new learned rule after certification refuses at BOTH boundaries
+            rule_b = {"rule_id": "LEARNED_RULE_B", "target_resource_type": "server", "restrict_action": "increase_logging"}
+            pt.register_admitted_learned_rule(rule_b)
+
+            # Compiler refuses
+            with self.assertRaises(IntegrityBindingError) as cm_comp2:
+                FormulationCompiler.compile_to_ilp(ir, cert, current_snapshot=snap)
+            self.assertIn("Policy revision mismatch", str(cm_comp2.exception))
+
+            # Actuator refuses
+            with self.assertRaises(ActuationVerificationError) as cm_act2:
+                ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=snap)
+            self.assertIn("Policy revision mismatch", str(cm_act2.exception))
+
+        finally:
+            pt.clear_trusted_learned_rules()
+            pt.PHYSICAL_CAPABILITY_MAP.clear()
+            pt.PHYSICAL_CAPABILITY_MAP.update(orig_caps)
+
+    # 75. PLC in MAINTENANCE mode admits isolate and certifies CERTIFIED
+    def test_75_plc_maintenance_isolate_admissible_certifies_certified(self):
+        """
+        Item 4:
+        PLC RUN admits isolate -> violation;
+        PLC MAINTENANCE admits isolate -> OK, certify() returns CERTIFIED;
+        medical_device admits isolate -> violation always.
+        """
+        dag = ConstraintDependencyGraph(incident_id="test_75")
+
+        # 1. PLC in MAINTENANCE mode admits isolate -> certify() returns CERTIFIED
+        scen_maint = {
+            "scenario": "plc_maint",
+            "resources": [{"id": "plc_m1", "type": "plc_controller", "physical_state": {"mode": "MAINTENANCE"}}],
+        }
+        threat_m = {"plc_m1": 0.85}
+        ctx_m = {"plc_m1": create_test_context("plc_m1", "plc_controller", threat=0.85)}
+        conf_m = {"plc_m1": create_test_confidence("plc_m1")}
+        snap_m = snapshot_from_contexts(ctx_m, conf_m, scen_maint, epoch=1, threat_scores=threat_m)
+
+        ir_maint = dag.resolve(scen_maint, threat_m, ctx_m, conf_m, base_budget=10.0, state_snapshot=snap_m)
+        self.assertIn("isolate", ir_maint.variable_domains["plc_m1"].admissible_actions)
+
+        cert_maint = PreSolveSafetyCertifier.certify(ir_maint)
+        self.assertEqual(cert_maint.status, "CERTIFIED")
+        self.assertTrue(cert_maint.verification_checks["1_forbidden_action_elimination"])
+
+        # 2. PLC in RUN mode admitting isolate -> certify() returns VIOLATION_DETECTED
+        scen_run = {
+            "scenario": "plc_run",
+            "resources": [{"id": "plc_r1", "type": "plc_controller", "physical_state": {"mode": "RUN"}}],
+        }
+        threat_r = {"plc_r1": 0.85}
+        ctx_r = {"plc_r1": create_test_context("plc_r1", "plc_controller", threat=0.85)}
+        conf_r = {"plc_r1": create_test_confidence("plc_r1")}
+        snap_r = snapshot_from_contexts(ctx_r, conf_r, scen_run, epoch=1, threat_scores=threat_r)
+
+        ir_run = dag.resolve(scen_run, threat_r, ctx_r, conf_r, base_budget=10.0, state_snapshot=snap_r)
+        # Manually tamper to inject isolate into RUN PLC domain
+        ir_run.variable_domains["plc_r1"].admissible_actions.append("isolate")
+        # Ensure invariance action list matches to isolate the forbidden action check
+        for inv in ir_run.invariance_constraints:
+            if inv.resource_id == "plc_r1":
+                inv.actions.append("isolate")
+
+        cert_run = PreSolveSafetyCertifier.certify(ir_run)
+        self.assertEqual(cert_run.status, "VIOLATION_DETECTED")
+        self.assertFalse(cert_run.verification_checks["1_forbidden_action_elimination"])
+        self.assertTrue(any("Cyber-physical PLC" in v and "RUN mode allows 'isolate'" in v for v in cert_run.forbidden_action_violations))
+
+        # 3. Medical device admitting isolate -> certify() returns VIOLATION_DETECTED always
+        scen_med = {
+            "scenario": "med_dev",
+            "resources": [{"id": "med_1", "type": "medical_device"}],
+        }
+        threat_med = {"med_1": 0.85}
+        ctx_med = {"med_1": create_test_context("med_1", "medical_device", threat=0.85)}
+        conf_med = {"med_1": create_test_confidence("med_1")}
+        snap_med = snapshot_from_contexts(ctx_med, conf_med, scen_med, epoch=1, threat_scores=threat_med)
+
+        ir_med = dag.resolve(scen_med, threat_med, ctx_med, conf_med, base_budget=10.0, state_snapshot=snap_med)
+        ir_med.variable_domains["med_1"].admissible_actions.append("isolate")
+        for inv in ir_med.invariance_constraints:
+            if inv.resource_id == "med_1":
+                inv.actions.append("isolate")
+
+        cert_med = PreSolveSafetyCertifier.certify(ir_med)
+        self.assertEqual(cert_med.status, "VIOLATION_DETECTED")
+        self.assertFalse(cert_med.verification_checks["1_forbidden_action_elimination"])
+        self.assertTrue(any("medical device" in v.lower() and "allows 'isolate'" in v for v in cert_med.forbidden_action_violations))
 
 
 if __name__ == "__main__":

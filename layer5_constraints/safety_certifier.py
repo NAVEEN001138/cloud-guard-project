@@ -348,10 +348,35 @@ class PreSolveSafetyCertifier:
                         forbidden_ok = False
                         violations.append(f"FORBIDDEN ACTION VIOLATION: '{act}' found in domain of '{rid}'")
 
-            # Cyber-physical safety: PLCs & Medical Devices must NEVER have 'isolate'
-            if domain.resource_type in ("plc_controller", "medical_device") and "isolate" in domain.admissible_actions:
-                forbidden_ok = False
-                violations.append(f"SAFETY INVARIANT VIOLATION: Cyber-physical '{rid}' ({domain.resource_type}) allows 'isolate'")
+            # Cyber-physical safety: PLCs & Medical Devices isolation policy
+            if "isolate" in domain.admissible_actions:
+                if domain.resource_type == "medical_device":
+                    forbidden_ok = False
+                    violations.append(f"SAFETY INVARIANT VIOLATION: Cyber-physical medical device '{rid}' allows 'isolate'")
+                elif domain.resource_type == "plc_controller":
+                    from layer5_constraints.policy_thresholds import get_effective_plc_mode, PLC_MODE_MAINTENANCE
+                    plc_mode = None
+                    if hasattr(ir, "state_snapshot") and ir.state_snapshot is not None:
+                        res_state = getattr(ir.state_snapshot, "resources", {}).get(rid)
+                        if res_state is not None:
+                            plc_mode = get_effective_plc_mode(res_state)
+                    if plc_mode is None:
+                        is_maint = any(
+                            p.target_resource == rid and p.rule_id == "PLC_MODE_MAINTENANCE_ADMITS_ISOLATE"
+                            for p in getattr(ir, "provenance_records", [])
+                        )
+                        if is_maint:
+                            plc_mode = PLC_MODE_MAINTENANCE
+                        elif hasattr(domain, "physical_state"):
+                            plc_mode = get_effective_plc_mode(domain)
+                        else:
+                            plc_mode = get_effective_plc_mode(None)
+
+                    if plc_mode != PLC_MODE_MAINTENANCE:
+                        forbidden_ok = False
+                        violations.append(
+                            f"SAFETY INVARIANT VIOLATION: Cyber-physical PLC '{rid}' in {plc_mode} mode allows 'isolate'"
+                        )
 
         checks["1_forbidden_action_elimination"] = forbidden_ok
 
@@ -462,9 +487,9 @@ class PreSolveSafetyCertifier:
         asset_scope = sorted(list(ir.variable_domains.keys()))
         state_schema_id = getattr(ir, "state_schema_id", "cg-state-v1")
         state_epoch = int(getattr(ir, "state_epoch", 1))
-        from layer5_constraints.policy_thresholds import compute_policy_revision
+        from layer5_constraints.policy_thresholds import get_active_policy_revision
         from layer5_constraints.keys import get_certifier_key
-        policy_revision = compute_policy_revision(learned_rules=learned_rules)
+        policy_revision = get_active_policy_revision(learned_rules=learned_rules)
         lease_policy = 300
         certifier_id = "certifier-node-primary"
 
@@ -542,3 +567,22 @@ class PreSolveSafetyCertifier:
         cert.canonical_payload_bytes = canonical_payload_bytes
 
         return cert
+
+    @classmethod
+    def verify_certificate(
+        cls,
+        certificate: "ConstraintSafetyCertificate",
+        verifier_key: Optional[Any] = None,
+    ) -> bool:
+        """
+        Verifies certificate digital signature and policy revision against active policy revision.
+        Returns False on signature failure or policy revision mismatch.
+        """
+        if not certificate.verify_signature(verifier_key):
+            return False
+        from layer5_constraints.policy_thresholds import get_active_policy_revision
+        active_policy_rev = get_active_policy_revision()
+        cert_policy_rev = getattr(certificate, "policy_revision", "")
+        if cert_policy_rev and cert_policy_rev != active_policy_rev:
+            return False
+        return True

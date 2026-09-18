@@ -197,14 +197,13 @@ class FormulationCompiler:
                 )
 
             # Digital signature verification using VerifierKey (public key only)
-            if certificate.signature and hasattr(certificate, "auth_mechanism"):
-                from layer5_constraints.keys import get_verifier_key
-                vk = verifier_key or get_verifier_key()
-                if not vk.verify(expected_payload_bytes, certificate.signature, certificate.auth_mechanism):
-                    raise IntegrityBindingError(
-                        "Compilation rejected: Digital signature verification failed. "
-                        "Certificate signature is invalid, was signed by an unauthorized key, or payload was tampered."
-                    )
+            from layer5_constraints.keys import get_verifier_key
+            vk = verifier_key or get_verifier_key()
+            if not certificate.verify_signature(vk):
+                raise IntegrityBindingError(
+                    "Compilation rejected: Digital signature verification failed. "
+                    "Certificate signature is invalid, missing, was signed by an unauthorized key, or payload was tampered."
+                )
         elif certificate.integrity_digest:
             witness_part = f":{certificate.witness_digest}" if certificate.witness_digest else ""
             envelope_part = f":{certificate.envelope_digest}" if getattr(certificate, "envelope_digest", "") else ""
@@ -220,6 +219,16 @@ class FormulationCompiler:
                     f"Expected {expected_cert_hash[:16]}..., got {certificate.integrity_digest[:16]}... "
                     "The safety certificate payload was altered after issuance."
                 )
+
+        # Policy Revision Verification against active deployed policy revision
+        from layer5_constraints.policy_thresholds import get_active_policy_revision
+        active_policy_rev = get_active_policy_revision()
+        cert_policy_rev = getattr(certificate, "policy_revision", "")
+        if cert_policy_rev and cert_policy_rev != active_policy_rev:
+            raise IntegrityBindingError(
+                f"Compilation rejected: Policy revision mismatch. Certificate policy revision "
+                f"'{cert_policy_rev}' does not match active revision '{active_policy_rev}'."
+            )
 
         # Asset Scope verification: certificate must match active managed assets
         if getattr(certificate, "asset_scope", None):

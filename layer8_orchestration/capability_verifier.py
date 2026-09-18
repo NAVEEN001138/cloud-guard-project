@@ -127,13 +127,14 @@ class ActuationCapabilityVerifier:
                 "Actuation refused: Invalid certificate cryptographic signature."
             )
 
-        # 3. Policy Revision Verification against verifier's own deployed POLICY_REVISION
-        import layer5_constraints.policy_thresholds as pt
-        deployed_policy_revision = pt.POLICY_REVISION
-        if manifest.policy_revision != deployed_policy_revision:
+        # 3. Policy Revision Verification against active deployed policy revision
+        from layer5_constraints.policy_thresholds import get_active_policy_revision
+        active_policy_revision = get_active_policy_revision()
+        cert_policy_rev = getattr(manifest, "policy_revision", "") or getattr(certificate, "policy_revision", "")
+        if cert_policy_rev != active_policy_revision:
             raise ActuationVerificationError(
-                f"Actuation refused: Policy revision mismatch. Manifest has '{manifest.policy_revision}', "
-                f"deployed system requires '{deployed_policy_revision}'."
+                f"Actuation refused: Policy revision mismatch. Manifest has '{cert_policy_rev}', "
+                f"deployed system requires '{active_policy_revision}'."
             )
 
         # 4. Lease Policy Check (Max age seconds)

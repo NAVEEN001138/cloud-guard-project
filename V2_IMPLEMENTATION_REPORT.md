@@ -2,7 +2,7 @@
 ## "State-Enveloped Proof-Carrying Security Compiler"
 
 **Date:** 2026-09-17  
-**Branch:** `unification`  
+**Branch:** `main`  
 **Repository:** `E:\networks\adaptive constraint patent\cloud-guard-project`  
 **Environment:** Python 3.14.0 (`.venv`), Windows PowerShell  
 **Target Specification:** Invention Candidate v2 Implementation Brief  
@@ -13,9 +13,9 @@
 
 All metrics were directly measured by executing the test suite and benchmark runners against the repository.
 
-| Verification Dimension | Baseline (v1 / Commit `07e9e74`) | Final (Invention Candidate v2 / Branch `unification`) | Status |
+| Verification Dimension | Baseline (v1 / Commit `07e9e74`) | Final (Invention Candidate v2 / Branch `main`) | Status |
 |---|:---:|:---:|:---:|
-| Unit Test Suite (`test_patent_strengthening.py`) | 38 / 38 passed | **72 / 72 passed** | 34 new tests added, zero regressions |
+| Unit Test Suite (`test_patent_strengthening.py`) | 38 / 38 passed | **75 / 75 passed** | 37 new tests added, zero regressions |
 | End-to-End System Verification (`verify_system.py`) | 10 / 10 layers passed | **10 / 10 layers passed** | Layer 6 (checker) & Layer 8 (verifier) integrated |
 | Constraint Compiler Benchmark (`run_constraint_compiler_benchmark.py`) | Experiments 1–6 passed | **Experiments 1–6 passed** | Clean execution, zero errors |
 | Patent Strengthening Benchmark (`run_patent_strengthening_benchmark.py`) | Experiments 7–11 passed | **Experiments 7–16 passed** | 5 new experiments added (Exp 12–16), zero errors |
@@ -97,7 +97,7 @@ All metrics were directly measured by executing the test suite and benchmark run
 ### Phase 8 — Experiments 12–16, Visualizations, and CI
 - **Benchmarks implemented:** Added Experiments 12–16 in `run_patent_strengthening_benchmark.py`.
 - **Visualizations:** Added FIG. 7 (`create_figure_7()`, `patent_v2_fig7_v2_chain_and_incremental_loop.png`) to `generate_patent_figures_v2.py`.
-- **CI configuration:** Updated `.github/workflows/ci.yml` step names to reflect 72/72 tests and Experiments 7–16.
+- **CI configuration:** Updated `.github/workflows/ci.yml` step names to reflect 75/75 tests and Experiments 7–16.
 - **Deviations:** None.
 
 ### Phase 9 — Final Hardening Sprint & Architecture Freeze
@@ -109,17 +109,17 @@ All metrics were directly measured by executing the test suite and benchmark run
   - Strict coefficient-by-coefficient comparison (tolerance 1e-5) with verification that no extraneous terms exist in the backend model.
   - Enforced strict bijection between non-auxiliary variables and $\{(r, a) : a \in \text{admissible\_actions}\}$; verified every auxiliary variable is an explicit slack of a budget translation; verified any backend variable representing a pruned action raises `FidelityProofError`.
   - Locking tests: `test_53`, `test_54`.
-- **Item B (P0) — Certificate-Only Actuation (`layer5_constraints/manifest.py`, `layer8_orchestration/capability_verifier.py`):**
+- **Item B (P0) — Certificate-Only Actuation (`layer5_constraints/safety_certifier.py`, `layer8_orchestration/capability_verifier.py`):**
   - Completely decoupled actuation authorization from runtime access to `SecurityConstraintIR`.
-  - Added immutable, cryptographically committed `CertifiedExecutionManifest` capturing `asset_scope`, `admissible_actions_by_resource`, `max_budget`, `action_costs`, `required_actions`, and `target_interfaces`.
+  - Added immutable, cryptographically committed `CertifiedExecutionManifest` capturing `asset_scope`, `admissible_domains`, `cost_map`, `effective_budget`, `envelope`, `state_epoch`, and `policy_revision`.
   - Certificate payload commits `manifest_digest` and `manifest`.
-  - `ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot, target_interfaces)` verifies admissibility, budget compliance, interface authorization, envelope containment, lease validity, and state epoch using only the signed certificate and current snapshot.
+  - `ActuationCapabilityVerifier.authorize(plan, cert, current_snapshot=...)` verifies admissibility, budget compliance, envelope containment, lease validity, and state epoch using only the signed certificate and current snapshot.
   - Locking tests: `test_48`, `test_49`.
 - **Item C (P0) — Three-Way Revocation Rule Enforcement:**
   - Implemented explicit three-way revocation rule:
     $$\text{IR changed} \lor \text{state} \notin E_t \lor \text{policy revision changed} \implies \text{authority revoked}$$
   - Enforced across compilation, gating, and capability verification.
-  - Locking tests: `test_42`, `test_48`, `test_49`.
+  - Locking tests: `test_42`, `test_48`, `test_49`, `test_56`.
 - **Item D (P1) — Physical Operational State & Generic Dotted-Path Resolver:**
   - Added PLC operational mode constants `PLC_MODE_RUN = "RUN"` and `PLC_MODE_MAINTENANCE = "MAINTENANCE"` in `layer5_constraints/policy_thresholds.py`.
   - Implemented generic dotted-path resolver `_resolve_dotted_path(obj, field_path)` in `layer5_constraints/validity_envelope.py` to navigate nested dictionary keys and object attributes (e.g., `physical_state.mode`) with `_UNRESOLVABLE` sentinel handling.
@@ -130,9 +130,14 @@ All metrics were directly measured by executing the test suite and benchmark run
   - Updated `layer5_constraints/incremental_compiler.py` to emit structured `digest_gated_reuse` attestation schema committing `method`, `reused_subgraph_digests`, `recomputed_assets`, `parent_certificate_digest`, and `chained_lineage`.
   - Reworded Claim 8 to specify digest-gated reuse with chained certificate lineage.
   - Locking tests: `test_50`, `test_62`.
-- **Adversarial Hardening Tests (Tests 57–62):**
-  - Added tests 57–62 covering PLC mode RUN→MAINTENANCE envelope rejection, irrelevant telemetry acceptance with certificate reuse, PLC MAINTENANCE mode isolation admittance, generic dotted-path resolver, SCADA cascade with physical state mode, and incremental digest-gated reuse schema verification.
-  - Test suite expanded from 54 to 62 tests (100% pass rate).
+- **Item F (P0) — Final Main Branch Closure & Unconditional Boundary Protection:**
+  - Unconditional signature verification in `FormulationCompiler.verify_binding()`: erased signature or tampered authentication mechanism unconditionally raises `IntegrityBindingError`.
+  - Active policy revision unification via `get_active_policy_revision()`: digest computed over `DECISION_POLICY_MANIFEST` and trusted learned rules; verified identically at certifier, compiler, and actuator boundaries.
+  - Cyber-physical safety certifier verification: `safety_certifier.py` verifies physical state mode dynamically via `get_effective_plc_mode()`, accepting `isolate` in `PLC_MODE_MAINTENANCE` while strictly refusing in `PLC_MODE_RUN`, and unconditionally forbidding `isolate` for `medical_device`.
+  - Full typing annotation resolution audit: resolved forward annotations across `layer5_constraints` and `layer8_orchestration`.
+  - Locking tests: `test_73`, `test_74`, `test_75`.
+- **Comprehensive Hardening Test Suite (Tests 1–75):**
+  - Test suite expanded to 75 deterministic tests (100% pass rate).
 - **Deviations:** None.
 
 ---
@@ -581,8 +586,8 @@ The following elements are demoted from the independent claim to dependent claim
 
 ### Architectural Freeze & Verification Rigor
 - **Zero Subjective Self-Ratings:** All evaluations are purely empirical and mathematical. No subjective scorecards or self-assigned ratings exist in the repository or report.
-- **Deterministic Reproducibility:** Every quantitative metric in this report is directly reproducible by executing `pytest` (72/72 tests passing), `python verify_system.py` (10/10 layers passing), and `python run_patent_strengthening_benchmark.py` (Experiments 7–16 passing with 0 errors).
+- **Deterministic Reproducibility:** Every quantitative metric in this report is directly reproducible by executing `pytest` (75/75 tests passing), `python verify_system.py` (10/10 layers passing), and `python run_patent_strengthening_benchmark.py` (Experiments 7–16 passing with 0 errors).
 
 ---
 
-*Report prepared and certified on branch `unification`. All cited numbers were directly computed from executing code.*
+*Report prepared and certified on branch `main`. All cited numbers were directly computed from executing code.*
