@@ -43,4 +43,6 @@ patentlens_*.md
 *.pem
 
 # Confidential Patent Agent Consultation Materials (privileged work product)
-PATENT_AGENT_BRIEFING.md
+PATENT_AGENT_*
+CLAIM_CHARTS_AND_BACKGROUND.*
+
