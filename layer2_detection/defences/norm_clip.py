@@ -57,6 +57,11 @@ class NormClipServer(GlobalFedAvgServer):
         self.last_bound_B = 0.0
         self.round_clipped_counts: List[int] = []
 
+    @property
+    def clipped_history(self) -> List[int]:
+        """Alias for round_clipped_counts."""
+        return self.round_clipped_counts
+
     def aggregate_weights(
         self, client_state_dicts: List[Dict], client_sample_sizes: List[int]
     ) -> Dict:
